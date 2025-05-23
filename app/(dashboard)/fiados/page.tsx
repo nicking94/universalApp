@@ -217,7 +217,7 @@ const FiadosPage = () => {
             movements.push({
               id: Date.now(),
               amount: paymentProductAmount,
-              description: `Venta de ${product.name} - ${product.quantity} ${product.unit}`,
+              description: `Fiado de ${product.name}`,
               type: "INGRESO",
               date: new Date().toISOString(),
               paymentMethod: payment.method,
