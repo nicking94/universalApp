@@ -3,7 +3,7 @@
 import ProtectedRoute from "@/app/components/ProtectedRoute";
 import { db } from "@/app/database/db";
 import { DailyCash } from "@/app/lib/types/types";
-import { formatCurrency } from "@/app/lib/utils/utils";
+
 import {
   parseISO,
   isSameMonth,
@@ -28,6 +28,7 @@ import {
   LineElement,
 } from "chart.js";
 import { Bar, Pie, Line } from "react-chartjs-2";
+import { formatCurrency } from "@/app/lib/utils/currency";
 
 ChartJS.register(
   BarElement,

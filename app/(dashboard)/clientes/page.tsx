@@ -174,8 +174,23 @@ const ClientesPage = () => {
         phone: newCustomer.phone,
         updatedAt: new Date().toISOString(),
       };
+      await db.transaction("rw", db.customers, db.sales, async () => {
+        await db.customers.update(editingCustomer.id, updatedCustomer);
 
-      await db.customers.update(editingCustomer.id, updatedCustomer);
+        const customerSales = await db.sales
+          .where("customerId")
+          .equals(editingCustomer.id)
+          .toArray();
+
+        await Promise.all(
+          customerSales.map((sale) =>
+            db.sales.update(sale.id, {
+              customerName: updatedCustomer.name,
+            })
+          )
+        );
+      });
+
       setCustomers(
         customers.map((c) =>
           c.id === editingCustomer.id ? updatedCustomer : c
@@ -232,7 +247,7 @@ const ClientesPage = () => {
                       {customer.name}
                     </td>
                     <td className="px-4 py-2 border border-gray_xl">
-                      {customer.phone || "-"}
+                      {customer.phone || "Sin teléfono"}
                     </td>
                     <td className="px-4 py-2 border border-gray_xl">
                       {new Date(customer.createdAt).toLocaleDateString("es-AR")}

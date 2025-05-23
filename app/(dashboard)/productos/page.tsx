@@ -23,6 +23,8 @@ import Pagination from "@/app/components/Pagination";
 import Select from "react-select";
 import BarcodeScanner from "@/app/components/BarcodeScanner";
 import { isValid } from "date-fns";
+import { formatCurrency } from "@/app/lib/utils/currency";
+import InputCash from "@/app/components/InputCash";
 
 type UnitOption = {
   value: Product["unit"];
@@ -72,13 +74,6 @@ const ProductsPage = () => {
   const selectedUnit =
     unitOptions.find((opt) => opt.value === newProduct.unit) ?? null;
 
-  const formatPrice = (value: number) => {
-    return new Intl.NumberFormat("es-AR", {
-      style: "currency",
-      currency: "ARS",
-      minimumFractionDigits: 2,
-    }).format(value);
-  };
   const toggleSortOrder = () => {
     setSortOrder((prevOrder) => (prevOrder === "asc" ? "desc" : "asc"));
   };
@@ -136,7 +131,7 @@ const ProductsPage = () => {
     if (product) {
       setScannedProduct(product);
       showNotification(
-        `Precio de ${product.name}: ${formatPrice(product.price)}`,
+        `Precio de ${product.name}: ${formatCurrency(product.price)}`,
         "success"
       );
     } else {
@@ -271,14 +266,6 @@ const ProductsPage = () => {
   const handleDeleteProduct = (product: Product) => {
     setProductToDelete(product);
     setIsConfirmModalOpen(true);
-  };
-  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\./g, "").replace(",", ".");
-    const numericValue = parseFloat(value);
-    setNewProduct({
-      ...newProduct,
-      price: isNaN(numericValue) ? 0 : numericValue,
-    });
   };
 
   useEffect(() => {
@@ -496,10 +483,10 @@ const ProductsPage = () => {
                             : "Agotado"}
                         </td>
                         <td className=" px-4 py-2 border border-gray_xl">
-                          {formatPrice(product.costPrice)}
+                          {formatCurrency(product.costPrice)}
                         </td>
                         <td className="px-4 py-2 border border-gray_xl">
-                          {formatPrice(product.price)}
+                          {formatCurrency(product.price)}
                         </td>
                         <td className="px-4 py-2 border border-gray_xl">
                           {product.expiration &&
@@ -525,7 +512,7 @@ const ProductsPage = () => {
                           )}
                         </td>
                         <td className="px-4 py-2 border border-gray_xl">
-                          {productSuppliers[product.id] || "Sin Asignar"}
+                          {productSuppliers[product.id] || "Sin asignar"}
                         </td>
                         <td className="px-4 py-2 flex justify-center gap-4">
                           <Button
@@ -680,23 +667,23 @@ const ProductsPage = () => {
               />
             </div>
             <div className="flex items-center space-x-4">
-              <Input
-                label="Precio de costo"
-                type="number"
-                name="costPrice"
-                placeholder="Precio de costo..."
-                value={newProduct.costPrice.toString()}
-                onChange={handleInputChange}
-              />
+              <div className=" w-full flex items-center space-x-4">
+                <InputCash
+                  label="Precio de costo"
+                  value={newProduct.costPrice}
+                  onChange={(value) =>
+                    setNewProduct({ ...newProduct, costPrice: value })
+                  }
+                />
 
-              <Input
-                label="Precio de venta"
-                type="number"
-                name="price"
-                placeholder="Precio de venta..."
-                value={newProduct.price.toString()}
-                onChange={handlePriceChange}
-              />
+                <InputCash
+                  label="Precio de venta"
+                  value={newProduct.price}
+                  onChange={(value) =>
+                    setNewProduct({ ...newProduct, price: value })
+                  }
+                />
+              </div>
             </div>
 
             <CustomDatePicker
@@ -782,7 +769,7 @@ const ProductsPage = () => {
                       Precio
                     </p>
                     <p className="text-lg font-semibold text-blue-600 dark:text-blue-400">
-                      {formatPrice(scannedProduct.price)}
+                      {formatCurrency(scannedProduct.price)}
                     </p>
                   </div>
                   <div>

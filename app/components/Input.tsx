@@ -10,10 +10,11 @@ const Input: React.FC<InputProps> = ({
   readOnly = false,
   onChange = () => {},
   placeholder,
-  border = "border-1 border-gray_xl",
+
   accept,
   autoFocus = false,
   ref,
+  border = "border-1 border-gray_xl",
   textPosition = "text-start",
 }) => {
   return (

@@ -7,7 +7,6 @@ import { es } from "date-fns/locale";
 import ProtectedRoute from "@/app/components/ProtectedRoute";
 import Modal from "@/app/components/Modal";
 import Button from "@/app/components/Button";
-import Input from "@/app/components/Input";
 import Notification from "@/app/components/Notification";
 import {
   CreditSale,
@@ -21,6 +20,7 @@ import {
 import SearchBar from "@/app/components/SearchBar";
 import { Info, Plus, Trash, Wallet } from "lucide-react";
 import Pagination from "@/app/components/Pagination";
+import InputCash from "@/app/components/InputCash";
 
 const FiadosPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
@@ -77,6 +77,10 @@ const FiadosPage = () => {
     indexOfFirstCredit,
     indexOfLastCredit
   );
+
+  const isFirstGreater = (a: number, b: number, epsilon = 0.01) => {
+    return a - b > epsilon;
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -352,22 +356,34 @@ const FiadosPage = () => {
       showNotification("Error al eliminar fiado", "error");
     }
   };
+  const validateCurrency = (value: string): boolean => {
+    return /^\d+(\.\d{1,2})?$/.test(value);
+  };
 
   const handlePayment = async () => {
+    const invalidPayment = paymentMethods.some(
+      (method) => !validateCurrency(method.amount.toString())
+    );
+
+    if (invalidPayment) {
+      showNotification("Los montos deben tener hasta 2 decimales", "error");
+      return;
+    }
     if (!currentCreditSale) return;
 
-    const totalPayment = paymentMethods.reduce(
-      (sum, method) => sum + method.amount,
-      0
+    const totalPayment = parseFloat(
+      paymentMethods.reduce((sum, method) => sum + method.amount, 0).toFixed(2)
     );
-    const remainingBalance = calculateRemainingBalance(currentCreditSale);
+    const remainingBalance = parseFloat(
+      calculateRemainingBalance(currentCreditSale).toFixed(2)
+    );
 
     if (totalPayment <= 0) {
       showNotification("El monto debe ser mayor a cero", "error");
       return;
     }
 
-    if (totalPayment > remainingBalance + 0.1) {
+    if (isFirstGreater(totalPayment, remainingBalance)) {
       showNotification("El monto excede el saldo pendiente", "error");
       return;
     }
@@ -385,8 +401,9 @@ const FiadosPage = () => {
           await db.payments.add(newPayment);
         }
       }
+
       const newRemainingBalance = remainingBalance - totalPayment;
-      if (newRemainingBalance <= 0.1) {
+      if (newRemainingBalance <= 0.01) {
         await db.sales.update(currentCreditSale.id, {
           paid: true,
         } as Partial<CreditSale>);
@@ -399,7 +416,7 @@ const FiadosPage = () => {
       setCreditSales(sales as CreditSale[]);
       setPayments(allPayments);
 
-      if (newRemainingBalance <= 0.1) {
+      if (newRemainingBalance <= 0.01) {
         const saleToRegister: CreditSale = {
           ...currentCreditSale,
           total: totalPayment,
@@ -412,6 +429,7 @@ const FiadosPage = () => {
       showNotification("Pago registrado correctamente", "success");
       setIsPaymentModalOpen(false);
       setPaymentMethods([{ method: "EFECTIVO", amount: 0 }]);
+
       if (currentCustomerInfo) {
         const updatedSales = (await db.sales
           .where("customerName")
@@ -425,22 +443,7 @@ const FiadosPage = () => {
             allPayments
               .filter((p) => updatedSales.some((s) => s.id === p.saleId))
               .reduce((sum, p) => sum + p.amount, 0),
-          sales: updatedSales.map((s) => ({
-            ...s,
-            credit: true,
-            customerName: s.customerName || currentCustomerInfo.name,
-            customerPhone: s.customerPhone || "",
-            customerId: s.customerId || "",
-            paid: s.paid || false,
-            products: s.products || [],
-            paymentMethods: s.paymentMethods || [
-              { method: "EFECTIVO", amount: 0 },
-            ],
-            total: s.total || 0,
-            date: s.date || new Date().toISOString(),
-            barcode: s.barcode || "",
-            manualAmount: s.manualAmount || 0,
-          })),
+          sales: updatedSales,
         });
       }
     } catch (error) {
@@ -459,15 +462,14 @@ const FiadosPage = () => {
       const remainingBalance = calculateRemainingBalance(currentCreditSale!);
 
       if (field === "amount") {
-        const numericValue =
-          typeof value === "string"
-            ? parseFloat(value.replace(/\./g, "").replace(",", ".")) || 0
-            : (value as number);
+        // Ahora value ya es un número (gracias a InputCash)
+        const numericValue = typeof value === "number" ? value : 0;
 
         updated[index] = {
           ...updated[index],
           amount: parseFloat(numericValue.toFixed(2)),
         };
+
         if (updated.length === 2) {
           const totalPayment = updated.reduce((sum, m) => sum + m.amount, 0);
           const difference = remainingBalance - totalPayment;
@@ -488,13 +490,6 @@ const FiadosPage = () => {
       }
       return updated;
     });
-  };
-
-  const handlePaymentAmountChange = (index: number, value: string) => {
-    const cleanValue = value.replace(/\./g, "");
-    const numericValue = cleanValue.replace(/[^0-9]/g, "");
-    const amount = parseFloat(numericValue) || 0;
-    handlePaymentMethodChange(index, "amount", amount);
   };
 
   const removePaymentMethod = (index: number) => {
@@ -787,8 +782,10 @@ const FiadosPage = () => {
                 onClick={handlePayment}
                 disabled={
                   paymentMethods.reduce((sum, m) => sum + m.amount, 0) <= 0 ||
-                  paymentMethods.reduce((sum, m) => sum + m.amount, 0) >
+                  isFirstGreater(
+                    paymentMethods.reduce((sum, m) => sum + m.amount, 0),
                     calculateRemainingBalance(currentCreditSale!)
+                  )
                 }
               />
               <Button
@@ -855,16 +852,10 @@ const FiadosPage = () => {
                     className="w-full text-black"
                     classNamePrefix="react-select"
                   />
-                  <Input
-                    type="text"
-                    placeholder="Monto"
-                    value={
-                      method.amount > 0
-                        ? new Intl.NumberFormat("es-AR").format(method.amount)
-                        : ""
-                    }
-                    onChange={(e) =>
-                      handlePaymentAmountChange(index, e.target.value)
+                  <InputCash
+                    value={method.amount}
+                    onChange={(value) =>
+                      handlePaymentMethodChange(index, "amount", value)
                     }
                     className="w-32"
                   />

@@ -21,9 +21,10 @@ import ProtectedRoute from "@/app/components/ProtectedRoute";
 import Pagination from "@/app/components/Pagination";
 import Select, { SingleValue } from "react-select";
 import BarcodeScanner from "@/app/components/BarcodeScanner";
-import { formatCurrency } from "@/app/lib/utils/utils";
 import { ensureCashIsOpen } from "@/app/lib/utils/cash";
 import { useRouter } from "next/navigation";
+import { formatCurrency } from "@/app/lib/utils/currency";
+import InputCash from "@/app/components/InputCash";
 
 const VentasPage = () => {
   const currentYear = new Date().getFullYear();
@@ -73,33 +74,44 @@ const VentasPage = () => {
     { value: "ml", label: "Ml" },
   ];
   const calculatePrice = useCallback((product: Product): number => {
-    const pricePerKg = product.price;
+    const pricePerUnit = product.price;
     const quantity = product.quantity;
     const unit = product.unit;
 
-    if (unit === "Unid.") {
-      return pricePerKg * quantity;
-    }
-
-    let quantityInKg: number;
+    // Convertir todo a la unidad base para cálculos precisos
+    let quantityInBaseUnit: number;
 
     switch (unit) {
       case "gr":
-        quantityInKg = quantity / 1000;
+        quantityInBaseUnit = quantity / 1000; // Convertir a Kg
         break;
       case "Kg":
-        quantityInKg = quantity;
+        quantityInBaseUnit = quantity;
+        break;
+      case "ml":
+        quantityInBaseUnit = quantity / 1000; // Convertir a L
         break;
       case "L":
-      case "ml":
-        quantityInKg = unit === "L" ? quantity : quantity / 1000;
+        quantityInBaseUnit = quantity;
         break;
+      case "Unid.":
       default:
-        return pricePerKg * quantity;
+        return parseFloat((pricePerUnit * quantity).toFixed(2));
     }
 
-    return parseFloat((pricePerKg * quantityInKg).toFixed(2));
+    return parseFloat((pricePerUnit * quantityInBaseUnit).toFixed(2));
   }, []);
+
+  const calculateTotal = (
+    products: Product[],
+    manualAmount: number = 0
+  ): number => {
+    const productsTotal = products.reduce(
+      (sum, p) => sum + calculatePrice(p),
+      0
+    );
+    return parseFloat((productsTotal + manualAmount).toFixed(2));
+  };
   const calculateProfit = (product: Product): number => {
     const profitPerKg = product.price - product.costPrice;
     const quantity = product.quantity;
@@ -204,13 +216,7 @@ const VentasPage = () => {
         return { quantity: stock, unit: "Unid." };
     }
   };
-  const formatPrice = (value: number) => {
-    return new Intl.NumberFormat("es-AR", {
-      style: "currency",
-      currency: "ARS",
-      minimumFractionDigits: 2,
-    }).format(value);
-  };
+
   const productOptions: {
     value: number;
     label: string;
@@ -279,16 +285,12 @@ const VentasPage = () => {
       const movements: DailyCashMovement[] = [];
       const totalSaleAmount = sale.total;
       if (sale.products.length > 0) {
-        const paymentMethodsDescription = sale.paymentMethods
-          .map((p) => `${p.method}: ${formatCurrency(p.amount)}`)
-          .join(" + ");
-
         const movement: DailyCashMovement = {
           id: Date.now(),
           amount: totalSaleAmount,
           description: `Venta de ${sale.products
             .map((p) => p.name)
-            .join(", ")} (${paymentMethodsDescription})`,
+            .join(", ")} `,
           items: sale.products.map((p) => ({
             productId: p.id,
             productName: p.name,
@@ -402,18 +404,12 @@ const VentasPage = () => {
       }
     });
   };
-  const handleManualAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawValue = e.target.value.replace(/[^0-9.]/g, "");
-    const numericValue = parseFloat(rawValue.replace(/\./g, "")) || 0;
-
-    setNewSale((prev) => {
-      const newTotal = calculateCombinedTotal(prev.products, numericValue);
-      return {
-        ...prev,
-        manualAmount: numericValue,
-        total: newTotal,
-      };
-    });
+  const handleManualAmountChange = (value: number) => {
+    setNewSale((prev) => ({
+      ...prev,
+      manualAmount: value,
+      total: calculateTotal(prev.products, value),
+    }));
   };
   const handleMonthChange = (
     selectedOption: { value: string; label: string } | null
@@ -498,13 +494,6 @@ const VentasPage = () => {
     });
   };
 
-  const handlePaymentAmountChange = (index: number, value: string) => {
-    const cleanValue = value.replace(/\./g, "");
-    const numericValue = cleanValue.replace(/[^0-9]/g, "");
-    const amount = parseFloat(numericValue) || 0;
-    handlePaymentMethodChange(index, "amount", amount);
-  };
-
   const addPaymentMethod = () => {
     setNewSale((prev) => {
       if (prev.paymentMethods.length >= paymentOptions.length) return prev;
@@ -562,8 +551,22 @@ const VentasPage = () => {
 
     setIsOpenModal(true);
   };
+  const validatePaymentMethods = (
+    paymentMethods: PaymentSplit[],
+    total: number
+  ): boolean => {
+    const sum = paymentMethods.reduce((acc, method) => acc + method.amount, 0);
+    return Math.abs(sum - total) < 0.01;
+  };
 
   const handleConfirmAddSale = async () => {
+    if (!validatePaymentMethods(newSale.paymentMethods, newSale.total)) {
+      showNotification(
+        "La suma de los métodos de pago no coincide con el total",
+        "error"
+      );
+      return;
+    }
     const needsRedirect = await checkCashStatus();
 
     if (needsRedirect) {
@@ -1106,7 +1109,7 @@ const VentasPage = () => {
                           paymentMethods.map((payment, i) => (
                             <div key={i} className="text-xs">
                               {payment?.method || "Método no especificado"}:{" "}
-                              {formatPrice(payment?.amount || 0)}
+                              {formatCurrency(payment?.amount || 0)}
                             </div>
                           ))
                         )}
@@ -1125,18 +1128,6 @@ const VentasPage = () => {
                             minwidth="min-w-0"
                             onClick={() => handleOpenInfoModal(sale)}
                           />
-                          {/* omitido */}
-                          {/* <Button
-                            icon={<Trash size={20} />}
-                            colorText="text-gray_b"
-                            colorTextHover="hover:text-white"
-                            colorBg="bg-transparent"
-                            colorBgHover="hover:bg-red-500"
-                            px="px-1"
-                            py="py-1"
-                            minwidth="min-w-0"
-                            onClick={() => handleOpenDeleteConfirmation(sale)}
-                          /> */}
                         </div>
                       </td>
                     </tr>
@@ -1182,7 +1173,7 @@ const VentasPage = () => {
                   <div className="flex justify-between text-base text-gray_b">
                     <span className="font-medium ">Total:</span>
                     <span className="font-semibold">
-                      {formatPrice(selectedSale.total)}
+                      {formatCurrency(selectedSale.total)}
                     </span>
                   </div>
 
@@ -1209,7 +1200,7 @@ const VentasPage = () => {
                           <div key={i} className="text-sm">
                             {payment.method}:{" "}
                             <span className="font-medium">
-                              {formatPrice(payment.amount)}
+                              {formatCurrency(payment.amount)}
                             </span>
                           </div>
                         ))}
@@ -1242,7 +1233,7 @@ const VentasPage = () => {
                         <div className="ml-4 flex-shrink-0">
                           <span className="text-sm font-medium text-gray_b">
                             {product.quantity} {product.unit.toLowerCase()} ={" "}
-                            {formatPrice(calculatePrice(product))}
+                            {formatCurrency(calculatePrice(product))}
                           </span>
                         </div>
                       </li>
@@ -1413,7 +1404,7 @@ const VentasPage = () => {
                         </td>
 
                         <td className="w-30 max-w-30 px-4 py-2 text-center ">
-                          {formatPrice(
+                          {formatCurrency(
                             calculatePrice({
                               ...product,
                               price: product.price || 0,
@@ -1439,22 +1430,10 @@ const VentasPage = () => {
             )}
             <div className="flex items-center space-x-4">
               <div className="w-full flex flex-col ">
-                <label className="block text-gray_m dark:text-white text-sm font-semibold">
-                  Monto manual (opcional)
-                </label>
-                <Input
-                  type="text"
-                  placeholder="Ingrese monto manual..."
-                  value={
-                    newSale.manualAmount
-                      ? new Intl.NumberFormat("es-AR").format(
-                          newSale.manualAmount
-                        )
-                      : ""
-                  }
-                  onChange={(e) => {
-                    handleManualAmountChange(e);
-                  }}
+                <InputCash
+                  label="Monto manual (opcional)"
+                  value={newSale.manualAmount || 0}
+                  onChange={handleManualAmountChange}
                 />
               </div>
 
@@ -1497,19 +1476,11 @@ const VentasPage = () => {
                         />
 
                         <div className="relative">
-                          <Input
-                            type="text"
-                            value={
-                              payment.amount > 0
-                                ? new Intl.NumberFormat("es-AR").format(
-                                    payment.amount
-                                  )
-                                : ""
+                          <InputCash
+                            value={payment.amount}
+                            onChange={(value) =>
+                              handlePaymentMethodChange(index, "amount", value)
                             }
-                            onChange={(e) =>
-                              handlePaymentAmountChange(index, e.target.value)
-                            }
-                            className="w-32"
                             placeholder="Monto"
                             disabled={isCredit}
                           />

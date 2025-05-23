@@ -19,6 +19,8 @@ import ProtectedRoute from "@/app/components/ProtectedRoute";
 import Pagination from "@/app/components/Pagination";
 import Select from "react-select";
 import Input from "@/app/components/Input";
+import { formatCurrency } from "@/app/lib/utils/currency";
+import InputCash from "@/app/components/InputCash";
 
 const CajaDiariaPage = () => {
   const [dailyCashes, setDailyCashes] = useState<DailyCash[]>([]);
@@ -140,15 +142,6 @@ const CajaDiariaPage = () => {
     setTimeout(() => {
       setIsNotificationOpen(false);
     }, 3000);
-  };
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("es-AR", {
-      style: "currency",
-      currency: "ARS",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
   };
 
   const checkCashStatus = async () => {
@@ -516,20 +509,7 @@ const CajaDiariaPage = () => {
       return updated;
     });
   };
-  const handlePaymentAmountChange = (index: number, value: string) => {
-    const cleanValue = value.replace(/\./g, "");
-    const numericValue = cleanValue.replace(/[^0-9]/g, "");
-    const amount = parseFloat(numericValue) || 0;
 
-    setPaymentMethods((prev) => {
-      const updated = [...prev];
-      updated[index].amount = amount;
-      const newTotal = updated.reduce((sum, m) => sum + (m.amount || 0), 0);
-      setAmount(newTotal.toString());
-
-      return updated;
-    });
-  };
   const addPaymentMethod = () => {
     setPaymentMethods((prev) => {
       if (prev.length >= paymentOptions.length) return prev;
@@ -563,9 +543,6 @@ const CajaDiariaPage = () => {
 
       return updated;
     });
-  };
-  const formatInputValue = (value: number) => {
-    return value === 0 ? "" : value.toString();
   };
 
   useEffect(() => {
@@ -715,7 +692,9 @@ const CajaDiariaPage = () => {
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Producto
                 </th>
-
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Descripción
+                </th>
                 <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Total
                 </th>
@@ -779,6 +758,9 @@ const CajaDiariaPage = () => {
                       ) : (
                         "-"
                       )}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-gray-500">
+                      {movement.description}
                     </td>
 
                     <td className="px-4 py-2 text-sm text-center font-medium text-green-600">
@@ -1114,13 +1096,17 @@ const CajaDiariaPage = () => {
                     className="w-full text-black"
                     classNamePrefix="react-select"
                   />
-                  <Input
-                    type="text"
+                  <InputCash
                     placeholder="Monto"
-                    value={formatInputValue(method.amount)}
-                    onChange={(e) =>
-                      handlePaymentAmountChange(index, e.target.value)
-                    }
+                    value={method.amount}
+                    onChange={(value) => {
+                      handlePaymentMethodChange(index, "amount", value);
+                      const newTotal = paymentMethods.reduce(
+                        (sum, m) => sum + (m.amount || 0),
+                        0
+                      );
+                      setAmount(newTotal.toString());
+                    }}
                     className="w-32"
                   />
                   {paymentMethods.length > 1 && (
@@ -1197,13 +1183,11 @@ const CajaDiariaPage = () => {
             <p className="text-gray_m dark:text-white">
               Para comenzar, ingrese el monto inicial en caja.
             </p>
-            <Input
+            <InputCash
               label="Monto Inicial"
-              type="number"
-              name="initialAmount"
+              value={Number(initialAmount) || 0}
+              onChange={(value) => setInitialAmount(value.toString())}
               placeholder="Ingrese el monto inicial..."
-              value={initialAmount}
-              onChange={(e) => setInitialAmount(e.target.value)}
             />
           </div>
         </Modal>
@@ -1215,13 +1199,11 @@ const CajaDiariaPage = () => {
           onConfirm={closeCash}
         >
           <div className="flex flex-col gap-4">
-            <Input
+            <InputCash
               label="Monto Contado en Efectivo"
-              type="number"
-              name="actualCashCount"
+              value={Number(actualCashCount) || 0}
+              onChange={(value) => setActualCashCount(value.toString())}
               placeholder="Ingrese el monto contado..."
-              value={actualCashCount}
-              onChange={(e) => setActualCashCount(e.target.value)}
             />
           </div>
         </Modal>
