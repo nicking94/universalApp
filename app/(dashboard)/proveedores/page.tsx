@@ -54,7 +54,6 @@ const ProveedoresPage = () => {
       product.name.toLowerCase().includes(productSearchQuery.toLowerCase()) ||
       (product.barcode && product.barcode.includes(productSearchQuery))
   );
-  // Función para abrir el modal de asignación de productos
   const openProductAssignmentModal = async (supplier: Supplier) => {
     setSelectedSupplierForProducts(supplier);
     setProductSearchQuery("");

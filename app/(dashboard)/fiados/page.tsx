@@ -462,7 +462,6 @@ const FiadosPage = () => {
       const remainingBalance = calculateRemainingBalance(currentCreditSale!);
 
       if (field === "amount") {
-        // Ahora value ya es un número (gracias a InputCash)
         const numericValue = typeof value === "number" ? value : 0;
 
         updated[index] = {

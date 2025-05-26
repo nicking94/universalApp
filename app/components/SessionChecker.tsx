@@ -25,21 +25,16 @@ const SessionChecker = () => {
 
         if (trialRecord) {
           const firstAccess = new Date(trialRecord.firstAccessDate);
-          if (isNaN(firstAccess.getTime())) {
-            await db.trialPeriods.put({
-              userId: auth.userId,
-              firstAccessDate: now,
-            });
-            return;
-          }
+          if (!isNaN(firstAccess.getTime())) {
+            const diffInMs = now.getTime() - firstAccess.getTime();
+            const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
 
-          const diffInMs = now.getTime() - firstAccess.getTime();
-          const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
-
-          if (diffInDays > 7) {
-            await db.auth.update(1, { isAuthenticated: false });
-            router.push("/login?expired=true");
-            return;
+            if (diffInDays > 7) {
+              await db.users.delete(user.id);
+              await db.auth.update(1, { isAuthenticated: false });
+              router.push("/login?expired=true");
+              return;
+            }
           }
         } else {
           await db.trialPeriods.put({

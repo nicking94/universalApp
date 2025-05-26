@@ -15,18 +15,15 @@ export const parseCurrencyInput = (input: string): number => {
 
 export const formatCurrencyInput = (value: number | string): string => {
   if (typeof value === "string") {
-    // Si es string, verificar si ya está formateado
     if (/,/.test(value)) return value;
     value = parseFloat(value.replace(/\D/g, "")) || 0;
   }
 
-  // Formatear con separadores de miles y coma decimal
   const parts = value.toFixed(2).split(".");
   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   return parts.join(",");
 };
 
 export const validateCurrencyInput = (input: string): boolean => {
-  // Permite números opcionalmente con una coma y hasta 2 decimales
   return /^\d*([,]\d{0,2})?$/.test(input);
 };

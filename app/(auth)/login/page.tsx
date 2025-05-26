@@ -25,7 +25,6 @@ const LoginPage = () => {
     }
 
     const initializeUsers = async () => {
-      // Eliminar usuario admin si existe
       const adminUser = await db.users
         .where("username")
         .equals("admin")
@@ -33,8 +32,6 @@ const LoginPage = () => {
       if (adminUser) {
         await db.users.delete(adminUser.id);
       }
-
-      // Verificar si los usuarios existen
       const count = await db.users.count();
       if (count === 0) {
         const usersToAdd: User[] = USERS.map((user) => ({
@@ -99,6 +96,14 @@ const LoginPage = () => {
         .equals(TRIAL_CREDENTIALS.username)
         .first();
 
+      if (!demoUser) {
+        setNotificationMessage("El periodo de prueba ha finalizado");
+        setNotificationType("error");
+        setIsOpenNotification(true);
+        setTimeout(() => setIsOpenNotification(false), 2000);
+        return;
+      }
+
       if (demoUser) {
         const trialRecord = await db.trialPeriods.get(demoUser.id);
 
@@ -143,7 +148,6 @@ const LoginPage = () => {
           userId: user.id,
           firstAccessDate: new Date(),
         });
-        console.log("registro de prueba inicial creado");
       }
 
       const isTrialValid = await checkTrialPeriod(user.id);
@@ -168,10 +172,50 @@ const LoginPage = () => {
       router.push("/caja-diaria");
     }, 2000);
   };
-
   return (
-    <div className="min-h-screen flex bg-blue-100 ">
+    <div className="min-h-screen flex">
       <AuthForm type="login" onSubmit={handleLogin} />
+      <div className="w-[65%] xl:w-[75%]  flex flex-col justify-center bg-blue_l">
+        <div className="bg-blue_xl flex justify-center text-center relative">
+          <div className="bg-yellow-200 rounded-full w-75 h-75 z-10 shadow-lg shadow-yellow-100 flex flex-col items-center justify-center text-center relative overflow-visible">
+            <h1 className="italic text-4xl font-medium text-blue_b">
+              Contacto
+            </h1>
+            <p className="text-lg text-blue_b italic">
+              Email: universalweb94@gmail.com
+            </p>
+            <a
+              href="https://wa.link/542613077147"
+              className="border-b-2 border-blue_m"
+            >
+              <p className="text-lg text-blue_b italic">
+                Whatsapp: +54 2613077147
+              </p>
+            </a>
+
+            <div className="absolute inset-0">
+              {Array.from({ length: 12 }).map((_, i) => {
+                const rotation = i * 30;
+                const delay = `${i * 0.15}s`;
+                return (
+                  <div
+                    key={i}
+                    className="absolute w-1 h-37 bg-yellow-200 bottom-[50%] left-[50%] origin-bottom -translate-x-1/2 ray-pulse rounded-full"
+                    style={
+                      {
+                        "--rotation": `${rotation}deg`,
+                        "--delay": delay,
+                        transform: `rotate(${rotation}deg) translateY(-100%)`,
+                      } as React.CSSProperties
+                    }
+                  />
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <Notification
         isOpen={isOpenNotification}
         message={notificationMessage}

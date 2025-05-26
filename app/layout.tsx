@@ -15,7 +15,7 @@ const roboto = Roboto({
 export const metadata: Metadata = {
   title: "Universal App | Kioskos",
   description:
-    "Software de gestión para PyMEs. stock, ventas, cuentas corrientes, proveedores y más...",
+    "Software de gestión para PyMEs. Métricas, Stock, Ventas, Cuentas corrientes, Proveedores y más...",
   icons: {
     icon: [{ url: "/icon.png", type: "image/png" }],
   },

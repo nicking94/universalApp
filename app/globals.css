@@ -146,10 +146,28 @@ input[type="number"] {
   }
 }
 
-/* calendar */
 .react-datepicker-wrapper {
   width: 100% !important;
 }
 .react-datepicker__input-container {
   width: 100% !important;
+}
+
+@layer components {
+  @keyframes ray-pulse {
+    0%,
+    100% {
+      opacity: 0.6;
+      transform: rotate(var(--rotation)) translateY(-100%) scaleY(0.8);
+    }
+    50% {
+      opacity: 1;
+      transform: rotate(var(--rotation)) translateY(-100%) scaleY(1.1);
+    }
+  }
+
+  .ray-pulse {
+    animation: ray-pulse 5s ease-in-out infinite;
+    animation-delay: var(--delay);
+  }
 }

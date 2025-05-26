@@ -30,7 +30,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ type = "login", onSubmit }) => {
   return (
     <form
       onSubmit={handleSubmit}
-      className="text-gray_b flex flex-col justify-center w-[35%] xl:w-[25%] p-10 space-y-10 shadow-2xl shadow-blue_b bg-white"
+      className="bg-blue_xl text-gray_b flex flex-col justify-center w-[35%] xl:w-[25%] p-10 space-y-10 shadow-2xl shadow-blue_b z-99"
     >
       <div className="flex justify-center">
         <Image src={logo} alt="logo" width={100} height={100} />
