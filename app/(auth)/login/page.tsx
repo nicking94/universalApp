@@ -186,10 +186,10 @@ const LoginPage = () => {
             </p>
             <a
               href="https://wa.link/542613077147"
-              className="border-b-2 border-blue_m"
+              className="border-b-2 border-blue_xl cursor-pointer"
             >
               <p className="text-lg text-blue_b italic">
-                Whatsapp: +54 2613077147
+                Whatsapp: +54 26130771477
               </p>
             </a>
 

@@ -29,7 +29,7 @@ const ProveedoresPage = () => {
     "success" | "error" | "info"
   >("success");
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
   const [companyName, setCompanyName] = useState("");
   const [contacts, setContacts] = useState<SupplierContact[]>([
     { name: "", phone: "" },

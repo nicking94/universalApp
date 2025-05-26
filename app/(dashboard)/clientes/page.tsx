@@ -31,7 +31,7 @@ const ClientesPage = () => {
     "success" | "error" | "info"
   >("success");
   const [currentPage, setCurrentPage] = useState(1);
-  const [customersPerPage, setCustomersPerPage] = useState(10);
+  const [customersPerPage, setCustomersPerPage] = useState(5);
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
@@ -331,6 +331,7 @@ const ClientesPage = () => {
                 onClick={
                   editingCustomer ? handleUpdateCustomer : handleAddCustomer
                 }
+                hotkey="Enter"
               />
               <Button
                 text="Cancelar"
@@ -343,6 +344,7 @@ const ClientesPage = () => {
                   setEditingCustomer(null);
                   setNewCustomer({ name: "", phone: "" });
                 }}
+                hotkey="Escape"
               />
             </>
           }

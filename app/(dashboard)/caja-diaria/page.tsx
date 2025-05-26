@@ -97,22 +97,13 @@ const CajaDiariaPage = () => {
 
   const calculateFilteredTotals = () => {
     const filtered = getFilteredMovements();
-    const processedMovementIds = new Set();
 
     return {
       totalIngresos: filtered
-        .filter((m) => {
-          if (processedMovementIds.has(m.id)) return false;
-          processedMovementIds.add(m.id);
-          return m.type === "INGRESO";
-        })
+        .filter((m) => m.type === "INGRESO")
         .reduce((sum, m) => sum + (Number(m.amount) || 0), 0),
       totalEgresos: filtered
-        .filter((m) => {
-          if (processedMovementIds.has(m.id)) return false;
-          processedMovementIds.add(m.id);
-          return m.type === "EGRESO";
-        })
+        .filter((m) => m.type === "EGRESO")
         .reduce((sum, m) => sum + (Number(m.amount) || 0), 0),
     };
   };
@@ -700,7 +691,7 @@ const CajaDiariaPage = () => {
                 </th>
               </tr>
             </thead>
-            <tbody className={`bg-white divide-y divide-gray_xl`}>
+            <tbody className={`bg-white  divide-y divide-gray_xl`}>
               {Object.values(groupedMovements).length > 0 ? (
                 Object.values(groupedMovements).map((movement, index) => (
                   <tr

@@ -200,6 +200,7 @@ const Metrics = () => {
     }));
   };
 
+  // Modificar las funciones de reducción para manejar mejor los egresos
   const getMonthlySummary = () => {
     return dailyCashes
       .filter((cash) => {
@@ -210,26 +211,16 @@ const Metrics = () => {
         (acc, cash) => {
           const ingresos = cash.movements
             .filter((m) => m.type === "INGRESO")
-            .reduce((sum, m) => sum + m.amount, 0);
+            .reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
 
           const egresos = cash.movements
             .filter((m) => m.type === "EGRESO")
-            .reduce((sum, m) => sum + m.amount, 0);
-
-          const ganancia = cash.movements
-            .filter((m) => m.type === "INGRESO")
-            .reduce((sum, m) => {
-              if (m.profit !== undefined) return sum + m.profit;
-              if (m.costPrice && m.sellPrice && m.quantity) {
-                return sum + (m.sellPrice - m.costPrice) * m.quantity;
-              }
-              return sum;
-            }, 0);
+            .reduce((sum, m) => sum + Math.abs(Number(m.amount)) || 0, 0);
 
           return {
             ingresos: acc.ingresos + ingresos,
             egresos: acc.egresos + egresos,
-            ganancia: acc.ganancia + ganancia,
+            ganancia: acc.ingresos + ingresos - (acc.egresos + egresos),
           };
         },
         { ingresos: 0, egresos: 0, ganancia: 0 }
@@ -283,9 +274,10 @@ const Metrics = () => {
         const ingresos = dailyCash.movements
           .filter((m) => m.type === "INGRESO")
           .reduce((sum, m) => sum + m.amount, 0);
+
         const egresos = dailyCash.movements
           .filter((m) => m.type === "EGRESO")
-          .reduce((sum, m) => sum + m.amount, 0);
+          .reduce((sum, m) => sum + Math.abs(Number(m.amount)) || 0, 0);
         const ganancia = dailyCash.movements
           .filter((m) => m.type === "INGRESO")
           .reduce((sum, m) => {
@@ -358,14 +350,14 @@ const Metrics = () => {
     datasets: [
       {
         label: "Ingresos",
-        data: dailyMonthData.map((data) => data.ingresos),
+        data: dailyMonthData.map((data) => data.ingresos || 0),
         backgroundColor: "rgba(75, 192, 192, 0.6)",
         borderColor: "rgba(75, 192, 192, 1)",
         borderWidth: 1,
       },
       {
         label: "Egresos",
-        data: dailyMonthData.map((data) => data.egresos),
+        data: dailyMonthData.map((data) => data.egresos || 0),
         backgroundColor: "rgba(255, 99, 132, 0.6)",
         borderColor: "rgba(255, 99, 132, 1)",
         borderWidth: 1,
@@ -435,8 +427,8 @@ const Metrics = () => {
   return (
     <ProtectedRoute>
       <div className="px-10 2xl:px-10 py-4 text-gray_l dark:text-white h-[calc(100vh-80px)]">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-          <h1 className="text-xl 2xl:text-2xl font-semibold mb-2">Métricas</h1>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-2 gap-4">
+          <h1 className="text-xl 2xl:text-2xl font-semibold ">Métricas</h1>
 
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
             <div className="flex items-center gap-2">

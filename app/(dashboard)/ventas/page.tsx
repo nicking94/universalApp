@@ -287,9 +287,7 @@ const VentasPage = () => {
         const movement: DailyCashMovement = {
           id: Date.now(),
           amount: totalSaleAmount,
-          description: `Venta de ${sale.products
-            .map((p) => p.name)
-            .join(", ")} `,
+          description: "Venta",
           items: sale.products.map((p) => ({
             productId: p.id,
             productName: p.name,
