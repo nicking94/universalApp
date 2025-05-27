@@ -6,6 +6,7 @@ import { useSidebar } from "../context/SidebarContext";
 import { useRouter } from "next/navigation";
 import { db } from "../database/db";
 import { AuthProvider } from "../context/AuthContext";
+import TrialNotification from "../components/TrialNotification";
 
 export default function AppLayout({
   children,
@@ -49,6 +50,7 @@ export default function AppLayout({
   return (
     <AuthProvider>
       <div className={`bg-white dark:bg-black text-gray_b dark:text-white`}>
+        <TrialNotification />
         <Navbar
           theme={theme}
           handleTheme={handleTheme}

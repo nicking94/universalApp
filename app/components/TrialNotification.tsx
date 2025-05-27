@@ -122,7 +122,7 @@ const TrialNotification = () => {
 
   return (
     <div
-      className={`animate-pulse fixed top-0 left-1/2 transform -translate-x-1/2 px-4 2xl:px-6 py-1 rounded-md shadow-lg z-50 text-xs font-medium ${getNotificationStyle()}`}
+      className={`animate-pulse fixed top-0 left-4/7 transform -translate-x-1/2 px-4 2xl:px-6 py-1 rounded-md shadow-lg z-99 text-xs font-medium ${getNotificationStyle()}`}
     >
       {getNotificationMessage()}
     </div>

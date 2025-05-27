@@ -177,7 +177,15 @@ const LoginPage = () => {
       <AuthForm type="login" onSubmit={handleLogin} />
       <div className="w-[65%] xl:w-[75%]  flex flex-col justify-center bg-blue_l">
         <div className="bg-blue_xl flex justify-center text-center relative">
-          <div className="bg-yellow-200 rounded-full w-75 h-75 z-10 shadow-lg shadow-yellow-100 flex flex-col items-center justify-center text-center relative overflow-visible">
+          <div
+            className="shadow-lg shadow-yellow-100 rounded-full w-75 h-75 z-10 space-y-2 flex flex-col items-center justify-center text-center relative overflow-visible"
+            style={{
+              background:
+                "radial-gradient(circle at center, #fef9c3 0%, #fef3c7 40%, #fde68a 90%)",
+
+              transition: "all 0.3s ease-out",
+            }}
+          >
             <h1 className="italic text-4xl font-medium text-blue_b">
               Contacto
             </h1>
@@ -185,27 +193,32 @@ const LoginPage = () => {
               Email: universalweb94@gmail.com
             </p>
             <a
-              href="https://wa.link/542613077147"
-              className="border-b-2 border-blue_xl cursor-pointer"
+              href="https://wa.me/5492613077147"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="border-b-2 border-blue_xl cursor-pointer hover:text-blue-500 transition-colors duration-200"
             >
-              <p className="text-lg text-blue_b italic">
+              <p className="text-lg text-blue_b italic hover:scale-105 transition-all duration-200">
                 Whatsapp: +54 26130771477
               </p>
             </a>
 
-            <div className="absolute inset-0">
+            <div className="absolute inset-0 pointer-events-none">
               {Array.from({ length: 12 }).map((_, i) => {
                 const rotation = i * 30;
-                const delay = `${i * 0.15}s`;
+                const delay = `${i * 0.8}s`;
                 return (
                   <div
                     key={i}
-                    className="absolute w-1 h-37 bg-yellow-200 bottom-[50%] left-[50%] origin-bottom -translate-x-1/2 ray-pulse rounded-full"
+                    className="absolute w-[0.15rem] h-37 bottom-[50%] left-[50%] origin-bottom -translate-x-1/2 ray-pulse rounded-full "
                     style={
                       {
                         "--rotation": `${rotation}deg`,
                         "--delay": delay,
                         transform: `rotate(${rotation}deg) translateY(-100%)`,
+                        background:
+                          "linear-gradient(to bottom, rgba(254, 230, 165, 0.7), rgba(254, 220, 125, 0.9))",
+                        transition: "all 0.3s ease-out",
                       } as React.CSSProperties
                     }
                   />

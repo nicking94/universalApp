@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Roboto } from "next/font/google";
 import "./globals.css";
 import { SidebarProvider } from "./context/SidebarContext";
-import TrialNotification from "./components/TrialNotification";
 import SessionChecker from "./components/SessionChecker";
 
 const roboto = Roboto({
@@ -13,7 +12,7 @@ const roboto = Roboto({
 });
 
 export const metadata: Metadata = {
-  title: "Universal App |Kioscos",
+  title: "Universal App | Kioskos",
   description:
     "Software de gestión para PyMEs. Métricas, Stock, Ventas, Cuentas corrientes, Proveedores y más...",
   icons: {
@@ -31,7 +30,7 @@ export default function RootLayout({
       <html lang="es">
         <body className={` ${roboto.variable} antialiased hidden md:block`}>
           <main>
-            {children} <SessionChecker /> <TrialNotification />
+            {children} <SessionChecker />
           </main>
         </body>
       </html>

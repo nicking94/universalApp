@@ -13,7 +13,7 @@ const Navbar: React.FC<NavbarProps> = ({
   const { isSidebarOpen } = useSidebar();
 
   return (
-    <header className="bg-white dark:bg-black text-gray_b dark:text-white w-full px-10 py-5 relative shadow-sm shadow-gray_xl dark:shadow-gray_m transition-all duration-200">
+    <header className=" bg-white dark:bg-black text-gray_b dark:text-white w-full px-10 py-5 relative shadow-sm shadow-gray_xl dark:shadow-gray_m transition-all duration-200">
       <nav
         className={`${
           isSidebarOpen ? "ml-64" : "ml-30"
@@ -21,7 +21,7 @@ const Navbar: React.FC<NavbarProps> = ({
       >
         <div className="flex items-center gap-4">
           <Image className=" rounded-full w-8 h-8" src={logo} alt="User Logo" />
-          <h1 className="text-lg italic">Universal App | Kioscos</h1>
+          <h1 className="text-lg italic">Universal App | Kioskos</h1>
         </div>
 
         <div className="flex flex-col justify-center items-center">
