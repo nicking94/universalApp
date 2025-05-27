@@ -200,7 +200,6 @@ const Metrics = () => {
     }));
   };
 
-  // Modificar las funciones de reducción para manejar mejor los egresos
   const getMonthlySummary = () => {
     return dailyCashes
       .filter((cash) => {
@@ -217,10 +216,22 @@ const Metrics = () => {
             .filter((m) => m.type === "EGRESO")
             .reduce((sum, m) => sum + Math.abs(Number(m.amount)) || 0, 0);
 
+          const ganancia = cash.movements
+            .filter((m) => m.type === "INGRESO")
+            .reduce((sum, m) => {
+              if (m.profit !== undefined) {
+                return sum + m.profit;
+              }
+              const costPrice = m.costPrice || 0;
+              const sellPrice = m.sellPrice || 0;
+              const quantity = m.quantity || 0;
+              return sum + (sellPrice - costPrice) * quantity;
+            }, 0);
+
           return {
             ingresos: acc.ingresos + ingresos,
             egresos: acc.egresos + egresos,
-            ganancia: acc.ingresos + ingresos - (acc.egresos + egresos),
+            ganancia: acc.ganancia + ganancia,
           };
         },
         { ingresos: 0, egresos: 0, ganancia: 0 }
