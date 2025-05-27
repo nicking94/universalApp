@@ -21,7 +21,7 @@ const Navbar: React.FC<NavbarProps> = ({
       >
         <div className="flex items-center gap-4">
           <Image className=" rounded-full w-8 h-8" src={logo} alt="User Logo" />
-          <h1 className="text-lg italic">Universal App | Kioskos</h1>
+          <h1 className="text-lg italic">Universal App | Kioscos</h1>
         </div>
 
         <div className="flex flex-col justify-center items-center">
