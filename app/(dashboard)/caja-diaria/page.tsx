@@ -897,13 +897,13 @@ const CajaDiariaPage = () => {
                   onChange={(option) =>
                     option && setSelectedMonth(option.value)
                   }
-                  className="w-40"
+                  className="w-40 text-black"
                 />
                 <Select
                   options={yearOptions}
                   value={yearOptions.find((y) => y.value === selectedYear)}
                   onChange={(option) => option && setSelectedYear(option.value)}
-                  className="w-28"
+                  className="w-28 text-black"
                 />
               </div>
               <Button
