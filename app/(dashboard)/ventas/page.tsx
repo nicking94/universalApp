@@ -1262,7 +1262,7 @@ const VentasPage = () => {
                 colorText="text-white"
                 colorTextHover="text-white"
                 onClick={handleConfirmAddSale}
-                hotkey="Enter"
+                hotkey="enter"
               />
               <Button
                 text="Cancelar"
@@ -1271,7 +1271,7 @@ const VentasPage = () => {
                 colorBg="bg-gray_xl dark:bg-gray_m"
                 colorBgHover="hover:bg-blue_m hover:dark:bg-gray_l"
                 onClick={handleCloseModal}
-                hotkey="Escape"
+                hotkey="esc"
               />
             </div>
           }
@@ -1606,7 +1606,7 @@ const VentasPage = () => {
                 colorText="text-white"
                 colorTextHover="text-white"
                 onClick={handleDeleteSale}
-                hotkey="Enter"
+                hotkey="enter"
               />
               <Button
                 text="No"
@@ -1615,7 +1615,7 @@ const VentasPage = () => {
                 colorBg="bg-gray_xl dark:bg-gray_m"
                 colorBgHover="hover:bg-blue_m hover:dark:bg-gray_l"
                 onClick={() => setIsConfirmModalOpen(false)}
-                hotkey="Escape"
+                hotkey="esc"
               />
             </div>
           }

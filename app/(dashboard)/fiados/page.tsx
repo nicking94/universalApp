@@ -774,7 +774,7 @@ const FiadosPage = () => {
           buttons={
             <>
               <Button
-                hotkey="Enter"
+                hotkey="enter"
                 text="Registrar"
                 colorText="text-white"
                 colorTextHover="text-white"
@@ -788,7 +788,7 @@ const FiadosPage = () => {
                 }
               />
               <Button
-                hotkey="Escape"
+                hotkey="esc"
                 text="Cancelar"
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:text-white hover:dark:text-white"

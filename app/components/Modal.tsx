@@ -22,7 +22,7 @@ const Modal: React.FC<ModalProps> = ({
       if (e.key === "Enter") {
         e.preventDefault();
         onConfirm?.();
-      } else if (e.key === "Escape") {
+      } else if (e.key === "esc") {
         e.preventDefault();
         onClose?.();
       }

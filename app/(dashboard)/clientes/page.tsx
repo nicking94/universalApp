@@ -331,7 +331,7 @@ const ClientesPage = () => {
                 onClick={
                   editingCustomer ? handleUpdateCustomer : handleAddCustomer
                 }
-                hotkey="Enter"
+                hotkey="enter"
               />
               <Button
                 text="Cancelar"
@@ -344,7 +344,7 @@ const ClientesPage = () => {
                   setEditingCustomer(null);
                   setNewCustomer({ name: "", phone: "" });
                 }}
-                hotkey="Escape"
+                hotkey="esc"
               />
             </>
           }
@@ -383,7 +383,7 @@ const ClientesPage = () => {
                 colorBg="bg-red-500"
                 colorBgHover="hover:bg-red-700"
                 onClick={handleConfirmDelete}
-                hotkey="Enter"
+                hotkey="enter"
               />
               <Button
                 text="Cancelar"
@@ -392,7 +392,7 @@ const ClientesPage = () => {
                 colorBg="bg-gray_xl dark:bg-gray_m"
                 colorBgHover="hover:bg-blue_m hover:dark:bg-gray_l"
                 onClick={() => setIsDeleteModalOpen(false)}
-                hotkey="Escape"
+                hotkey="esc"
               />
             </>
           }
