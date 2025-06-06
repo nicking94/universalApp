@@ -21,8 +21,12 @@ import SearchBar from "@/app/components/SearchBar";
 import { Info, Plus, Trash, Wallet } from "lucide-react";
 import Pagination from "@/app/components/Pagination";
 import InputCash from "@/app/components/InputCash";
+import { useRubro } from "@/app/context/RubroContext";
+import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
+import { getLocalDateString } from "@/app/lib/utils/getLocalDate";
 
 const FiadosPage = () => {
+  const { rubro } = useRubro();
   const [currentPage, setCurrentPage] = useState(1);
   const [creditsPerPage, setCreditsPerPage] = useState(5);
   const [creditSales, setCreditSales] = useState<CreditSale[]>([]);
@@ -51,9 +55,24 @@ const FiadosPage = () => {
   } | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
 
-  const filteredSales = creditSales.filter((sale) =>
-    sale.customerName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredSales = creditSales
+    .filter((sale) => {
+      const matchesSearch = sale.customerName
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase());
+      const matchesRubro =
+        rubro === "todos los rubros" ||
+        sale.products.some((product) => product.rubro === rubro);
+
+      return matchesSearch && matchesRubro;
+    })
+    .sort((a, b) => {
+      if (a.paid !== b.paid) {
+        return a.paid ? 1 : -1;
+      }
+
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
 
   const salesByCustomer = filteredSales.reduce((acc, sale) => {
     if (!acc[sale.customerName]) {
@@ -62,6 +81,15 @@ const FiadosPage = () => {
     acc[sale.customerName].push(sale);
     return acc;
   }, {} as Record<string, CreditSale[]>);
+
+  const sortedCustomerNames = Object.keys(salesByCustomer).sort((a, b) => {
+    const customerAHasUnpaid = salesByCustomer[a].some((sale) => !sale.paid);
+    const customerBHasUnpaid = salesByCustomer[b].some((sale) => !sale.paid);
+    if (customerAHasUnpaid !== customerBHasUnpaid) {
+      return customerAHasUnpaid ? -1 : 1;
+    }
+    return a.localeCompare(b);
+  });
 
   const paymentOptions = [
     { value: "EFECTIVO", label: "Efectivo" },
@@ -73,7 +101,7 @@ const FiadosPage = () => {
   const totalCustomers = uniqueCustomers.length;
   const indexOfLastCredit = currentPage * creditsPerPage;
   const indexOfFirstCredit = indexOfLastCredit - creditsPerPage;
-  const currentCustomers = uniqueCustomers.slice(
+  const currentCustomers = sortedCustomerNames.slice(
     indexOfFirstCredit,
     indexOfLastCredit
   );
@@ -112,17 +140,19 @@ const FiadosPage = () => {
     setNotificationMessage(message);
     setNotificationType(type);
     setIsNotificationOpen(true);
-    setTimeout(() => setIsNotificationOpen(false), 3000);
+    setTimeout(() => setIsNotificationOpen(false), 2500);
   };
 
   const calculateCustomerBalance = (customerName: string) => {
     const customerSales = creditSales.filter(
-      (sale) => sale.customerName === customerName
+      (sale) =>
+        sale.customerName === customerName &&
+        (rubro === "todos los rubros" ||
+          sale.products.some((p) => p.rubro === rubro))
     );
+
     const customerPayments = payments.filter((p) =>
-      creditSales.some(
-        (s) => s.id === p.saleId && s.customerName === customerName
-      )
+      customerSales.some((s) => s.id === p.saleId)
     );
 
     const totalSales = customerSales.reduce((sum, sale) => sum + sale.total, 0);
@@ -197,7 +227,7 @@ const FiadosPage = () => {
 
   const addIncomeToDailyCash = async (sale: CreditSale) => {
     try {
-      const today = new Date().toISOString().split("T")[0];
+      const today = getLocalDateString();
       let dailyCash = await db.dailyCashes.get({ date: today });
 
       const movements: DailyCashMovement[] = [];
@@ -322,40 +352,6 @@ const FiadosPage = () => {
     }
   };
 
-  const handleDeleteSingleCredit = async (saleId: number) => {
-    try {
-      await db.sales.delete(saleId);
-      await db.payments.where("saleId").equals(saleId).delete();
-
-      setCreditSales(creditSales.filter((sale) => sale.id !== saleId));
-      setPayments(payments.filter((p) => p.saleId !== saleId));
-
-      showNotification("Fiado eliminado correctamente", "success");
-      if (currentCustomerInfo) {
-        const updatedSales = currentCustomerInfo.sales.filter(
-          (s) => s.id !== saleId
-        );
-        if (updatedSales.length === 0) {
-          setIsInfoModalOpen(false);
-          return;
-        }
-
-        setCurrentCustomerInfo({
-          ...currentCustomerInfo,
-          sales: updatedSales,
-          balance: updatedSales.reduce((total, sale) => {
-            const paymentsForSale = payments
-              .filter((p) => p.saleId === sale.id)
-              .reduce((sum, p) => sum + p.amount, 0);
-            return total + (sale.total - paymentsForSale);
-          }, 0),
-        });
-      }
-    } catch (error) {
-      console.error("Error al eliminar fiado:", error);
-      showNotification("Error al eliminar fiado", "error");
-    }
-  };
   const validateCurrency = (value: string): boolean => {
     return /^\d+(\.\d{1,2})?$/.test(value);
   };
@@ -389,6 +385,15 @@ const FiadosPage = () => {
     }
 
     try {
+      const [updatedSales, updatedPayments] = await Promise.all([
+        db.sales.toArray(),
+        db.payments.toArray(),
+      ]);
+
+      setCreditSales(
+        updatedSales.filter((sale) => sale.credit === true) as CreditSale[]
+      );
+      setPayments(updatedPayments);
       for (const method of paymentMethods) {
         if (method.amount > 0) {
           const newPayment: Payment = {
@@ -403,6 +408,7 @@ const FiadosPage = () => {
       }
 
       const newRemainingBalance = remainingBalance - totalPayment;
+
       if (newRemainingBalance <= 0.01) {
         await db.sales.update(currentCreditSale.id, {
           paid: true,
@@ -523,7 +529,7 @@ const FiadosPage = () => {
   return (
     <ProtectedRoute>
       <div className="px-10 2xl:px-10 py-4 text-gray_l dark:text-white h-[calc(100vh-80px)]">
-        <h1 className="text-xl 2xl:text-2xl font-semibold mb-2">
+        <h1 className="text-lg 2xl:text-xl font-semibold mb-2">
           Listado de fiados
         </h1>
         <div className="w-full mb-2">
@@ -532,7 +538,7 @@ const FiadosPage = () => {
 
         <div className="flex flex-col justify-between h-[calc(100vh-200px)] ">
           <table className="table-auto w-full text-center border-collapse shadow-sm shadow-gray_l">
-            <thead className="text-white bg-blue_b text-sm 2xl:text-lg">
+            <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-sm 2xl:text-lg">
               <tr>
                 <th className="px-4 py-2 text-start">Cliente</th>
                 <th className="px-4 py-2">Fecha</th>
@@ -564,9 +570,7 @@ const FiadosPage = () => {
                       </td>
                       <td
                         className={`font-semibold px-4 py-2 border border-gray_xl ${
-                          customerBalance <= 0
-                            ? "text-green-600"
-                            : "text-red-600"
+                          customerBalance <= 0 ? "text-green_b" : "text-red_b"
                         }`}
                       >
                         {customerBalance.toLocaleString("es-AR", {
@@ -575,7 +579,7 @@ const FiadosPage = () => {
                         })}
                       </td>
                       <td className="px-4 py-2 border border-gray_xl">
-                        <div className="flex justify-center items-center h-full">
+                        <div className="flex justify-center items-center h-full gap-2">
                           <Button
                             icon={<Info size={20} />}
                             iconPosition="left"
@@ -586,6 +590,22 @@ const FiadosPage = () => {
                             py="py-1"
                             minwidth="min-w-0"
                             onClick={() => handleOpenInfoModal(oldestSale)}
+                          />
+
+                          <Button
+                            icon={<Trash size={20} />}
+                            iconPosition="left"
+                            colorText="text-gray_b"
+                            colorTextHover="hover:text-white"
+                            colorBg="bg-transparent"
+                            colorBgHover="hover:bg-red_b"
+                            px="px-2"
+                            py="py-1"
+                            minwidth="min-w-0"
+                            onClick={() => {
+                              setCustomerToDelete(customerName);
+                              setIsDeleteModalOpen(true);
+                            }}
                           />
                         </div>
                       </td>
@@ -623,146 +643,266 @@ const FiadosPage = () => {
         <Modal
           isOpen={isInfoModalOpen}
           onClose={() => setIsInfoModalOpen(false)}
-          title={`Información de ${currentCustomerInfo?.name}`}
+          title={`Detalles de fiados - ${currentCustomerInfo?.name}`}
           buttons={
-            <div className="flex justify-between w-full">
-              <Button
-                text="Eliminar todos"
-                colorText="text-white"
-                colorTextHover="text-white"
-                colorBg="bg-red-500"
-                colorBgHover="hover:bg-red-700"
-                onClick={() => {
-                  setCustomerToDelete(currentCustomerInfo?.name || null);
-                  setIsDeleteModalOpen(true);
-                }}
-                disabled={
-                  !currentCustomerInfo || currentCustomerInfo.balance < 0
-                }
-              />
+            <div className="w-full flex justify-end">
               <Button
                 text="Cerrar"
                 colorText="text-gray_b dark:text-white"
-                colorTextHover="hover:text-white hover:dark:text-white"
-                colorBg="bg-gray_xl dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_m hover:dark:bg-gray_l"
+                colorTextHover="hover:dark:text-white"
+                colorBg="bg-transparent dark:bg-gray_m"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
                 onClick={() => setIsInfoModalOpen(false)}
               />
             </div>
           }
         >
-          <div className="space-y-10">
-            <p
-              className={`text-lg font-semibold px-3 py-2 rounded-lg inline-block ${
-                (currentCustomerInfo?.balance ?? 0) <= 0
-                  ? "bg-green-100 text-green-800"
-                  : "bg-red-100 text-red-800"
-              }`}
-            >
-              Deuda total pendiente:{" "}
-              {(currentCustomerInfo?.balance ?? 0).toLocaleString("es-AR", {
-                style: "currency",
-                currency: "ARS",
-              })}
-            </p>
+          <div className="space-y-6">
+            {/* Resumen destacado */}
+            <div className="bg-gradient-to-bl from-blue_l to-blue_xl dark:from-gray_m dark:to-gray_b p-4 rounded-lg shadow-sm shadow-blue_ll dark:shadow-gray_m">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-sm font-medium text-gray_b dark:text-gray_xl">
+                    Cliente
+                  </h3>
+                  <p className="text-md text-gray_b dark:text-white">
+                    {currentCustomerInfo?.name}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <h3 className="text-sm font-medium text-gray_b dark:text-gray_xl">
+                    Estado
+                  </h3>
+                  <p
+                    className={`text-lg font-bold ${
+                      (currentCustomerInfo?.balance ?? 0) <= 0
+                        ? "text-green_b"
+                        : "text-red_b"
+                    }`}
+                  >
+                    {(currentCustomerInfo?.balance ?? 0) <= 0
+                      ? "Al día"
+                      : "En deuda"}
+                  </p>
+                </div>
+              </div>
 
-            <div className="max-h-64 overflow-y-auto">
-              <h3 className="font-semibold mb-2">Detalle de fiados:</h3>
-              <table className="bg-white text-gray_b w-full text-center border-collapse">
-                <thead className="bg-blue_b text-white text-sm 2xl:text-lg">
-                  <tr>
-                    <th className="px-2 py-1">Fecha</th>
-                    <th className="px-2 py-1">Total</th>
-                    <th className="px-2 py-1">Pagado</th>
+              <div className="mt-4 grid grid-cols-3 gap-4">
+                <div className="bg-white dark:bg-gray_m p-3 rounded-lg shadow">
+                  <p className="text-xs text-gray_m dark:text-gray_l">
+                    Total fiado
+                  </p>
+                  <p className="font-semibold">
+                    {currentCustomerInfo?.sales
+                      .reduce((sum, sale) => sum + sale.total, 0)
+                      .toLocaleString("es-AR", {
+                        style: "currency",
+                        currency: "ARS",
+                      })}
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-gray_m p-3 rounded-lg shadow">
+                  <p className="text-xs text-gray_m dark:text-gray_l">
+                    Total pagado
+                  </p>
+                  <p className="font-semibold">
+                    {currentCustomerInfo?.sales
+                      .reduce((sum, sale) => {
+                        const paymentsForSale = payments
+                          .filter((p) => p.saleId === sale.id)
+                          .reduce((sum, p) => sum + p.amount, 0);
+                        return sum + paymentsForSale;
+                      }, 0)
+                      .toLocaleString("es-AR", {
+                        style: "currency",
+                        currency: "ARS",
+                      })}
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-gray_m p-3 rounded-lg shadow">
+                  <p className="text-xs text-gray_m dark:text-gray_l">
+                    Saldo pendiente
+                  </p>
+                  <p
+                    className={`font-semibold ${
+                      (currentCustomerInfo?.balance ?? 0) <= 0
+                        ? "text-green_b"
+                        : "text-red_b"
+                    }`}
+                  >
+                    {(currentCustomerInfo?.balance ?? 0).toLocaleString(
+                      "es-AR",
+                      {
+                        style: "currency",
+                        currency: "ARS",
+                      }
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="max-h-96 overflow-y-auto border border-blue_xl rounded-md">
+              <h3 className="font-semibold mb-3 text-lg border-b pb-2">
+                Historial de fiados
+              </h3>
 
-                    <th className="px-2 py-1">Debe</th>
-                    <th className="w-40 max-w-[10rem] px-2 py-1">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray_xl border">
-                  {currentCustomerInfo?.sales.map((sale) => {
-                    const totalPayments = payments
-                      .filter((p) => p.saleId === sale.id)
-                      .reduce((sum, p) => sum + p.amount, 0);
-                    const remainingBalance = sale.total - totalPayments;
+              {currentCustomerInfo?.sales
+                .sort((a, b) => {
+                  const aBalance = calculateRemainingBalance(a);
+                  const bBalance = calculateRemainingBalance(b);
+                  const aPaid = aBalance <= 0;
+                  const bPaid = bBalance <= 0;
+                  if (aPaid !== bPaid) {
+                    return aPaid ? 1 : -1;
+                  }
+                  return (
+                    new Date(b.date).getTime() - new Date(a.date).getTime()
+                  );
+                })
+                .map((sale) => {
+                  const totalPayments = payments
+                    .filter((p) => p.saleId === sale.id)
+                    .reduce((sum, p) => sum + p.amount, 0);
+                  const remainingBalance = sale.total - totalPayments;
+                  const isPaid = remainingBalance <= 0;
 
-                    return (
-                      <tr key={sale.id} className="font-semibold">
-                        <td className="px-2 py-3">
-                          {format(new Date(sale.date), "dd/MM/yyyy", {
-                            locale: es,
-                          })}
-                        </td>
-                        <td className="px-2 py-3">
-                          {sale.total.toLocaleString("es-AR", {
-                            style: "currency",
-                            currency: "ARS",
-                          })}
-                        </td>
-                        <td className="px-2 py-3">
-                          {totalPayments.toLocaleString("es-AR", {
-                            style: "currency",
-                            currency: "ARS",
-                          })}
-                        </td>
+                  return (
+                    <div
+                      key={sale.id}
+                      className={`mb-4 p-4 rounded-lg shadow-sm ${
+                        isPaid
+                          ? "bg-green_xl dark:bg-gray_b"
+                          : "bg-red_xl dark:bg-gray_b"
+                      }`}
+                    >
+                      <div className="flex justify-between items-center mb-3">
+                        <div className="flex items-center space-x-3">
+                          <div
+                            className={`w-3 h-3 rounded-full ${
+                              isPaid ? "bg-green_500" : "bg-red_b"
+                            }`}
+                          ></div>
+                          <span className="font-semibold">
+                            {format(new Date(sale.date), "dd/MM/yyyy", {
+                              locale: es,
+                            })}
+                          </span>
+                        </div>
 
-                        <td
-                          className={`px-2 py-3 ${
-                            remainingBalance <= 0
-                              ? "text-green-600"
-                              : "text-red-600"
+                        {!isPaid && (
+                          <Button
+                            py="py-1"
+                            px="px-1"
+                            minwidth="min-w-20"
+                            colorText="text-white"
+                            colorTextHover="hover:text-white"
+                            text="Pagar"
+                            onClick={() => {
+                              setCurrentCreditSale(sale);
+                              setIsPaymentModalOpen(true);
+                              setIsInfoModalOpen(false);
+                            }}
+                          />
+                        )}
+                      </div>
+
+                      <div className="mb-3">
+                        <h4 className="text-sm font-medium mb-1">Productos:</h4>
+                        <div className="bg-white dark:bg-gray_m rounded-md p-2">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b">
+                                <th className="text-left py-1">Producto</th>
+                                <th className="text-right py-1">Cantidad</th>
+                                <th className="text-right py-1">Precio</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {sale.products.map((product, idx) => (
+                                <tr
+                                  key={idx}
+                                  className="border-b last:border-b-0"
+                                >
+                                  <td className="py-1">
+                                    {getDisplayProductName(
+                                      {
+                                        name: product.name,
+                                        size: product.size,
+                                        color: product.color,
+                                        rubro: product.rubro,
+                                      },
+                                      rubro,
+                                      true
+                                    )}
+                                  </td>
+                                  <td className="text-right py-1">
+                                    {product.quantity} {product.unit}
+                                  </td>
+                                  <td className="text-right py-1">
+                                    {product.price.toLocaleString("es-AR", {
+                                      style: "currency",
+                                      currency: "ARS",
+                                    })}
+                                  </td>
+                                </tr>
+                              ))}
+
+                              {sale.manualAmount && sale.manualAmount > 0 && (
+                                <tr className="border-b last:border-b-0">
+                                  <td className="py-1">
+                                    Monto manual adicional
+                                  </td>
+                                  <td className="text-right py-1">-</td>
+                                  <td className="text-right py-1">
+                                    {sale.manualAmount.toLocaleString("es-AR", {
+                                      style: "currency",
+                                      currency: "ARS",
+                                    })}
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-sm">
+                        <div className="bg-white dark:bg-gray_m p-2 rounded">
+                          <p className="font-medium">Total:</p>
+                          <p>
+                            {sale.total.toLocaleString("es-AR", {
+                              style: "currency",
+                              currency: "ARS",
+                            })}
+                          </p>
+                        </div>
+                        <div className="bg-white dark:bg-gray_m p-2 rounded">
+                          <p className="font-medium">Pagado:</p>
+                          <p>
+                            {totalPayments.toLocaleString("es-AR", {
+                              style: "currency",
+                              currency: "ARS",
+                            })}
+                          </p>
+                        </div>
+                        <div
+                          className={`p-2 rounded ${
+                            isPaid
+                              ? "bg-white dark:bg-green_b"
+                              : "bg-white dark:bg-red_b"
                           }`}
                         >
-                          {remainingBalance.toLocaleString("es-AR", {
-                            style: "currency",
-                            currency: "ARS",
-                          })}
-                        </td>
-                        <td
-                          className={`flex ${
-                            remainingBalance > 0
-                              ? "justify-center"
-                              : "justify-end"
-                          } items-center px-2 py-3 space-x-4`}
-                        >
-                          {remainingBalance > 0 ? (
-                            <>
-                              <Button
-                                text="Pagar"
-                                colorText="text-white"
-                                colorTextHover="text-white"
-                                onClick={() => {
-                                  setCurrentCreditSale(sale);
-                                  setIsPaymentModalOpen(true);
-                                }}
-                              />
-                              <Button
-                                text="Eliminar"
-                                colorText="text-white"
-                                colorTextHover="text-white"
-                                colorBg="bg-red-500"
-                                colorBgHover="hover:bg-red-700"
-                                onClick={() =>
-                                  handleDeleteSingleCredit(sale.id)
-                                }
-                              />
-                            </>
-                          ) : (
-                            <Button
-                              text="Eliminar"
-                              colorText="text-white"
-                              colorTextHover="text-white"
-                              colorBg="bg-red-500"
-                              colorBgHover="hover:bg-red-700"
-                              onClick={() => handleDeleteSingleCredit(sale.id)}
-                            />
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          <p className="font-medium">Saldo:</p>
+                          <p className={isPaid ? "text-green_b" : "text-red_b"}>
+                            {remainingBalance.toLocaleString("es-AR", {
+                              style: "currency",
+                              currency: "ARS",
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           </div>
         </Modal>
@@ -770,7 +910,9 @@ const FiadosPage = () => {
         <Modal
           isOpen={isPaymentModalOpen}
           onClose={() => setIsPaymentModalOpen(false)}
-          title="Registrar Pago"
+          title={`Registrar Pago - ${
+            currentCreditSale?.customerName || "Cliente"
+          }`}
           buttons={
             <>
               <Button
@@ -791,9 +933,9 @@ const FiadosPage = () => {
                 hotkey="esc"
                 text="Cancelar"
                 colorText="text-gray_b dark:text-white"
-                colorTextHover="hover:text-white hover:dark:text-white"
-                colorBg="bg-gray_xl dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_m hover:dark:bg-gray_l"
+                colorTextHover="hover:dark:text-white"
+                colorBg="bg-transparent dark:bg-gray_m"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
                 onClick={() => {
                   setIsPaymentModalOpen(false);
                   setPaymentMethods([{ method: "EFECTIVO", amount: 0 }]);
@@ -804,24 +946,43 @@ const FiadosPage = () => {
         >
           <div className="space-y-6">
             <div>
-              <p>Cliente: {currentCreditSale?.customerName || "Sin nombre"}</p>
-              <p className="flex items-center gap-4">
-                <span>Deuda pendiente:</span>
-                <span
-                  className={`px-2 py-1 rounded ${
-                    calculateRemainingBalance(currentCreditSale!) <= 0
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
-                  } font-semibold`}
-                >
-                  {calculateRemainingBalance(currentCreditSale!).toLocaleString(
-                    "es-AR",
-                    {
-                      style: "currency",
-                      currency: "ARS",
-                    }
-                  )}
-                </span>
+              <p className="flex items-center gap-2">
+                <div className="flex justify-between w-full ">
+                  <div className="flex items-center gap-2">
+                    <span>Deuda pendiente:</span>
+                    <span
+                      className={`px-2 py-1 rounded ${
+                        calculateRemainingBalance(currentCreditSale!) <= 0
+                          ? "bg-white text-green_b"
+                          : "bg-white text-red_b"
+                      } font-semibold`}
+                    >
+                      {calculateRemainingBalance(
+                        currentCreditSale!
+                      ).toLocaleString("es-AR", {
+                        style: "currency",
+                        currency: "ARS",
+                      })}
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    text="Pagar todo"
+                    colorText="text-white"
+                    colorTextHover="text-white"
+                    minwidth="min-w-20"
+                    py="py-1"
+                    px="px-2"
+                    onClick={() => {
+                      const remaining = calculateRemainingBalance(
+                        currentCreditSale!
+                      );
+                      setPaymentMethods([
+                        { method: "EFECTIVO", amount: remaining },
+                      ]);
+                    }}
+                  />
+                </div>
               </p>
             </div>
 
@@ -830,7 +991,7 @@ const FiadosPage = () => {
                 Métodos de Pago
               </label>
               {paymentMethods.map((method, index) => (
-                <div key={index} className="flex items-center gap-4">
+                <div key={index} className="flex items-center gap-2">
                   <Select
                     value={paymentOptions.find(
                       (option) => option.value === method.method
@@ -862,7 +1023,7 @@ const FiadosPage = () => {
                     <button
                       type="button"
                       onClick={() => removePaymentMethod(index)}
-                      className="text-red-500 hover:text-red-700"
+                      className="text-red_m hover:text-red_m"
                     >
                       <Trash size={16} />
                     </button>
@@ -873,7 +1034,7 @@ const FiadosPage = () => {
                 <button
                   type="button"
                   onClick={addPaymentMethod}
-                  className="cursor-pointer text-sm text-blue_b dark:text-blue_l hover:text-blue_m flex items-center transition-all duration-200"
+                  className="cursor-pointer text-sm text-blue_b dark:text-blue_l hover:text-blue_m flex items-center transition-all duration-300"
                 >
                   <Plus size={16} className="mr-1" /> Agregar otro método
                 </button>
@@ -892,7 +1053,7 @@ const FiadosPage = () => {
               </p>
               {paymentMethods.reduce((sum, m) => sum + m.amount, 0) >
                 calculateRemainingBalance(currentCreditSale!) && (
-                <p className="text-red-500 text-sm">
+                <p className="text-red_m text-sm">
                   El monto total excede la deuda pendiente
                 </p>
               )}
@@ -910,16 +1071,16 @@ const FiadosPage = () => {
                 text="Si"
                 colorText="text-white"
                 colorTextHover="text-white"
-                colorBg="bg-red-500"
-                colorBgHover="hover:bg-red-700"
+                colorBg="bg-red_b"
+                colorBgHover="hover:bg-red_m"
                 onClick={handleDeleteCustomerCredits}
               />
               <Button
                 text="No"
                 colorText="text-gray_b dark:text-white"
-                colorTextHover="hover:text-white hover:dark:text-white"
-                colorBg="bg-gray_xl dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_m hover:dark:bg-gray_l"
+                colorTextHover="hover:dark:text-white"
+                colorBg="bg-transparent dark:bg-gray_m"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
                 onClick={() => setIsDeleteModalOpen(false)}
               />
             </>
@@ -930,7 +1091,7 @@ const FiadosPage = () => {
               ¿Está seguro que desea eliminar TODOS los fiados de{" "}
               {customerToDelete}?
             </p>
-            <p className="font-semibold text-red-500">
+            <p className="font-semibold text-red_b">
               Deuda pendiente:{" "}
               {calculateCustomerBalance(customerToDelete || "").toLocaleString(
                 "es-AR",

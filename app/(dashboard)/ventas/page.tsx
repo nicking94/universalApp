@@ -13,7 +13,7 @@ import {
   UnitOption,
 } from "@/app/lib/types/types";
 import { Info, Plus, ShoppingCart, Trash } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { db } from "@/app/database/db";
 import { parseISO, format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -25,8 +25,18 @@ import { ensureCashIsOpen } from "@/app/lib/utils/cash";
 import { useRouter } from "next/navigation";
 import { formatCurrency } from "@/app/lib/utils/currency";
 import InputCash from "@/app/components/InputCash";
+import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
+import { useRubro } from "@/app/context/RubroContext";
+import { getLocalDateString } from "@/app/lib/utils/getLocalDate";
 
+type SelectOption = {
+  value: number;
+  label: string;
+  product: Product;
+  isDisabled: boolean;
+};
 const VentasPage = () => {
+  const { rubro } = useRubro();
   const currentYear = new Date().getFullYear();
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
@@ -216,21 +226,28 @@ const VentasPage = () => {
     }
   };
 
-  const productOptions: {
-    value: number;
-    label: string;
-    isDisabled?: boolean;
-  }[] = products.map((product) => {
-    const stock = Number(product.stock);
-    const isValidStock = !isNaN(stock);
+  const productOptions = useMemo(() => {
+    return products
+      .filter(
+        (product) => rubro === "todos los rubros" || product.rubro === rubro
+      )
+      .map((product) => {
+        const stock = Number(product.stock);
+        const isValidStock = !isNaN(stock);
+        const displayName = getDisplayProductName(product, rubro);
 
-    return {
-      value: product.id,
-      label:
-        isValidStock && stock > 0 ? product.name : `${product.name} (agotado)`,
-      isDisabled: !isValidStock || stock <= 0,
-    };
-  });
+        return {
+          value: product.id,
+          label:
+            isValidStock && stock > 0
+              ? displayName
+              : `${displayName} (agotado)`,
+          product: product,
+          isDisabled: !isValidStock || stock <= 0,
+        } as SelectOption;
+      });
+  }, [products, rubro]);
+
   const monthOptions = [...Array(12)].map((_, i) => {
     const month = (i + 1).toString().padStart(2, "0");
     return {
@@ -259,7 +276,11 @@ const VentasPage = () => {
         ? saleYear === selectedYear.toString()
         : true;
 
-      return matchesMonth && matchesYear;
+      const matchesRubro =
+        rubro === "todos los rubros" ||
+        sale.products.some((product) => product.rubro === rubro);
+
+      return matchesMonth && matchesYear && matchesRubro;
     })
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const showNotification = (
@@ -272,13 +293,13 @@ const VentasPage = () => {
     setIsNotificationOpen(true);
     setTimeout(() => {
       setIsNotificationOpen(false);
-    }, 3000);
+    }, 2500);
   };
   const addIncomeToDailyCash = async (
     sale: Sale & { manualAmount?: number; credit?: boolean; paid?: boolean }
   ) => {
     try {
-      const today = new Date().toISOString().split("T")[0];
+      const today = getLocalDateString();
       let dailyCash = await db.dailyCashes.get({ date: today });
 
       const movements: DailyCashMovement[] = [];
@@ -287,13 +308,20 @@ const VentasPage = () => {
         const movement: DailyCashMovement = {
           id: Date.now(),
           amount: totalSaleAmount,
-          description: "Venta",
+          description:
+            (sale.manualAmount ?? 0) > 0 && !sale.credit
+              ? `Venta con monto manual de: ${formatCurrency(
+                  sale.manualAmount ?? 0
+                )}`
+              : "Venta",
           items: sale.products.map((p) => ({
             productId: p.id,
             productName: p.name,
             quantity: p.quantity,
             unit: p.unit,
             price: p.price,
+            size: p.size,
+            color: p.color,
           })),
 
           type: "INGRESO",
@@ -315,6 +343,8 @@ const VentasPage = () => {
           isCreditPayment: sale.credit,
           originalSaleId: sale.id,
           combinedPaymentMethods: sale.paymentMethods,
+          size: sale.products[0].size,
+          color: sale.products[0].color,
         };
 
         movements.push(movement);
@@ -407,6 +437,18 @@ const VentasPage = () => {
       manualAmount: value,
       total: calculateTotal(prev.products, value),
     }));
+  };
+  const handleCreditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const isCredit = e.target.checked;
+    setIsCredit(isCredit);
+
+    if (isCredit) {
+      setNewSale((prev) => ({
+        ...prev,
+        manualAmount: 0,
+        total: calculateTotal(prev.products, 0),
+      }));
+    }
   };
   const handleMonthChange = (
     selectedOption: { value: string; label: string } | null
@@ -642,14 +684,15 @@ const VentasPage = () => {
           phone: customerPhone,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+          rubro: rubro === "todos los rubros" ? undefined : rubro,
         };
         await db.customers.add(newCustomer);
-        customerId = newCustomer.id;
         setCustomers([...customers, newCustomer]);
         setCustomerOptions([
           ...customerOptions,
           { value: newCustomer.id, label: newCustomer.name },
         ]);
+        customerId = newCustomer.id;
       }
 
       const saleToSave: CreditSale = {
@@ -740,10 +783,15 @@ const VentasPage = () => {
   useEffect(() => {
     const fetchCustomers = async () => {
       const allCustomers = await db.customers.toArray();
-      setCustomers(allCustomers);
 
+      const filtered =
+        rubro === "todos los rubros"
+          ? allCustomers
+          : allCustomers.filter((customer) => customer.rubro === rubro);
+
+      setCustomers(filtered);
       setCustomerOptions(
-        allCustomers.map((customer) => ({
+        filtered.map((customer) => ({
           value: customer.id,
           label: customer.name,
         }))
@@ -751,7 +799,7 @@ const VentasPage = () => {
     };
 
     fetchCustomers();
-  }, []);
+  }, [rubro]);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -809,17 +857,33 @@ const VentasPage = () => {
     selectedOptions: readonly {
       value: number;
       label: string;
-      isDisabled?: boolean | undefined;
+      isDisabled?: boolean;
+      product?: Product;
     }[]
   ) => {
     setNewSale((prevState) => {
-      const updatedProducts = selectedOptions
+      // Filtrar solo productos habilitados
+      const enabledOptions = selectedOptions.filter((opt) => !opt.isDisabled);
+
+      const updatedProducts = enabledOptions
         .map((option) => {
-          const product = products.find((p) => p.id === option.value);
+          const product =
+            option.product || products.find((p) => p.id === option.value);
           if (!product) return null;
-          if (Number(product.stock) <= 0) {
+
+          // Verificar stock
+          const stockInBaseUnit = convertToGrams(
+            Number(product.stock),
+            product.unit
+          );
+          const requestedInBaseUnit = convertToGrams(1, product.unit);
+
+          if (stockInBaseUnit < requestedInBaseUnit) {
             showNotification(
-              `El producto ${product.name} no tiene stock disponible`,
+              `Stock insuficiente para ${getDisplayProductName(
+                product,
+                rubro
+              )}`,
               "error"
             );
             return null;
@@ -829,16 +893,16 @@ const VentasPage = () => {
             (p) => p.id === product.id
           );
 
-          return existingProduct
-            ? existingProduct
-            : {
-                ...product,
-                quantity: 1,
-                unit: product.unit,
-                stock: Number(product.stock),
-                price: Number(product.price),
-                costPrice: Number(product.costPrice),
-              };
+          return (
+            existingProduct || {
+              ...product,
+              quantity: 1,
+              unit: product.unit,
+              stock: Number(product.stock),
+              price: Number(product.price),
+              costPrice: Number(product.costPrice),
+            }
+          );
         })
         .filter(Boolean) as Product[];
 
@@ -846,19 +910,10 @@ const VentasPage = () => {
         updatedProducts,
         prevState.manualAmount || 0
       );
-      const updatedPaymentMethods = [...prevState.paymentMethods];
-      if (updatedPaymentMethods.length > 0) {
-        const assignedAmount = updatedPaymentMethods
-          .slice(0, -1)
-          .reduce((sum, m) => sum + m.amount, 0);
-        updatedPaymentMethods[updatedPaymentMethods.length - 1].amount =
-          parseFloat((newTotal - assignedAmount).toFixed(2));
-      }
 
       return {
         ...prevState,
         products: updatedProducts,
-        paymentMethods: updatedPaymentMethods,
         total: newTotal,
       };
     });
@@ -979,15 +1034,15 @@ const VentasPage = () => {
     if (shouldRedirectToCash) {
       router.push("/caja-diaria");
     }
-  }, [shouldRedirectToCash]);
+  }, [shouldRedirectToCash, router]);
 
   return (
     <ProtectedRoute>
       <div className="px-10 2xl:px-10 py-4 text-gray_l dark:text-white h-[calc(100vh-80px)]">
-        <h1 className="text-xl 2xl:text-2xl font-semibold mb-2">Ventas</h1>
+        <h1 className="text-lg 2xl:text-xl font-semibold mb-2">Ventas</h1>
 
         <div className="flex justify-between mb-2">
-          <div className="flex w-full max-w-[20rem] gap-4">
+          <div className="flex w-full max-w-[20rem] gap-2">
             <Select
               value={monthOptions.find(
                 (option) => option.value === selectedMonth
@@ -1026,17 +1081,24 @@ const VentasPage = () => {
 
         <div className="flex flex-col justify-between h-[calc(100vh-200px)]">
           <table className="table-auto w-full text-center border-collapse overflow-y-auto shadow-sm shadow-gray_l">
-            <thead className="text-white bg-blue_b">
+            <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b">
               <tr>
                 <th className="text-sm 2xl:text-lg px-4 py-2 text-start ">
                   Producto
                 </th>
+                {rubro === "indumentaria" && (
+                  <th className="text-sm 2xl:text-lg px-4 py-2">Talle</th>
+                )}
 
-                <th className="text-sm 2xl:text-lg px-4 py-2 ">Total</th>
+                {rubro === "indumentaria" && (
+                  <th className="text-sm 2xl:text-lg px-4 py-2">Color</th>
+                )}
+
                 <th className=" text-sm 2xl:text-lg px-4 py-2 ">Fecha</th>
                 <th className="text-sm 2xl:text-lg px-4 py-2 ">
                   Forma De Pago
                 </th>
+                <th className="text-sm 2xl:text-lg px-4 py-2 ">Total</th>
                 <th className="w-40 max-w-[10rem] text-sm 2xl:text-lg px-4 py-2">
                   Acciones
                 </th>
@@ -1053,43 +1115,36 @@ const VentasPage = () => {
                   return (
                     <tr
                       key={sale.id || Date.now()}
-                      className=" text-xs 2xl:text-[.9rem] bg-white text-gray_b border-b border-gray_xl"
+                      className=" text-xs 2xl:text-[.9rem] bg-white text-gray_b border border-gray_xl"
                     >
                       <td
-                        className="font-semibold px-2 text-start uppercase border border-gray_xl truncate max-w-[200px]"
-                        title={products.map((p) => p?.name || "").join(", ")}
+                        className="font-semibold px-2 text-start capitalize border border-gray_xl truncate max-w-[200px]"
+                        title={products
+                          .map((p) => getDisplayProductName(p, rubro))
+                          .join(", ")}
                       >
-                        {products.map((p) => p?.name || "").join(", ").length >
-                        60
+                        {products
+                          .map((p) => getDisplayProductName(p, rubro))
+                          .join(", ").length > 60
                           ? products
-                              .map((p) => p?.name || "")
+                              .map((p) => getDisplayProductName(p, rubro))
                               .join(", ")
                               .slice(0, 30) + "..."
                           : products
-                              .map(
-                                (p) =>
-                                  `${p?.name || ""} x ${p?.quantity || 0}${
-                                    p?.unit || ""
-                                  }`
-                              )
+                              .map((p) => getDisplayProductName(p, rubro))
                               .join(" | ")}
                       </td>
+                      {rubro === "indumentaria" && (
+                        <td className="px-4 py-2 border border-gray_xl">
+                          {products.map((p) => p.size || "-").join(", ")}
+                        </td>
+                      )}
 
-                      <td className=" px-4 py-2 border border-gray_xl">
-                        {sale.credit ? (
-                          <span className="text-orange-500">
-                            FIADO - $
-                            {total.toLocaleString("es-AR", {
-                              minimumFractionDigits: 2,
-                            })}
-                          </span>
-                        ) : (
-                          `$${total.toLocaleString("es-AR", {
-                            minimumFractionDigits: 2,
-                          })}`
-                        )}
-                      </td>
-
+                      {rubro === "indumentaria" && (
+                        <td className="px-4 py-2 border border-gray_xl">
+                          {products.map((p) => p.color || "-").join(", ")}
+                        </td>
+                      )}
                       <td className=" px-4 py-2 border border-gray_xl">
                         {format(saleDate, "dd/MM/yyyy", { locale: es })}
                       </td>
@@ -1106,9 +1161,23 @@ const VentasPage = () => {
                           ))
                         )}
                       </td>
+                      <td className=" px-4 py-2 border border-gray_xl">
+                        {sale.credit ? (
+                          <span className="text-orange-500">
+                            FIADO - $
+                            {total.toLocaleString("es-AR", {
+                              minimumFractionDigits: 2,
+                            })}
+                          </span>
+                        ) : (
+                          `$${total.toLocaleString("es-AR", {
+                            minimumFractionDigits: 2,
+                          })}`
+                        )}
+                      </td>
 
                       <td className="px-4 py-2 border border-gray_xl">
-                        <div className="flex justify-center items-center gap-4 h-full">
+                        <div className="flex justify-center items-center gap-2 h-full">
                           <Button
                             icon={<Info size={20} />}
                             colorText="text-gray_b"
@@ -1127,7 +1196,10 @@ const VentasPage = () => {
                 })
               ) : (
                 <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
-                  <td colSpan={6} className="py-4 text-center">
+                  <td
+                    colSpan={rubro === "indumentaria" ? 7 : 6}
+                    className="py-4 text-center"
+                  >
                     <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
                       <ShoppingCart size={64} className="mb-4 text-gray_m" />
                       <p className="text-gray_m">Todavía no hay ventas.</p>
@@ -1148,26 +1220,19 @@ const VentasPage = () => {
                   <Button
                     text="Cerrar"
                     colorText="text-gray_b dark:text-white"
-                    colorTextHover="hover:text-white hover:dark:text-white"
-                    colorBg="bg-gray_xl dark:bg-gray_m"
-                    colorBgHover="hover:bg-blue_m hover:dark:bg-gray_l"
+                    colorTextHover="hover:dark:text-white"
+                    colorBg="bg-transparent dark:bg-gray_m"
+                    colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
                     onClick={() => handleCloseInfoModal()}
                   />
                 </div>
               }
             >
               <div className="space-y-6 p-4 bg-white rounded-lg shadow-sm">
-                <div className="space-y-3 p-4 bg-gray-50 rounded-md border border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">
+                <div className="space-y-3 p-4 bg-blue_xl rounded-md border border-gray_l">
+                  <h3 className="text-lg font-semibold text-gray_b border-b pb-2">
                     Resumen de Venta
                   </h3>
-
-                  <div className="flex justify-between text-base text-gray_b">
-                    <span className="font-medium ">Total:</span>
-                    <span className="font-semibold">
-                      {formatCurrency(selectedSale.total)}
-                    </span>
-                  </div>
 
                   <div className="flex justify-between text-base text-gray_b">
                     <span className="font-medium ">Fecha:</span>
@@ -1199,22 +1264,27 @@ const VentasPage = () => {
                       </div>
                     )}
                   </div>
+                  <div className="flex justify-between text-gray_b border-t text-3xl font-bold">
+                    <span className="font-medium ">Total:</span>
+                    <span className="font-semibold">
+                      {formatCurrency(selectedSale.total)}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="space-y-3 p-4 bg-gray-50 rounded-md border border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">
+                <div className="space-y-3 p-4 bg-blue_xl rounded-md border border-gray_l">
+                  <h3 className="text-lg font-semibold text-gray_b border-b pb-2">
                     Detalles de Productos
                   </h3>
-
-                  <ul className="divide-y divide-gray-200">
+                  <ul className="divide-y divide-gray_l">
                     {selectedSale.products.map((product, index) => (
                       <li
                         key={index}
                         className="py-3 flex justify-between items-center"
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray_b truncate uppercase">
-                            {product.name}
+                          <p className="text-sm font-medium text-gray_b truncate capitalize">
+                            {getDisplayProductName(product, rubro)}
                           </p>
                           <p className="text-xs text-gray_l">
                             {product.barcode
@@ -1267,9 +1337,9 @@ const VentasPage = () => {
               <Button
                 text="Cancelar"
                 colorText="text-gray_b dark:text-white"
-                colorTextHover="hover:text-white hover:dark:text-white"
-                colorBg="bg-gray_xl dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_m hover:dark:bg-gray_l"
+                colorTextHover="hover:dark:text-white"
+                colorBg="bg-transparent dark:bg-gray_m"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
                 onClick={handleCloseModal}
                 hotkey="esc"
               />
@@ -1277,9 +1347,9 @@ const VentasPage = () => {
           }
           minheight="min-h-[26rem]"
         >
-          <form onSubmit={handleConfirmAddSale} className="flex flex-col gap-4">
+          <form onSubmit={handleConfirmAddSale} className="flex flex-col gap-2">
             <div className="w-full flex items-center space-x-4">
-              <div className="w-full">
+              <div className="w-full ">
                 <label className="block text-sm font-medium text-gray_m dark:text-white">
                   Escanear código de barras
                 </label>
@@ -1307,27 +1377,34 @@ const VentasPage = () => {
                 >
                   Productos
                 </label>
-                <Select<
-                  { value: number; label: string; isDisabled?: boolean },
-                  true
-                >
-                  id="productSelect"
-                  isOptionDisabled={(option) => option.isDisabled ?? false}
-                  options={productOptions}
+                <Select
                   isMulti
-                  onChange={handleProductSelect}
+                  options={productOptions}
                   value={newSale.products.map((p) => ({
                     value: p.id,
-                    label: p.name,
+                    label: getDisplayProductName(p, rubro, true),
+                    product: p,
+                    isDisabled: false,
                   }))}
-                  placeholder="Seleccione productos"
+                  onChange={handleProductSelect}
+                  formatOptionLabel={(option: SelectOption) =>
+                    `${option.label}${option.isDisabled ? " (Sin stock)" : ""}`
+                  }
+                  getOptionValue={(option: SelectOption) =>
+                    option.value.toString()
+                  }
+                  isOptionDisabled={(option: SelectOption) => option.isDisabled}
+                  closeMenuOnSelect={false}
+                  placeholder="Buscar productos..."
+                  noOptionsMessage={() => "No hay productos disponibles"}
                   className="text-black"
+                  classNamePrefix="react-select"
                 />
               </div>
             </div>
             {newSale.products.length > 0 && (
               <table className="table-auto w-full  ">
-                <thead className=" bg-blue_b text-white text-sm 2xl:text-lg">
+                <thead className=" bg-gradient-to-bl from-blue_m to-blue_b text-white text-sm 2xl:text-lg">
                   <tr>
                     <th className="px-4 py-2">Producto</th>
                     <th className="px-4 py-2 text-center">Unidad</th>
@@ -1346,22 +1423,27 @@ const VentasPage = () => {
                           {product.name.toUpperCase()}
                         </td>
                         <td className="w-40 max-w-40 px-4 py-2">
-                          {" "}
-                          <Select
-                            placeholder="Unidad"
-                            options={unitOptions}
-                            value={unitOptions.find(
-                              (option) => option.value === product.unit
-                            )}
-                            onChange={(selectedOption) => {
-                              handleUnitChange(
-                                product.id,
-                                selectedOption,
-                                product.quantity
-                              );
-                            }}
-                            className="text-black "
-                          />
+                          {["Kg", "gr", "L", "ml"].includes(product.unit) ? (
+                            <Select
+                              placeholder="Unidad"
+                              options={unitOptions}
+                              value={unitOptions.find(
+                                (option) => option.value === product.unit
+                              )}
+                              onChange={(selectedOption) => {
+                                handleUnitChange(
+                                  product.id,
+                                  selectedOption,
+                                  product.quantity
+                                );
+                              }}
+                              className="text-black"
+                            />
+                          ) : (
+                            <div className="text-center py-2 text-gray_m">
+                              {product.unit}
+                            </div>
+                          )}
                         </td>
                         <td className="w-20 max-w-20 px-4 py-2  ">
                           <Input
@@ -1408,7 +1490,7 @@ const VentasPage = () => {
                         <td className=" px-4 py-2 text-center">
                           <button
                             onClick={() => handleRemoveProduct(product.id)}
-                            className="cursor-pointer hover:bg-red-500 text-gray_b hover:text-white p-1 rounded-sm transition-all duration-200"
+                            className="cursor-pointer hover:bg-red_b text-gray_b hover:text-white p-1 rounded-sm transition-all duration-300"
                           >
                             <Trash size={20} />
                           </button>
@@ -1421,12 +1503,19 @@ const VentasPage = () => {
               </table>
             )}
             <div className="flex items-center space-x-4">
-              <div className="w-full flex flex-col ">
-                <InputCash
-                  label="Monto manual (opcional)"
-                  value={newSale.manualAmount || 0}
-                  onChange={handleManualAmountChange}
-                />
+              <div className="w-full flex flex-col">
+                {isCredit ? (
+                  <div className="p-2 bg-gray-100 text-gray-800 rounded-md mt-6">
+                    <p className="font-semibold">MONTO MANUAL DESHABILITADO</p>
+                  </div>
+                ) : (
+                  <InputCash
+                    label="Monto manual (opcional)"
+                    value={newSale.manualAmount || 0}
+                    onChange={handleManualAmountChange}
+                    disabled={isCredit}
+                  />
+                )}
               </div>
 
               <div
@@ -1441,7 +1530,7 @@ const VentasPage = () => {
                 </label>
 
                 {isCredit ? (
-                  <div className="p-2 bg-orange-100 text-orange-800 rounded-md">
+                  <div className="p-2 bg-orange-100 text-orange-800 rounded-md mt-1">
                     <p className="font-semibold">
                       VENTA FIADA - Métodos de pago deshabilitados
                     </p>
@@ -1449,7 +1538,7 @@ const VentasPage = () => {
                 ) : (
                   <>
                     {newSale.paymentMethods.map((payment, index) => (
-                      <div key={index} className="flex items-center gap-4 mb-2">
+                      <div key={index} className="flex items-center gap-2 mb-2">
                         <Select
                           value={paymentOptions.find(
                             (option) => option.value === payment.method
@@ -1482,7 +1571,7 @@ const VentasPage = () => {
                               0
                             ) >
                               newSale.total + 0.1 && (
-                              <span className="text-xs text-red-500 ml-2">
+                              <span className="text-xs text-red_m ml-2">
                                 Exceso: $
                                 {(
                                   newSale.paymentMethods.reduce(
@@ -1498,7 +1587,7 @@ const VentasPage = () => {
                           <button
                             type="button"
                             onClick={() => removePaymentMethod(index)}
-                            className="cursor-pointer text-red-500 hover:text-red-700"
+                            className="cursor-pointer text-red_m hover:text-red_b"
                           >
                             <Trash size={16} />
                           </button>
@@ -1509,7 +1598,7 @@ const VentasPage = () => {
                       <button
                         type="button"
                         onClick={addPaymentMethod}
-                        className="cursor-pointer text-sm text-blue_b dark:text-blue_l hover:text-blue_m flex items-center transition-all duration-200"
+                        className="cursor-pointer text-sm text-blue_b dark:text-blue_l hover:text-blue_m flex items-center transition-all duration-300"
                       >
                         <Plus size={16} className="mr-1" /> Agregar otro método
                         de pago
@@ -1519,14 +1608,15 @@ const VentasPage = () => {
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
               <input
                 type="checkbox"
                 id="creditCheckbox"
                 checked={isCredit}
-                onChange={(e) => setIsCredit(e.target.checked)}
+                onChange={handleCreditChange}
+                className="cursor-pointer"
               />
-              <label htmlFor="creditCheckbox">Registrar Fiado</label>
+              <label>Registrar Fiado</label>
             </div>
 
             {isCredit && (
@@ -1550,6 +1640,8 @@ const VentasPage = () => {
                   placeholder="Buscar cliente..."
                   isClearable
                   className="text-black"
+                  classNamePrefix="react-select"
+                  noOptionsMessage={() => "No se encontraron clientes"}
                 />
                 <div className="flex items-center space-x-4 mt-4">
                   <Input
@@ -1575,8 +1667,8 @@ const VentasPage = () => {
                 </div>
               </div>
             )}
-            <div className="p-2 bg-gray_b dark:bg-gray_m text-white text-center mt-4">
-              <p className="font-semibold text-3xl">
+            <div className="p-4 bg-gray_b dark:bg-gray_m text-white text-center mt-4">
+              <p className="font-bold text-3xl">
                 TOTAL:{" "}
                 {newSale.total.toLocaleString("es-AR", {
                   style: "currency",
@@ -1587,7 +1679,7 @@ const VentasPage = () => {
                 newSale.paymentMethods.reduce((sum, m) => sum + m.amount, 0) -
                   newSale.total
               ) > 0.1 && (
-                <p className="text-red-500 text-sm">
+                <p className="text-red_m text-sm">
                   La suma de los métodos no coincide con el total
                 </p>
               )}
@@ -1611,9 +1703,9 @@ const VentasPage = () => {
               <Button
                 text="No"
                 colorText="text-gray_b dark:text-white"
-                colorTextHover="hover:text-white hover:dark:text-white"
-                colorBg="bg-gray_xl dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_m hover:dark:bg-gray_l"
+                colorTextHover="hover:dark:text-white"
+                colorBg="bg-transparent dark:bg-gray_m"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
                 onClick={() => setIsConfirmModalOpen(false)}
                 hotkey="esc"
               />

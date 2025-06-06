@@ -21,7 +21,7 @@ const LoginPage = () => {
       setNotificationMessage("Su periodo de prueba ha expirado");
       setNotificationType("error");
       setIsOpenNotification(true);
-      setTimeout(() => setIsOpenNotification(false), 3000);
+      setTimeout(() => setIsOpenNotification(false), 2500);
     }
 
     const initializeUsers = async () => {
@@ -100,7 +100,7 @@ const LoginPage = () => {
         setNotificationMessage("El periodo de prueba ha finalizado");
         setNotificationType("error");
         setIsOpenNotification(true);
-        setTimeout(() => setIsOpenNotification(false), 2000);
+        setTimeout(() => setIsOpenNotification(false), 2500);
         return;
       }
 
@@ -119,7 +119,7 @@ const LoginPage = () => {
             );
             setNotificationType("error");
             setIsOpenNotification(true);
-            setTimeout(() => setIsOpenNotification(false), 2000);
+            setTimeout(() => setIsOpenNotification(false), 2500);
             return;
           }
         }
@@ -136,7 +136,7 @@ const LoginPage = () => {
       setNotificationMessage("Usuario o contraseña incorrectos");
       setNotificationType("error");
       setIsOpenNotification(true);
-      setTimeout(() => setIsOpenNotification(false), 2000);
+      setTimeout(() => setIsOpenNotification(false), 2500);
       return;
     }
 
@@ -156,7 +156,7 @@ const LoginPage = () => {
         setNotificationMessage("El periodo de prueba de 1 semana ha expirado");
         setNotificationType("error");
         setIsOpenNotification(true);
-        setTimeout(() => setIsOpenNotification(false), 2000);
+        setTimeout(() => setIsOpenNotification(false), 2500);
         return;
       }
     }
@@ -169,14 +169,15 @@ const LoginPage = () => {
     setIsOpenNotification(true);
     setTimeout(() => {
       setIsOpenNotification(false);
-      router.push("/caja-diaria");
-    }, 2000);
+      router.replace("/caja-diaria");
+    }, 2500);
   };
+
   return (
     <div className="min-h-screen flex">
       <AuthForm type="login" onSubmit={handleLogin} />
-      <div className="w-[65%] xl:w-[75%]  flex flex-col justify-center bg-blue_l">
-        <div className="bg-blue_xl flex justify-center text-center relative">
+      <div className="w-[65%] xl:w-[75%]  flex flex-col justify-center bg-gradient-to-bl from-blue_m to-blue_xl">
+        <div className="bg-gradient-to-bl from-blue_xl to-blue_xl flex justify-center text-center relative">
           <div
             className="shadow-lg shadow-yellow-100 rounded-full w-75 h-75 z-10 space-y-2 flex flex-col items-center justify-center text-center relative overflow-visible"
             style={{
@@ -196,9 +197,9 @@ const LoginPage = () => {
               href="https://wa.me/5492613077147"
               target="_blank"
               rel="noopener noreferrer"
-              className="border-b-2 border-blue_xl cursor-pointer hover:text-blue-500 transition-colors duration-200"
+              className="border-b-2 border-blue_xl cursor-pointer hover:text-blue-500 transition-colors duration-300"
             >
-              <p className="text-lg text-blue_b italic hover:scale-105 transition-all duration-200">
+              <p className="text-lg text-blue_b italic hover:scale-105 transition-all duration-300">
                 Whatsapp: +54 26130771477
               </p>
             </a>

@@ -22,7 +22,7 @@ const Modal: React.FC<ModalProps> = ({
       if (e.key === "Enter") {
         e.preventDefault();
         onConfirm?.();
-      } else if (e.key === "esc") {
+      } else if (e.key === "Escape") {
         e.preventDefault();
         onClose?.();
       }
@@ -41,12 +41,13 @@ const Modal: React.FC<ModalProps> = ({
       <div
         className={`${bgColor} min-h-[10rem] w-[64rem] rounded-sm shadow-lg shadow-gray_b p-10 text-gray_b dark:text-white flex flex-col`}
       >
-        <h2 className="text-xl font-bold  ">{title}</h2>
+        <h2 className="text-xl font-bold">{title}</h2>
 
         <div
-          className={`overflow-y-auto ${minheight} max-h-[66vh] py-10 flex-1`}
+          className={`overflow-y-auto ${minheight} py-10 flex-1`}
+          style={{ overflow: "visible" }}
         >
-          {children}
+          <div style={{ position: "relative" }}>{children}</div>
         </div>
         <div className="flex justify-end space-x-4 ">
           {buttons ? (
@@ -65,9 +66,9 @@ const Modal: React.FC<ModalProps> = ({
               <Button
                 text="Cancelar"
                 colorText="text-gray_b dark:text-white"
-                colorTextHover="hover:text-white hover:dark:text-white"
-                colorBg="bg-gray_xl dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_m hover:dark:bg-gray_l"
+                colorTextHover="hover:dark:text-white"
+                colorBg="bg-transparent dark:bg-gray_m"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
                 onClick={onClose}
                 type="button"
               />

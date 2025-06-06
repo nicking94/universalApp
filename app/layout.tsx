@@ -3,6 +3,8 @@ import { Roboto } from "next/font/google";
 import "./globals.css";
 import { SidebarProvider } from "./context/SidebarContext";
 import SessionChecker from "./components/SessionChecker";
+import { RubroProvider } from "./context/RubroContext";
+import { NotificationProvider } from "./context/NotificationContext";
 
 const roboto = Roboto({
   variable: "--font-roboto",
@@ -12,7 +14,7 @@ const roboto = Roboto({
 });
 
 export const metadata: Metadata = {
-  title: "Universal App | Kioskos",
+  title: "Universal App",
   description:
     "Software de gestión para PyMEs. Métricas, Stock, Ventas, Cuentas corrientes, Proveedores y más...",
   icons: {
@@ -26,14 +28,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <SidebarProvider>
-      <html lang="es">
-        <body className={` ${roboto.variable} antialiased hidden md:block`}>
-          <main>
-            {children} <SessionChecker />
-          </main>
-        </body>
-      </html>
-    </SidebarProvider>
+    <NotificationProvider>
+      <RubroProvider>
+        <SidebarProvider>
+          <html lang="es">
+            <body
+              className={` ${roboto.variable} antialiased hidden md:block capitalize`}
+            >
+              <main>
+                {children} <SessionChecker />
+              </main>
+            </body>
+          </html>
+        </SidebarProvider>
+      </RubroProvider>
+    </NotificationProvider>
   );
 }

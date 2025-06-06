@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
 import Input from "./Input";
+import { Barcode } from "lucide-react";
 
 interface BarcodeScannerProps {
   value: string;
@@ -14,7 +15,7 @@ export default function BarcodeScanner({
   value,
   onChange,
   onScanComplete,
-  placeholder = "Escanea un código de barras",
+  placeholder = "Escanear o ingresar código manualmente",
 }: BarcodeScannerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -60,6 +61,7 @@ export default function BarcodeScanner({
       onChange={handleBarcodeChange}
       placeholder={placeholder}
       autoFocus={true}
+      icon={<Barcode size={20} />}
     />
   );
 }

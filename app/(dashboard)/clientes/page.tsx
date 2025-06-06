@@ -10,9 +10,12 @@ import Notification from "@/app/components/Notification";
 import Pagination from "@/app/components/Pagination";
 import { Edit, Plus, Trash, Users } from "lucide-react";
 import SearchBar from "@/app/components/SearchBar";
+import { useRubro } from "@/app/context/RubroContext";
 
 const ClientesPage = () => {
+  const { rubro } = useRubro();
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newCustomer, setNewCustomer] = useState<
     Omit<Customer, "id" | "createdAt" | "updatedAt">
@@ -20,6 +23,7 @@ const ClientesPage = () => {
     name: "",
     phone: "",
   });
+
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(
     null
@@ -37,16 +41,24 @@ const ClientesPage = () => {
   useEffect(() => {
     const fetchCustomers = async () => {
       const allCustomers = await db.customers.toArray();
-      setCustomers(allCustomers);
-    };
-    fetchCustomers();
-  }, []);
 
-  const filteredCustomers = customers.filter(
-    (customer) =>
-      customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      customer.phone?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+      const filtered = allCustomers.filter((customer) => {
+        if (rubro === "todos los rubros") return true;
+        return customer.rubro === rubro;
+      });
+
+      const searched = filtered.filter(
+        (customer) =>
+          customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          customer.phone?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+
+      setCustomers(allCustomers);
+      setFilteredCustomers(searched);
+    };
+
+    fetchCustomers();
+  }, [rubro, searchQuery]);
 
   const indexOfLastCustomer = currentPage * customersPerPage;
   const indexOfFirstCustomer = indexOfLastCustomer - customersPerPage;
@@ -62,7 +74,7 @@ const ClientesPage = () => {
     setNotificationMessage(message);
     setNotificationType(type);
     setIsNotificationOpen(true);
-    setTimeout(() => setIsNotificationOpen(false), 3000);
+    setTimeout(() => setIsNotificationOpen(false), 2500);
   };
 
   const handleAddCustomer = async () => {
@@ -85,12 +97,14 @@ const ClientesPage = () => {
         ...newCustomer,
         id: generateCustomerId(newCustomer.name),
         name: newCustomer.name.toUpperCase().trim(),
+        rubro: rubro === "todos los rubros" ? undefined : rubro,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
       await db.customers.add(customerToAdd);
       setCustomers([...customers, customerToAdd]);
+      setFilteredCustomers([...filteredCustomers, customerToAdd]);
       setNewCustomer({ name: "", phone: "" });
       setIsModalOpen(false);
       showNotification("Cliente agregado correctamente", "success");
@@ -132,6 +146,9 @@ const ClientesPage = () => {
       }
 
       await db.customers.delete(customerToDelete.id);
+      setFilteredCustomers(
+        filteredCustomers.filter((c) => c.id !== customerToDelete.id)
+      );
       setCustomers(customers.filter((c) => c.id !== customerToDelete.id));
       showNotification("Cliente eliminado correctamente", "success");
     } catch (error) {
@@ -172,8 +189,10 @@ const ClientesPage = () => {
         ...editingCustomer,
         name: newCustomer.name.toUpperCase().trim(),
         phone: newCustomer.phone,
+        rubro: rubro === "todos los rubros" ? undefined : rubro,
         updatedAt: new Date().toISOString(),
       };
+
       await db.transaction("rw", db.customers, db.sales, async () => {
         await db.customers.update(editingCustomer.id, updatedCustomer);
 
@@ -191,11 +210,19 @@ const ClientesPage = () => {
         );
       });
 
+      // Actualiza ambos estados
       setCustomers(
         customers.map((c) =>
           c.id === editingCustomer.id ? updatedCustomer : c
         )
       );
+
+      setFilteredCustomers(
+        filteredCustomers.map((c) =>
+          c.id === editingCustomer.id ? updatedCustomer : c
+        )
+      );
+
       setNewCustomer({ name: "", phone: "" });
       setEditingCustomer(null);
       setIsModalOpen(false);
@@ -214,7 +241,7 @@ const ClientesPage = () => {
   return (
     <ProtectedRoute>
       <div className="px-10 2xl:px-10 py-4 text-gray_l dark:text-white h-[calc(100vh-80px)]">
-        <h1 className="text-xl 2xl:text-2xl font-semibold mb-2">Clientes</h1>
+        <h1 className="text-lg 2xl:text-xl font-semibold mb-2">Clientes</h1>
 
         <div className="flex justify-between mb-2">
           <div className="w-full max-w-md">
@@ -231,7 +258,7 @@ const ClientesPage = () => {
 
         <div className="flex flex-col justify-between h-[calc(100vh-200px)]">
           <table className="table-auto w-full text-center border-collapse shadow-sm shadow-gray_l">
-            <thead className="text-white bg-blue_b text-sm 2xl:text-lg">
+            <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-sm 2xl:text-lg">
               <tr>
                 <th className="px-4 py-2 text-start">Nombre</th>
                 <th className="px-4 py-2">Teléfono</th>
@@ -253,7 +280,7 @@ const ClientesPage = () => {
                       {new Date(customer.createdAt).toLocaleDateString("es-AR")}
                     </td>
                     <td className="px-4 py-2 border border-gray_xl">
-                      <div className="flex justify-center items-center gap-4 h-full">
+                      <div className="flex justify-center items-center gap-2 h-full">
                         <Button
                           icon={<Edit size={20} />}
                           colorText="text-gray_b"
@@ -271,7 +298,7 @@ const ClientesPage = () => {
                           colorText="text-gray_b"
                           colorTextHover="hover:text-white"
                           colorBg="bg-transparent"
-                          colorBgHover="hover:bg-red-500"
+                          colorBgHover="hover:bg-red_b"
                           px="px-1"
                           py="py-1"
                           minwidth="min-w-0"
@@ -336,9 +363,9 @@ const ClientesPage = () => {
               <Button
                 text="Cancelar"
                 colorText="text-gray_b dark:text-white"
-                colorTextHover="hover:text-white hover:dark:text-white"
-                colorBg="bg-gray_xl dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_m hover:dark:bg-gray_l"
+                colorTextHover="hover:dark:text-white"
+                colorBg="bg-transparent dark:bg-gray_m"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
                 onClick={() => {
                   setIsModalOpen(false);
                   setEditingCustomer(null);
@@ -380,17 +407,17 @@ const ClientesPage = () => {
                 text="Eliminar"
                 colorText="text-white"
                 colorTextHover="text-white"
-                colorBg="bg-red-500"
-                colorBgHover="hover:bg-red-700"
+                colorBg="bg-red_b"
+                colorBgHover="hover:bg-red_m"
                 onClick={handleConfirmDelete}
                 hotkey="enter"
               />
               <Button
                 text="Cancelar"
                 colorText="text-gray_b dark:text-white"
-                colorTextHover="hover:text-white hover:dark:text-white"
-                colorBg="bg-gray_xl dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_m hover:dark:bg-gray_l"
+                colorTextHover="hover:dark:text-white"
+                colorBg="bg-transparent dark:bg-gray_m"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
                 onClick={() => setIsDeleteModalOpen(false)}
                 hotkey="esc"
               />

@@ -41,7 +41,7 @@ export default function ImportExportPage() {
       const blob = new Blob([json], { type: "application/json;charset=utf-8" });
       const formattedDate = format(new Date(), "dd-MM-yyyy");
 
-      saveAs(blob, `backup-${formattedDate}.json`);
+      saveAs(blob, `copia del dia ${formattedDate}.json`);
     } catch (error) {
       console.error("Error al exportar datos:", error);
       showNotification("Error al exportar los datos", "error");
@@ -110,7 +110,7 @@ export default function ImportExportPage() {
   return (
     <ProtectedRoute>
       <div className="px-10 py-3 2xl:p-10 text-gray_l dark:text-white h-[calc(100vh-80px)] relative">
-        <h1 className="text-xl 2xl:text-2xl font-semibold mb-2">
+        <h1 className="text-lg 2xl:text-xl font-semibold mb-2">
           Importar o Exportar Datos
         </h1>
         <div className="h-[calc(100vh-160px)] 2xl:h-[80vh] flex items-center justify-center gap-10">
@@ -122,9 +122,9 @@ export default function ImportExportPage() {
             disabled={loading}
             text="Exportar Datos"
             colorText="text-gray_b dark:text-white"
-            colorTextHover="hover:text-white"
-            colorBg="bg-blue_xl dark:bg-gray_m"
-            colorBgHover="hover:bg-blue_l dark:hover:bg-gray_l"
+            colorTextHover="hover:text-white "
+            colorBg="bg-gray_xl border-b-1 dark:bg-gray_m"
+            colorBgHover="hover:bg-blue_l hover:dark:bg-gray_l"
           />
         </div>
         <p className="text-xs text-center font-light text-gray_l dark:text-gray_l italic">

@@ -12,13 +12,15 @@
   --color-blue_xl: #eaf6ff;
   --color-blue_l: #85c1e9;
   --color-blue_m: #3498db;
-  --color-blue_b: #21618c;
-
+  --color-blue_b: #2e7cbf;
+  --color-green_xl: #f0fff4;
   --color-green_l: #a3e4d7;
   --color-green_m: #2ecc71;
   --color-green_b: #1e8449;
-
-  --color-error: #e74c3c;
+  --color-red_xl: #fff5f5;
+  --color-red_l: #f2dede;
+  --color-red_m: #e74c3c;
+  --color-red_b: #c0392b;
 }
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {

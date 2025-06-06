@@ -44,10 +44,10 @@ const Pagination: React.FC<PaginationProps> = ({
 
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between ">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2">
         <label
           htmlFor="items-per-page"
-          className="text-sm text-gray-600 dark:text-gray-300"
+          className="text-sm text-gray_m dark:text-gray_l"
         >
           {text}
         </label>
@@ -66,7 +66,7 @@ const Pagination: React.FC<PaginationProps> = ({
         </select>
       </div>
       <nav aria-label="Paginación">
-        <ul className="flex items-center gap-4">
+        <ul className="flex items-center gap-2">
           <li>
             <button
               onClick={handlePrevious}
@@ -74,8 +74,8 @@ const Pagination: React.FC<PaginationProps> = ({
               aria-label="Página anterior"
               className={`cursor-pointer p-2 rounded-md ${
                 currentPage === 1
-                  ? "text-gray-400 "
-                  : "text-gray-700 hover:bg-gray-100"
+                  ? "text-gray_m "
+                  : "text-gray_b hover:bg-blue_xl"
               }`}
             >
               <ChevronLeft size={20} aria-hidden="true" />
@@ -94,7 +94,7 @@ const Pagination: React.FC<PaginationProps> = ({
           )}
           {currentPage > 3 && (
             <li>
-              <span className="px-2 text-gray-500">...</span>
+              <span className="px-2 text-gray_m">...</span>
             </li>
           )}
 
@@ -112,7 +112,7 @@ const Pagination: React.FC<PaginationProps> = ({
           <li>
             <button
               aria-current="page"
-              className="cursor-pointer px-3 py-1 rounded-md text-sm font-medium bg-blue_b text-white"
+              className="cursor-pointer px-3 py-1 rounded-md text-sm font-medium bg-gradient-to-bl from-blue_m to-blue_b text-white"
             >
               {currentPage}
             </button>
@@ -130,7 +130,7 @@ const Pagination: React.FC<PaginationProps> = ({
           )}
           {currentPage < totalPages - 2 && (
             <li>
-              <span className="px-2 text-gray-500">...</span>
+              <span className="px-2 text-gray_m">...</span>
             </li>
           )}
 
@@ -152,8 +152,8 @@ const Pagination: React.FC<PaginationProps> = ({
               aria-label="Página siguiente"
               className={`cursor-pointer p-2 rounded-md ${
                 currentPage === totalPages
-                  ? "text-gray-400 "
-                  : "text-gray-700 hover:bg-gray-100"
+                  ? "text-gray_m "
+                  : "text-gray_b hover:bg-blue_xl"
               }`}
             >
               <ChevronRight size={20} aria-hidden="true" />
@@ -162,7 +162,7 @@ const Pagination: React.FC<PaginationProps> = ({
         </ul>
       </nav>
 
-      <div className="text-sm text-gray-600 dark:text-gray-300">
+      <div className="text-sm text-gray_m dark:text-gray_l">
         {text2}: <span className="font-medium">{totalItems}</span>
       </div>
     </div>

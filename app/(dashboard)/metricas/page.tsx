@@ -2,7 +2,7 @@
 
 import ProtectedRoute from "@/app/components/ProtectedRoute";
 import { db } from "@/app/database/db";
-import { DailyCash } from "@/app/lib/types/types";
+import { DailyCash, Product, Rubro } from "@/app/lib/types/types";
 
 import {
   parseISO,
@@ -29,6 +29,9 @@ import {
 } from "chart.js";
 import { Bar, Pie, Line } from "react-chartjs-2";
 import { formatCurrency } from "@/app/lib/utils/currency";
+import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
+import { useRubro } from "@/app/context/RubroContext";
+import { getLocalDateString } from "@/app/lib/utils/getLocalDate";
 
 ChartJS.register(
   BarElement,
@@ -42,6 +45,8 @@ ChartJS.register(
 );
 
 const Metrics = () => {
+  const { rubro } = useRubro();
+  const [products, setProducts] = useState<Product[]>([]);
   const [monthlyRankingUnit, setMonthlyRankingUnit] = useState<
     "unidad" | "kg" | "litro"
   >("unidad");
@@ -61,7 +66,7 @@ const Metrics = () => {
       const storedDailyCashes = await db.dailyCashes.toArray();
       setDailyCashes(storedDailyCashes);
 
-      const today = new Date().toISOString().split("T")[0];
+      const today = getLocalDateString();
       const todayCash = storedDailyCashes.find((dc) => dc.date === today);
       setCurrentDailyCash(todayCash || null);
       const years = new Set<number>();
@@ -74,17 +79,31 @@ const Metrics = () => {
 
     fetchData();
   }, []);
+  useEffect(() => {
+    const fetchProducts = async () => {
+      const response = await db.products.toArray();
+      setProducts(response);
+    };
+
+    fetchProducts();
+  }, []);
+  useEffect(() => {
+    if (rubro === "indumentaria") {
+      setMonthlyRankingUnit("unidad");
+      setYearlyRankingUnit("unidad");
+    }
+  }, [rubro]);
 
   const unitOptions = [
     { value: "unidad", label: "Unidad" },
     { value: "kg", label: "Kilogramo" },
     { value: "litro", label: "Litro" },
   ];
-
   const getProductMovements = (
-    period: "day" | "month" | "year",
+    period: "month" | "year",
     unit: "unidad" | "kg" | "litro"
   ) => {
+    const effectiveUnit = rubro === "indumentaria" ? "unidad" : unit;
     let filteredCashes = dailyCashes;
 
     if (period === "month") {
@@ -100,6 +119,7 @@ const Metrics = () => {
     } else if (period === "day" && currentDailyCash) {
       filteredCashes = [currentDailyCash];
     }
+
     const productMap = new Map<
       number,
       {
@@ -108,46 +128,59 @@ const Metrics = () => {
         amount: number;
         profit: number;
         unit: string;
+        rubro: Rubro;
       }
     >();
-
     filteredCashes.forEach((cash) => {
       cash.movements.forEach((movement) => {
         if (movement.type === "INGRESO" && movement.items) {
           movement.items.forEach((item) => {
-            const existing = productMap.get(item.productId) || {
-              name: item.productName,
-              quantity: 0,
-              amount: 0,
-              profit: 0,
-              unit: item.unit || "Unid.",
-            };
+            const product = products.find((p) => p.id === item.productId);
+            if (
+              product &&
+              (rubro === "todos los rubros" || product.rubro === rubro)
+            ) {
+              const existing = productMap.get(item.productId) || {
+                name: item.productName,
+                quantity: 0,
+                amount: 0,
+                profit: 0,
+                unit: item.unit || "Unid.",
+                rubro: product.rubro,
+              };
 
-            let quantityToAdd = item.quantity || 0;
-            if (item.unit === "gr") {
-              quantityToAdd = quantityToAdd / 1000;
-            } else if (item.unit === "ml") {
-              quantityToAdd = quantityToAdd / 1000;
+              let quantityToAdd = item.quantity || 0;
+              if (item.unit === "gr" || item.unit === "ml") {
+                quantityToAdd = quantityToAdd / 1000;
+              }
+
+              const profitPerUnit =
+                (item.price || 0) -
+                (movement.costPrice || 0) / (movement.quantity || 1);
+
+              productMap.set(item.productId, {
+                name: existing.name,
+                quantity: existing.quantity + quantityToAdd,
+                amount: existing.amount + item.price * item.quantity,
+                profit: existing.profit + profitPerUnit * item.quantity,
+                unit: existing.unit,
+                rubro: existing.rubro,
+              });
             }
-
-            const profitPerUnit =
-              (item.price || 0) -
-              (movement.costPrice || 0) / (movement.quantity || 1);
-
-            productMap.set(item.productId, {
-              name: existing.name,
-              quantity: existing.quantity + quantityToAdd,
-              amount: existing.amount + item.price * item.quantity,
-              profit: existing.profit + profitPerUnit * item.quantity,
-              unit: existing.unit,
-            });
           });
         }
       });
     });
 
     const allProducts = Array.from(productMap.values())
-      .map(({ name, quantity, amount, profit, unit }) => {
+      .map(({ name, quantity, amount, profit, unit, rubro }) => {
+        const productInfo = {
+          name,
+          size: products.find((p) => p.name === name)?.size,
+          color: products.find((p) => p.name === name)?.color,
+          rubro,
+        };
+
         let displayQuantity = quantity;
         let displayUnit = unit;
 
@@ -164,7 +197,7 @@ const Metrics = () => {
         }
 
         return {
-          name,
+          name: getDisplayProductName(productInfo, rubro),
           quantity,
           displayQuantity,
           displayUnit,
@@ -176,9 +209,11 @@ const Metrics = () => {
       .sort((a, b) => b.quantity - a.quantity);
 
     const filteredProducts = allProducts.filter((product) => {
-      if (unit === "unidad") return product.originalUnit === "Unid.";
-      if (unit === "kg") return ["Kg", "gr"].includes(product.originalUnit);
-      if (unit === "litro") return ["L", "ml"].includes(product.originalUnit);
+      if (effectiveUnit === "unidad") return product.originalUnit === "Unid.";
+      if (effectiveUnit === "kg")
+        return ["Kg", "gr"].includes(product.originalUnit);
+      if (effectiveUnit === "litro")
+        return ["L", "ml"].includes(product.originalUnit);
       return true;
     });
 
@@ -210,7 +245,20 @@ const Metrics = () => {
         (acc, cash) => {
           const ingresos = cash.movements
             .filter((m) => m.type === "INGRESO")
-            .reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+            .reduce((sum, m) => {
+              if (rubro === "todos los rubros")
+                return sum + (Number(m.amount) || 0);
+              const itemsTotal =
+                m.items?.reduce((itemSum, item) => {
+                  const product = products.find((p) => p.id === item.productId);
+                  if (product && product.rubro === rubro) {
+                    return itemSum + item.price * item.quantity;
+                  }
+                  return itemSum;
+                }, 0) || 0;
+
+              return sum + itemsTotal;
+            }, 0);
 
           const egresos = cash.movements
             .filter((m) => m.type === "EGRESO")
@@ -219,13 +267,29 @@ const Metrics = () => {
           const ganancia = cash.movements
             .filter((m) => m.type === "INGRESO")
             .reduce((sum, m) => {
-              if (m.profit !== undefined) {
-                return sum + m.profit;
+              if (rubro === "todos los rubros") {
+                if (m.profit !== undefined) return sum + m.profit;
+                const costPrice = m.costPrice || 0;
+                const sellPrice = m.sellPrice || 0;
+                const quantity = m.quantity || 0;
+                return sum + (sellPrice - costPrice) * quantity;
               }
-              const costPrice = m.costPrice || 0;
-              const sellPrice = m.sellPrice || 0;
-              const quantity = m.quantity || 0;
-              return sum + (sellPrice - costPrice) * quantity;
+              const itemsProfit =
+                m.items?.reduce((itemSum, item) => {
+                  const product = products.find((p) => p.id === item.productId);
+                  if (product && product.rubro === rubro) {
+                    const costPrice = m.costPrice || 0;
+                    const sellPrice = item.price || 0;
+                    const quantity = item.quantity || 0;
+                    return (
+                      itemSum +
+                      (sellPrice - costPrice / (m.quantity || 1)) * quantity
+                    );
+                  }
+                  return itemSum;
+                }, 0) || 0;
+
+              return sum + itemsProfit;
             }, 0);
 
           return {
@@ -247,20 +311,52 @@ const Metrics = () => {
         (acc, cash) => {
           const ingresos = cash.movements
             .filter((m) => m.type === "INGRESO")
-            .reduce((sum, m) => sum + m.amount, 0);
+            .reduce((sum, m) => {
+              if (rubro === "todos los rubros") return sum + m.amount;
+
+              const itemsTotal =
+                m.items?.reduce((itemSum, item) => {
+                  const product = products.find((p) => p.id === item.productId);
+                  if (product && product.rubro === rubro) {
+                    return itemSum + item.price * item.quantity;
+                  }
+                  return itemSum;
+                }, 0) || 0;
+
+              return sum + itemsTotal;
+            }, 0);
+
           const egresos = cash.movements
             .filter((m) => m.type === "EGRESO")
             .reduce((sum, m) => sum + m.amount, 0);
+
           const ganancia = cash.movements
             .filter((m) => m.type === "INGRESO")
             .reduce((sum, m) => {
-              if (m.profit !== undefined) {
-                return sum + m.profit;
+              if (rubro === "todos los rubros") {
+                if (m.profit !== undefined) return sum + m.profit;
+                const costPrice = m.costPrice || 0;
+                const sellPrice = m.sellPrice || 0;
+                const quantity = m.quantity || 0;
+                return sum + (sellPrice - costPrice) * quantity;
               }
-              const costPrice = m.costPrice || 0;
-              const sellPrice = m.sellPrice || 0;
-              const quantity = m.quantity || 0;
-              return sum + (sellPrice - costPrice) * quantity;
+
+              const itemsProfit =
+                m.items?.reduce((itemSum, item) => {
+                  const product = products.find((p) => p.id === item.productId);
+                  if (product && product.rubro === rubro) {
+                    const costPrice = m.costPrice || 0;
+                    const sellPrice = item.price || 0;
+                    const quantity = item.quantity || 0;
+                    return (
+                      itemSum +
+                      (sellPrice - costPrice / (m.quantity || 1)) * quantity
+                    );
+                  }
+                  return itemSum;
+                }, 0) || 0;
+
+              return sum + itemsProfit;
             }, 0);
 
           return {
@@ -284,19 +380,53 @@ const Metrics = () => {
       if (dailyCash) {
         const ingresos = dailyCash.movements
           .filter((m) => m.type === "INGRESO")
-          .reduce((sum, m) => sum + m.amount, 0);
+          .reduce((sum, m) => {
+            if (rubro === "todos los rubros") return sum + m.amount;
+
+            // Filtrar por rubro si no es "todos"
+            const itemsTotal =
+              m.items?.reduce((itemSum, item) => {
+                const product = products.find((p) => p.id === item.productId);
+                if (product && product.rubro === rubro) {
+                  return itemSum + item.price * item.quantity;
+                }
+                return itemSum;
+              }, 0) || 0;
+
+            return sum + itemsTotal;
+          }, 0);
 
         const egresos = dailyCash.movements
           .filter((m) => m.type === "EGRESO")
           .reduce((sum, m) => sum + Math.abs(Number(m.amount)) || 0, 0);
+
         const ganancia = dailyCash.movements
           .filter((m) => m.type === "INGRESO")
           .reduce((sum, m) => {
-            if (m.profit !== undefined) return sum + m.profit;
-            const costPrice = m.costPrice || 0;
-            const sellPrice = m.sellPrice || 0;
-            const quantity = m.quantity || 0;
-            return sum + (sellPrice - costPrice) * quantity;
+            if (rubro === "todos los rubros") {
+              if (m.profit !== undefined) return sum + m.profit;
+              const costPrice = m.costPrice || 0;
+              const sellPrice = m.sellPrice || 0;
+              const quantity = m.quantity || 0;
+              return sum + (sellPrice - costPrice) * quantity;
+            }
+
+            const itemsProfit =
+              m.items?.reduce((itemSum, item) => {
+                const product = products.find((p) => p.id === item.productId);
+                if (product && product.rubro === rubro) {
+                  const costPrice = m.costPrice || 0;
+                  const sellPrice = item.price || 0;
+                  const quantity = item.quantity || 0;
+                  return (
+                    itemSum +
+                    (sellPrice - costPrice / (m.quantity || 1)) * quantity
+                  );
+                }
+                return itemSum;
+              }, 0) || 0;
+
+            return sum + itemsProfit;
           }, 0);
 
         return { date: format(day, "dd"), ingresos, egresos, ganancia };
@@ -317,21 +447,61 @@ const Metrics = () => {
           (acc, cash) => {
             const ingresos = cash.movements
               .filter((m) => m.type === "INGRESO")
-              .reduce((sum, m) => sum + m.amount, 0);
+              .reduce((sum, m) => {
+                if (rubro === "todos los rubros") return sum + m.amount;
+
+                // Filtrar ingresos por rubro
+                const itemsTotal =
+                  m.items?.reduce((itemSum, item) => {
+                    const product = products.find(
+                      (p) => p.id === item.productId
+                    );
+                    if (product && product.rubro === rubro) {
+                      return itemSum + item.price * item.quantity;
+                    }
+                    return itemSum;
+                  }, 0) || 0;
+
+                return sum + itemsTotal;
+              }, 0);
+
             const egresos = cash.movements
               .filter((m) => m.type === "EGRESO")
-              .reduce((sum, m) => sum + m.amount, 0);
+              .reduce((sum, m) => sum + Math.abs(Number(m.amount)) || 0, 0);
+
             const ganancia = cash.movements
               .filter((m) => m.type === "INGRESO")
               .reduce((sum, m) => {
-                if (m.sellPrice && m.costPrice && m.quantity) {
-                  return (
-                    sum +
-                    (Number(m.sellPrice) - Number(m.costPrice)) *
-                      Number(m.quantity)
-                  );
+                if (rubro === "todos los rubros") {
+                  if (m.sellPrice && m.costPrice && m.quantity) {
+                    return (
+                      sum +
+                      (Number(m.sellPrice) - Number(m.costPrice)) *
+                        Number(m.quantity)
+                    );
+                  }
+                  return sum;
                 }
-                return sum;
+
+                // Filtrar ganancias por rubro
+                const itemsProfit =
+                  m.items?.reduce((itemSum, item) => {
+                    const product = products.find(
+                      (p) => p.id === item.productId
+                    );
+                    if (product && product.rubro === rubro) {
+                      const costPrice = m.costPrice || 0;
+                      const sellPrice = item.price || 0;
+                      const quantity = item.quantity || 0;
+                      return (
+                        itemSum +
+                        (sellPrice - costPrice / (m.quantity || 1)) * quantity
+                      );
+                    }
+                    return itemSum;
+                  }, 0) || 0;
+
+                return sum + itemsProfit;
               }, 0);
 
             return {
@@ -438,14 +608,14 @@ const Metrics = () => {
   return (
     <ProtectedRoute>
       <div className="px-10 2xl:px-10 py-4 text-gray_l dark:text-white h-[calc(100vh-80px)]">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-2 gap-4">
-          <h1 className="text-xl 2xl:text-2xl font-semibold ">Métricas</h1>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-2 gap-2">
+          <h1 className="text-lg 2xl:text-xl font-semibold ">Métricas</h1>
 
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
             <div className="flex items-center gap-2">
               <label
                 htmlFor="month"
-                className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                className="text-sm font-medium text-gray_b dark:text-gray_l"
               >
                 Mes:
               </label>
@@ -453,7 +623,7 @@ const Metrics = () => {
                 id="month"
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-1 text-sm"
+                className="bg-white dark:bg-gray_b border border-gray_l dark:border-gray_m rounded-md px-3 py-1 text-sm"
               >
                 {Array.from({ length: 12 }, (_, i) => (
                   <option key={i + 1} value={i + 1}>
@@ -468,7 +638,7 @@ const Metrics = () => {
             <div className="flex items-center gap-2">
               <label
                 htmlFor="year"
-                className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                className="text-sm font-medium text-gray_b dark:text-gray_l"
               >
                 Año:
               </label>
@@ -476,7 +646,7 @@ const Metrics = () => {
                 id="year"
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-1 text-sm"
+                className="bg-white dark:bg-gray_b border border-gray_l dark:border-gray_m rounded-md px-3 py-1 text-sm"
               >
                 {availableYears.map((year) => (
                   <option key={year} value={year}>
@@ -489,12 +659,12 @@ const Metrics = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-5 border border-gray-100 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray_b rounded-xl shadow-md shadow-gray_m p-5 border border-gray_xl dark:border-gray_b ">
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <span className="bg-purple-100 dark:bg-purple-900 p-2 rounded-full">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 text-purple-500 dark:text-purple-300"
+                  className="h-5 w-5 text-purple-600 dark:text-purple-300"
                   viewBox="0 0 20 20"
                   fill="currentColor"
                 >
@@ -509,21 +679,21 @@ const Metrics = () => {
             </h2>
 
             <div className="space-y-3">
-              <div className="flex justify-between items-center p-3 bg-green-100 dark:bg-green-500/30 rounded-lg">
-                <span className="text-sm font-medium">Ingresos</span>
+              <div className="flex justify-between items-center p-3 bg-green_xl dark:bg-green_b rounded-lg">
+                <span className="text-sm font-medium ">Ingresos</span>
                 <span className="font-bold">
                   {formatCurrency(monthlySummary.ingresos)}
                 </span>
               </div>
 
-              <div className="flex justify-between items-center p-3 bg-red-100 dark:bg-red-500/30 rounded-lg">
+              <div className="flex justify-between items-center p-3 bg-red_xl dark:bg-red_b/30 rounded-lg">
                 <span className="text-sm font-medium">Egresos</span>
                 <span className="font-bold">
                   {formatCurrency(monthlySummary.egresos)}
                 </span>
               </div>
 
-              <div className="flex justify-between items-center p-3 bg-purple-100 dark:bg-purple-500/30 rounded-lg">
+              <div className="flex justify-between items-center p-3 bg-purple-100 dark:bg-purple-600/30 rounded-lg">
                 <span className="text-sm font-medium">Ganancia</span>
                 <span className="font-bold">
                   {formatCurrency(monthlySummary.ganancia)}
@@ -532,7 +702,7 @@ const Metrics = () => {
             </div>
 
             <div className="mt-4">
-              <div className="flex bg-gray_l dark:bg-gray_m text-white items-center mb-2 px-2">
+              <div className="flex bg-gradient-to-bl from-blue_m to-blue_b dark:bg-gray_m text-white items-center mb-2 px-2">
                 <h3 className="w-full p-2 font-medium text-md ">
                   5 Productos por{" "}
                   {monthlyRankingUnit === "unidad"
@@ -543,13 +713,21 @@ const Metrics = () => {
                   más vendidos este mes
                 </h3>
                 <select
-                  value={monthlyRankingUnit}
+                  value={
+                    rubro === "indumentaria" ? "unidad" : monthlyRankingUnit
+                  }
                   onChange={(e) =>
+                    rubro !== "indumentaria" &&
                     setMonthlyRankingUnit(
                       e.target.value as "unidad" | "kg" | "litro"
                     )
                   }
-                  className="text-black dark:text-white bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-sm px-2 py-1 text-sm"
+                  disabled={rubro === "indumentaria"}
+                  className={`text-black dark:text-white bg-white dark:bg-gray_b border border-gray_l dark:border-gray_m rounded-sm px-2 py-1 text-sm ${
+                    rubro === "indumentaria"
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
                 >
                   {unitOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -566,26 +744,24 @@ const Metrics = () => {
                       key={index}
                       className="py-2 flex justify-between items-center text-sm"
                     >
-                      <span className="truncate uppercase">
+                      <span className="truncate">
                         <span className="font-bold text-blue_m dark:text-blue_l">
                           {index + 1}- {""}
                         </span>
                         {product.name}
                       </span>
-                      <span className="font-medium">
-                        {product.displayText}{" "}
-                      </span>
+                      <span className="font-medium">{product.displayText}</span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-sm text-gray_m dark:text-gray_m">
                   No hay datos de ventas este mes
                 </p>
               )}
             </div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-5 border border-gray-100 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray_b rounded-xl shadow-md shadow-gray_m p-5 border border-gray_xl dark:border-gray_b">
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <span className="bg-indigo-100 dark:bg-indigo-900 p-2 rounded-full">
                 <svg
@@ -605,21 +781,21 @@ const Metrics = () => {
             </h2>
 
             <div className="space-y-3">
-              <div className="flex justify-between items-center p-3 bg-green-100 dark:bg-green-500/30 rounded-lg">
+              <div className="flex justify-between items-center p-3 bg-green_xl dark:bg-green_b rounded-lg">
                 <span className="text-sm font-medium">Ingresos</span>
                 <span className="font-bold">
                   {formatCurrency(annualSummary.ingresos)}
                 </span>
               </div>
 
-              <div className="flex justify-between items-center p-3 bg-red-100 dark:bg-red-500/30 rounded-lg">
+              <div className="flex justify-between items-center p-3 bg-red_xl dark:bg-red_b/30 rounded-lg">
                 <span className="text-sm font-medium">Egresos</span>
                 <span className="font-bold">
                   {formatCurrency(annualSummary.egresos)}
                 </span>
               </div>
 
-              <div className="flex justify-between items-center p-3 bg-purple-100 dark:bg-purple-500/30 rounded-lg">
+              <div className="flex justify-between items-center p-3 bg-purple-100 dark:bg-purple-600/30  rounded-lg">
                 <span className="text-sm font-medium">Ganancia</span>
                 <span className="font-bold">
                   {formatCurrency(annualSummary.ganancia)}
@@ -628,7 +804,7 @@ const Metrics = () => {
             </div>
 
             <div className="mt-4">
-              <div className="flex bg-gray_l dark:bg-gray_m text-white items-center mb-2 px-2">
+              <div className="flex bg-gradient-to-bl from-blue_m to-blue_b dark:bg-gray_m text-white items-center mb-2 px-2">
                 <h3 className="w-full p-2 font-medium text-md ">
                   5 Productos por{" "}
                   {yearlyRankingUnit === "unidad"
@@ -639,13 +815,21 @@ const Metrics = () => {
                   más vendidos este año
                 </h3>
                 <select
-                  value={yearlyRankingUnit}
+                  value={
+                    rubro === "indumentaria" ? "unidad" : yearlyRankingUnit
+                  }
                   onChange={(e) =>
+                    rubro !== "indumentaria" &&
                     setYearlyRankingUnit(
                       e.target.value as "unidad" | "kg" | "litro"
                     )
                   }
-                  className="text-black dark:text-white bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-sm px-2 py-1 text-sm"
+                  disabled={rubro === "indumentaria"}
+                  className={`text-black dark:text-white bg-white dark:bg-gray_b border border-gray_l dark:border-gray_m rounded-sm px-2 py-1 text-sm ${
+                    rubro === "indumentaria"
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
                 >
                   {unitOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -661,7 +845,7 @@ const Metrics = () => {
                       key={index}
                       className="py-2 flex justify-between items-center text-sm"
                     >
-                      <span className="truncate uppercase">
+                      <span className="truncate capitalize">
                         <span className="font-bold text-blue_m dark:text-blue_l">
                           {index + 1}- {""}
                         </span>
@@ -674,7 +858,7 @@ const Metrics = () => {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-sm text-gray_m dark:text-gray_m">
                   No hay datos de ventas este año
                 </p>
               )}
@@ -682,7 +866,7 @@ const Metrics = () => {
           </div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-5 border border-gray-100 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray_b rounded-xl shadow-md shadow-gray_m p-5 border border-gray_xl dark:border-gray_b">
             <h2 className="text-lg font-semibold mb-4">
               Ingresos | Egresos -{" "}
               {format(
@@ -722,7 +906,7 @@ const Metrics = () => {
               }}
             />
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-5 border border-gray-100 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray_b rounded-xl shadow-md shadow-gray_m p-5 border border-gray_xl dark:border-gray_b">
             <h2 className="text-lg font-semibold mb-4">
               Ganancia Diaria -{" "}
               {format(
@@ -764,7 +948,7 @@ const Metrics = () => {
           </div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-5 border border-gray-100 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray_b rounded-xl shadow-md shadow-gray_m p-5 border border-gray_xl dark:border-gray_b">
             <h2 className="text-lg font-semibold mb-4">
               Ingresos | Egresos - Año {selectedYear}
             </h2>
@@ -799,7 +983,7 @@ const Metrics = () => {
               }}
             />
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-5 border border-gray-100 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray_b rounded-xl shadow-md shadow-gray_m p-5 border border-gray_xl dark:border-gray_b">
             <h2 className="text-lg font-semibold mb-4">
               Distribución Mensual -{" "}
               {format(

@@ -31,19 +31,19 @@ class MyDatabase extends Dexie {
 
   constructor() {
     super("MyDatabase");
-    this.version(9)
+    this.version(10)
       .stores({
         theme: "id",
         products: "++id, name, barcode, stock",
         users: "id, username",
-        auth: "id",
+        auth: "id, userId",
         sales:
           "++id, date, *paymentMethod, customerName, customerId, paid, credit",
         dailyCashes: "++id, &date, closed",
         dailyCashMovements: "++id, dailyCashId, date, type",
         payments: "++id, saleId, date, method",
         customers: "&id, name",
-        suppliers: "++id, companyName, lastVisit, nextVisit, createdAt",
+        suppliers: "++id, companyName, lastVisit, nextVisit, createdAt, rubro",
         supplierProducts: "[supplierId+productId], supplierId, productId",
         appState: "id",
         trialPeriods: "&userId, firstAccessDate",
@@ -57,6 +57,12 @@ class MyDatabase extends Dexie {
         if (adminUser) {
           await trans.table("users").delete(adminUser.id);
         }
+        return trans
+          .table("suppliers")
+          .toCollection()
+          .modify((supplier) => {
+            supplier.rubro = "";
+          });
       });
   }
 }

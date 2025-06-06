@@ -27,8 +27,6 @@ const InputCash: React.FC<InputCashProps> = ({
 
   const formatDisplayValue = useCallback((num: number): string => {
     if (num === 0) return "";
-
-    // Formatear con separadores de miles y coma decimal
     const parts = num.toFixed(2).split(".");
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
     return parts.join(",");
@@ -37,9 +35,8 @@ const InputCash: React.FC<InputCashProps> = ({
   const parseInputValue = useCallback((input: string): number => {
     if (input === "") return 0;
 
-    // Eliminar todos los puntos (separadores de miles)
     const withoutThousandsSeparators = input.replace(/\./g, "");
-    // Reemplazar coma decimal por punto
+
     const withDecimalPoint = withoutThousandsSeparators.replace(/,/g, ".");
 
     return parseFloat(withDecimalPoint) || 0;
@@ -60,17 +57,11 @@ const InputCash: React.FC<InputCashProps> = ({
       return;
     }
 
-    // Validar el formato del input
     if (/^[\d.,]*$/.test(inputValue)) {
-      // Contar comas y puntos
       const commaCount = (inputValue.match(/,/g) || []).length;
-
-      // Permitir solo una coma decimal y múltiples puntos como separadores de miles
       if (commaCount > 1) {
         return;
       }
-
-      // Si hay una coma, debe ser el separador decimal
       if (commaCount === 1 && inputValue.indexOf(",") < inputValue.length - 3) {
         return;
       }
@@ -96,9 +87,7 @@ const InputCash: React.FC<InputCashProps> = ({
   return (
     <div className={`w-full flex flex-col`}>
       {label && (
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {label}
-        </label>
+        <label className="block text-sm font-semibold mb-1">{label}</label>
       )}
       <div className="relative rounded-md shadow-sm w-full">
         <input

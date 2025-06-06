@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { db } from "@/app/database/db";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
@@ -13,8 +13,10 @@ import SearchBar from "@/app/components/SearchBar";
 import { Plus, Trash, Edit, Truck, Package } from "lucide-react";
 import Pagination from "@/app/components/Pagination";
 import CustomDatePicker from "@/app/components/CustomDatePicker";
+import { useRubro } from "@/app/context/RubroContext";
 
 const ProveedoresPage = () => {
+  const { rubro } = useRubro();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [filteredSuppliers, setFilteredSuppliers] = useState<Supplier[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -67,14 +69,17 @@ const ProveedoresPage = () => {
           .equals(supplier.id)
           .primaryKeys(),
       ]);
+      const filteredProducts = allProducts.filter(
+        (product) => rubro === "todos los rubros" || product.rubro === rubro
+      );
 
       const assignedProductIds = assignedProductKeys.map(
         ([, productId]) => productId
       );
-      const assignedProds = allProducts.filter((p) =>
+      const assignedProds = filteredProducts.filter((p) =>
         assignedProductIds.includes(p.id)
       );
-      const availableProds = allProducts.filter(
+      const availableProds = filteredProducts.filter(
         (p) => !assignedProductIds.includes(p.id)
       );
 
@@ -93,11 +98,17 @@ const ProveedoresPage = () => {
     if (!selectedSupplierForProducts) return;
 
     try {
+      console.log(
+        `Assigning product ${product.id} to supplier ${selectedSupplierForProducts.id}`
+      );
+
       await db.supplierProducts.add({
         supplierId: selectedSupplierForProducts.id,
         productId: product.id,
       });
-      fetchSupplierProductCounts();
+
+      console.log("Assignment successful");
+      await fetchSupplierProductCounts();
       setAssignedProducts((prev) => [...prev, product]);
       setAvailableProducts((prev) => prev.filter((p) => p.id !== product.id));
       setProductSearchQuery("");
@@ -130,32 +141,76 @@ const ProveedoresPage = () => {
       showNotification(`Error al desasignar "${product.name}"`, "error");
     }
   };
-  const fetchSupplierProductCounts = async () => {
-    const allSuppliers = await db.suppliers.toArray();
-    const counts: { [supplierId: number]: number } = {};
-    for (const supplier of allSuppliers) {
-      const count = await db.supplierProducts
-        .where("supplierId")
-        .equals(supplier.id)
-        .count();
-      counts[supplier.id] = count;
+  const fetchSupplierProductCounts = useCallback(
+    async (currentSuppliers?: Supplier[]) => {
+      const suppliersToUse = currentSuppliers || suppliers;
+      console.log(
+        "Fetching product counts for",
+        suppliersToUse.length,
+        "suppliers"
+      );
+
+      const allProducts = await db.products.toArray();
+      const counts: { [supplierId: number]: number } = {};
+
+      for (const supplier of suppliersToUse) {
+        const productKeys = await db.supplierProducts
+          .where("supplierId")
+          .equals(supplier.id)
+          .primaryKeys();
+
+        const productIds = productKeys.map(([, productId]) => productId);
+        const filteredProducts = allProducts.filter(
+          (p) =>
+            productIds.includes(p.id) &&
+            (rubro === "todos los rubros" || p.rubro === rubro)
+        );
+
+        counts[supplier.id] = filteredProducts.length;
+        console.log(
+          `Supplier ${supplier.id} has ${
+            counts[supplier.id]
+          } products in rubro ${rubro}`
+        );
+      }
+
+      setSupplierProductCounts(counts);
+    },
+    [rubro, suppliers]
+  );
+
+  const fetchSuppliers = useCallback(async () => {
+    try {
+      console.log(`Fetching suppliers for rubro: ${rubro}`);
+
+      if (rubro === "todos los rubros") {
+        const allSuppliers = await db.suppliers.toArray();
+        setSuppliers(allSuppliers);
+        setFilteredSuppliers(allSuppliers);
+        await fetchSupplierProductCounts(allSuppliers);
+        return;
+      }
+
+      const filteredSuppliers = await db.suppliers
+        .where("rubro")
+        .equals(rubro)
+        .toArray();
+
+      console.log(
+        `Found ${filteredSuppliers.length} suppliers for rubro ${rubro}`
+      );
+      setSuppliers(filteredSuppliers);
+      setFilteredSuppliers(filteredSuppliers);
+      await fetchSupplierProductCounts(filteredSuppliers);
+    } catch (error) {
+      console.error("Error loading suppliers:", error);
+      showNotification("Error al cargar proveedores", "error");
     }
-    setSupplierProductCounts(counts);
-  };
+  }, [rubro, fetchSupplierProductCounts]);
 
   useEffect(() => {
-    fetchSupplierProductCounts();
-  }, [suppliers]);
-
-  useEffect(() => {
-    const fetchSuppliers = async () => {
-      const allSuppliers = await db.suppliers.toArray();
-      setSuppliers(allSuppliers);
-      setFilteredSuppliers(allSuppliers);
-    };
-
     fetchSuppliers();
-  }, []);
+  }, [fetchSuppliers]);
 
   useEffect(() => {
     const filtered = suppliers.filter(
@@ -170,6 +225,13 @@ const ProveedoresPage = () => {
     setFilteredSuppliers(filtered);
   }, [searchQuery, suppliers]);
 
+  useEffect(() => {
+    const updateCounts = async () => {
+      await fetchSupplierProductCounts();
+    };
+    updateCounts();
+  }, [suppliers, rubro, fetchSupplierProductCounts]);
+
   const showNotification = (
     message: string,
     type: "success" | "error" | "info"
@@ -177,7 +239,7 @@ const ProveedoresPage = () => {
     setNotificationMessage(message);
     setNotificationType(type);
     setIsNotificationOpen(true);
-    setTimeout(() => setIsNotificationOpen(false), 3000);
+    setTimeout(() => setIsNotificationOpen(false), 2500);
   };
 
   const handleSearch = (query: string) => {
@@ -235,10 +297,15 @@ const ProveedoresPage = () => {
         nextVisit: nextVisit || undefined,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        rubro: rubro === "todos los rubros" ? undefined : rubro,
       };
 
       if (editingSupplier) {
-        const updatedSupplier = { ...editingSupplier, ...supplierData };
+        const updatedSupplier = {
+          ...editingSupplier,
+          ...supplierData,
+          rubro: editingSupplier.rubro || supplierData.rubro,
+        };
         await db.suppliers.update(editingSupplier.id, updatedSupplier);
         setSuppliers(
           suppliers.map((s) =>
@@ -307,7 +374,7 @@ const ProveedoresPage = () => {
   return (
     <ProtectedRoute>
       <div className="px-10 2xl:px-10 py-4 text-gray_l dark:text-white h-[calc(100vh-80px)]">
-        <h1 className="text-xl 2xl:text-2xl font-semibold mb-2">Proveedores</h1>
+        <h1 className="text-lg 2xl:text-xl font-semibold mb-2">Proveedores</h1>
 
         <div className="flex justify-between mb-2">
           <div className="w-full max-w-md">
@@ -327,7 +394,7 @@ const ProveedoresPage = () => {
 
         <div className="flex flex-col justify-between h-[calc(100vh-200px)]">
           <table className="w-full text-center border-collapse shadow-sm shadow-gray_l">
-            <thead className="text-white bg-blue_b text-sm 2xl:text-lg">
+            <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-sm 2xl:text-lg">
               <tr>
                 <th className="px-4 py-2 text-left">Empresa</th>
                 <th className="px-4 py-2">Proveedores</th>
@@ -341,7 +408,7 @@ const ProveedoresPage = () => {
               {currentItems.length > 0 ? (
                 currentItems.map((supplier) => (
                   <tr key={supplier.id}>
-                    <td className="uppercase px-4 py-2 text-left  border border-gray_xl font-semibold">
+                    <td className="capitalize px-4 py-2 text-left  border border-gray_xl font-semibold">
                       {supplier.companyName}
                     </td>
                     <td className="px-4 py-2  border border-gray_xl">
@@ -356,7 +423,7 @@ const ProveedoresPage = () => {
                             <span className="text-xs text-gray_l cursor-pointer">
                               +{supplier.contacts.length - 1} más
                             </span>
-                            <div className="absolute hidden group-hover:block z-10 w-64 p-2 bg-white border border-gray-200 rounded shadow-lg text-sm">
+                            <div className="absolute hidden group-hover:block z-10 w-64 p-2 bg-white border border-gray_l rounded shadow-lg text-sm">
                               {supplier.contacts
                                 .slice(1)
                                 .map((contact, index) => (
@@ -393,7 +460,7 @@ const ProveedoresPage = () => {
                       {supplierProductCounts[supplier.id] || 0} productos
                     </td>
                     <td className="px-4 py-2 space-x-4 border border-gray_xl">
-                      <div className="flex justify-center gap-4">
+                      <div className="flex justify-center gap-2">
                         <Button
                           icon={<Package size={20} />}
                           colorText="text-gray_b"
@@ -420,7 +487,7 @@ const ProveedoresPage = () => {
                           colorText="text-gray_b"
                           colorTextHover="hover:text-white"
                           colorBg="bg-transparent"
-                          colorBgHover="hover:bg-red-500"
+                          colorBgHover="hover:bg-red_b"
                           px="px-1"
                           py="py-1"
                           minwidth="min-w-0"
@@ -477,9 +544,9 @@ const ProveedoresPage = () => {
             <Button
               text="Cerrar"
               colorText="text-gray_b dark:text-white"
-              colorTextHover="hover:text-white hover:dark:text-white"
-              colorBg="bg-gray_xl dark:bg-gray_m"
-              colorBgHover="hover:bg-blue_m hover:dark:bg-gray_l"
+              colorTextHover="hover:dark:text-white"
+              colorBg="bg-transparent dark:bg-gray_m"
+              colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
               onClick={() => {
                 setIsProductAssignmentModalOpen(false);
                 setProductSearchQuery("");
@@ -487,7 +554,7 @@ const ProveedoresPage = () => {
             />
           }
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <div className="space-y-4">
               <div className="flex flex-col space-y-2">
                 <h3 className="font-semibold">Buscar Productos</h3>
@@ -508,12 +575,12 @@ const ProveedoresPage = () => {
                     {filteredAvailableProducts.map((product) => (
                       <div
                         key={product.id}
-                        className={`p-2 border rounded hover:bg-gray-100 dark:hover:bg-gray_m flex justify-between items-center `}
+                        className={`p-2 border rounded hover:bg-blue_xl dark:hover:bg-gray_m flex justify-between items-center `}
                       >
                         <div className="flex-grow ">
                           <div className="flex justify-between">
                             <span className="font-medium">{product.name}</span>
-                            <span className="text-sm text-gray-500">
+                            <span className="text-sm text-gray_m">
                               {product.barcode || "Sin código"}
                             </span>
                           </div>
@@ -544,7 +611,7 @@ const ProveedoresPage = () => {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-gray-500">No hay productos disponibles</p>
+                  <p className="text-gray_m">No hay productos disponibles</p>
                 )}
               </div>
             </div>
@@ -557,7 +624,7 @@ const ProveedoresPage = () => {
                     {assignedProducts.map((product) => (
                       <div
                         key={product.id}
-                        className="p-2 border hover:bg-gray-100 dark:hover:bg-gray_m rounded"
+                        className="p-2 border hover:bg-blue_xl dark:hover:bg-gray_m rounded"
                       >
                         <div className="flex justify-between items-center">
                           <div>
@@ -576,8 +643,8 @@ const ProveedoresPage = () => {
                             icon={<Trash size={20} />}
                             colorText="text-white"
                             colorTextHover="text-white"
-                            colorBg="bg-red-500"
-                            colorBgHover="hover:bg-red-700"
+                            colorBg="bg-red_b"
+                            colorBgHover="hover:bg-red_m"
                             onClick={() => unassignProduct(product)}
                             px="px-1"
                             py="py-1"
@@ -587,7 +654,7 @@ const ProveedoresPage = () => {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-gray-500">No hay productos asignados</p>
+                  <p className="text-gray_m">No hay productos asignados</p>
                 )}
               </div>
             </div>
@@ -612,9 +679,9 @@ const ProveedoresPage = () => {
               <Button
                 text="Cancelar"
                 colorText="text-gray_b dark:text-white"
-                colorTextHover="hover:text-white hover:dark:text-white"
-                colorBg="bg-gray_xl dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_m hover:dark:bg-gray_l"
+                colorTextHover="hover:dark:text-white"
+                colorBg="bg-transparent dark:bg-gray_m"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
                 onClick={() => {
                   setIsModalOpen(false);
                   resetForm();
@@ -635,10 +702,10 @@ const ProveedoresPage = () => {
               {contacts.map((contact, index) => (
                 <div
                   key={index}
-                  className="bg-blue_xl space-y-6 border border-blue_xl shadow-md shadow-gray_l p-4 mb-8"
+                  className="bg-gradient-to-bl from-blue_l to-blue_xl rounded-sm space-y-6 border border-blue_xl shadow-md shadow-gray_l p-4 mb-8"
                 >
                   <div className="flex justify-between items-center">
-                    <span className="bg-blue_m rounded-md px-2 py-1 text-white text-sm font-medium">
+                    <span className="bg-gradient-to-bl from-blue_m to-blue_b rounded-md px-2 py-1 text-white text-sm font-medium">
                       Proveedor #{index + 1}
                     </span>
                     {contacts.length > 1 && (
@@ -648,8 +715,8 @@ const ProveedoresPage = () => {
                         px="px-3"
                         py="py-1"
                         minwidth="min-w-0"
-                        colorBg="bg-red-500"
-                        colorBgHover="hover:bg-red-700"
+                        colorBg="bg-red_b"
+                        colorBgHover="hover:bg-red_m"
                         colorText="text-white"
                         colorTextHover="hover:text-white"
                         onClick={() => handleRemoveContact(index)}
@@ -692,7 +759,7 @@ const ProveedoresPage = () => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-2">
               <div>
                 <CustomDatePicker
                   label="Última Visita"
@@ -726,16 +793,16 @@ const ProveedoresPage = () => {
                 text="Eliminar"
                 colorText="text-white"
                 colorTextHover="text-white"
-                colorBg="bg-red-500"
-                colorBgHover="hover:bg-red-700"
+                colorBg="bg-red_b"
+                colorBgHover="hover:bg-red_m"
                 onClick={handleDelete}
               />
               <Button
                 text="Cancelar"
                 colorText="text-gray_b dark:text-white"
-                colorTextHover="hover:text-white hover:dark:text-white"
-                colorBg="bg-gray_xl dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_m hover:dark:bg-gray_l"
+                colorTextHover="hover:dark:text-white"
+                colorBg="bg-transparent dark:bg-gray_m"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
                 onClick={() => setIsDeleteModalOpen(false)}
               />
             </div>

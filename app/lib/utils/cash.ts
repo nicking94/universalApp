@@ -1,6 +1,7 @@
 import { db } from "@/app/database/db";
+import { getLocalDateString } from "./getLocalDate";
 export const ensureCashIsOpen = async () => {
-  const today = new Date().toISOString().split("T")[0];
+  const today = getLocalDateString();
   const dailyCash = await db.dailyCashes.get({ date: today });
 
   if (!dailyCash) {

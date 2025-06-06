@@ -96,12 +96,12 @@ const TrialNotification = () => {
     if (!daysLeft) return "";
 
     if (daysLeft >= 4) {
-      return "bg-green-100 text-green-800";
+      return "bg-green_xl text-green_b";
     }
     if (daysLeft >= 2 && daysLeft < 4) {
       return "bg-yellow-100 text-yellow-800";
     }
-    return "bg-red-100 text-red-800";
+    return "bg-red_l text-red_b";
   };
 
   const getNotificationMessage = () => {

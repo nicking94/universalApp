@@ -21,8 +21,12 @@ import Select from "react-select";
 import Input from "@/app/components/Input";
 import { formatCurrency } from "@/app/lib/utils/currency";
 import InputCash from "@/app/components/InputCash";
+import { useRubro } from "@/app/context/RubroContext";
+import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
+import { getLocalDateString } from "@/app/lib/utils/getLocalDate";
 
 const CajaDiariaPage = () => {
+  const { rubro } = useRubro();
   const [dailyCashes, setDailyCashes] = useState<DailyCash[]>([]);
   const [currentDailyCash, setCurrentDailyCash] = useState<DailyCash | null>(
     null
@@ -132,11 +136,11 @@ const CajaDiariaPage = () => {
     setIsNotificationOpen(true);
     setTimeout(() => {
       setIsNotificationOpen(false);
-    }, 3000);
+    }, 2500);
   };
 
   const checkCashStatus = async () => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = getLocalDateString();
     const dailyCash = await db.dailyCashes.get({ date: today });
 
     if (!dailyCash) {
@@ -150,7 +154,7 @@ const CajaDiariaPage = () => {
     }
   };
   const checkAndCloseOldCashes = async () => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = getLocalDateString();
     try {
       const allCashes = await db.dailyCashes.toArray();
       const openPreviousCashes = allCashes.filter(
@@ -225,7 +229,7 @@ const CajaDiariaPage = () => {
   }, []);
 
   const openCash = async () => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = getLocalDateString();
     const allCashes = await db.dailyCashes.toArray();
     const openPreviousCashes = allCashes.filter(
       (cash) => !cash.closed && cash.date < today
@@ -283,7 +287,7 @@ const CajaDiariaPage = () => {
     }
 
     try {
-      const today = new Date().toISOString().split("T")[0];
+      const today = getLocalDateString();
       const dailyCash = await db.dailyCashes.get({ date: today });
 
       if (dailyCash) {
@@ -387,7 +391,7 @@ const CajaDiariaPage = () => {
     });
 
     if (currentDailyCash) {
-      const today = new Date().toISOString().split("T")[0];
+      const today = getLocalDateString();
       if (!summary[today]) {
         summary[today] = {
           date: today,
@@ -424,7 +428,7 @@ const CajaDiariaPage = () => {
     if (!isCashOpen) return;
 
     try {
-      const today = new Date().toISOString().split("T")[0];
+      const today = getLocalDateString();
       const dailyCash = await db.dailyCashes.get({ date: today });
 
       if (!dailyCash) {
@@ -569,6 +573,7 @@ const CajaDiariaPage = () => {
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = dailySummaries.slice(indexOfFirstItem, indexOfLastItem);
+
   const DetailModal = () => {
     const filteredMovements = getFilteredMovements();
     const { totalIngresos, totalEgresos } = calculateFilteredTotals();
@@ -597,9 +602,9 @@ const CajaDiariaPage = () => {
             <Button
               text="Cerrar"
               colorText="text-gray_b dark:text-white"
-              colorTextHover="hover:text-white hover:dark:text-white"
-              colorBg="bg-gray_xl dark:bg-gray_m"
-              colorBgHover="hover:bg-blue_m hover:dark:bg-gray_l"
+              colorTextHover="hover:dark:text-white"
+              colorBg="bg-transparent dark:bg-gray_m"
+              colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
               onClick={() => {
                 setIsDetailModalOpen(false);
                 setFilterType("TODOS");
@@ -610,21 +615,21 @@ const CajaDiariaPage = () => {
         }
         minheight="min-h-[23rem]"
       >
-        <div className="mb-4 grid grid-cols-2 gap-4">
-          <div className="bg-green-100 p-3 rounded-lg">
-            <h3 className="font-semibold text-green-800">Total Ingresos</h3>
-            <p className="text-xl font-bold text-green-800">
+        <div className="mb-4 grid grid-cols-2 gap-2">
+          <div className="bg-green_xl p-3 rounded-lg">
+            <h3 className="font-semibold text-green_b">Total Ingresos</h3>
+            <p className="text-xl font-bold text-green_b">
               {formatCurrency(totalIngresos)}
             </p>
           </div>
-          <div className="bg-red-100 p-3 rounded-lg">
-            <h3 className="font-semibold text-red-800">Total Egresos</h3>
-            <p className="text-xl font-bold text-red-800">
+          <div className="bg-red_l p-3 rounded-lg">
+            <h3 className="font-semibold text-red_b">Total Egresos</h3>
+            <p className="text-xl font-bold text-red_b">
               {formatCurrency(totalEgresos)}
             </p>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-2 gap-2 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray_b dark:text-white">
               Tipo
@@ -647,7 +652,7 @@ const CajaDiariaPage = () => {
                 option &&
                 setFilterType(option.value as "TODOS" | "INGRESO" | "EGRESO")
               }
-              className="w-full"
+              className="w-full text-black"
             />
           </div>
           <div>
@@ -665,28 +670,29 @@ const CajaDiariaPage = () => {
                 option &&
                 setFilterPaymentMethod(option.value as PaymentMethod | "TODOS")
               }
-              className="w-full"
+              className="w-full text-black"
             />
           </div>
         </div>
 
         <div className="max-h-[50vh] overflow-y-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-gray_l">
+            <thead className="bg-gradient-to-bl from-blue_m to-blue_b text-white">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-2 text-left text-xs font-medium tracking-wider">
                   Tipo
                 </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Métodos de Pago
-                </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+
+                <th className="px-4 py-2 text-left text-xs font-medium tracking-wider">
                   Producto
                 </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-2 text-left text-xs font-medium  tracking-wider">
                   Descripción
                 </th>
-                <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-2 text-left text-xs font-medium  tracking-wider">
+                  Métodos de Pago
+                </th>
+                <th className="px-4 py-2 text-center text-xs font-medium tracking-wider">
                   Total
                 </th>
               </tr>
@@ -696,20 +702,75 @@ const CajaDiariaPage = () => {
                 Object.values(groupedMovements).map((movement, index) => (
                   <tr
                     key={index}
-                    className={movement.type === "EGRESO" ? "bg-red-50" : ""}
+                    className={movement.type === "EGRESO" ? "bg-red_xl" : ""}
                   >
                     <td className="px-4 py-2 whitespace-nowrap text-sm">
                       <span
                         className={`px-2 py-1 rounded-full text-xs ${
                           movement.type === "INGRESO"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
+                            ? "bg-green_xl text-green_b"
+                            : "bg-red_l text-red_b"
                         }`}
                       >
                         {movement.type}
                       </span>
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray-500">
+
+                    <td className="px-4 py-2 text-sm text-gray_m">
+                      {Array.isArray(movement.items) &&
+                      movement.items.length > 0 ? (
+                        <div className="flex flex-col">
+                          {movement.items.map((item, i) => (
+                            <div key={i} className="flex justify-between">
+                              <span className="font-semibold">
+                                {getDisplayProductName(
+                                  {
+                                    name: item.productName,
+                                    size: item.size,
+                                    color: item.color,
+                                    rubro: rubro,
+                                  },
+                                  rubro,
+                                  true
+                                )}
+                              </span>{" "}
+                              ×{item.quantity} {""}
+                              {item.unit}
+                            </div>
+                          ))}
+                        </div>
+                      ) : movement.productName ? (
+                        <div className="flex justify-between">
+                          <span className="font-semibold">
+                            {getDisplayProductName(
+                              {
+                                name: movement.productName,
+                                size: movement.size,
+                                color: movement.color,
+                                rubro: rubro,
+                              },
+                              rubro,
+                              true
+                            )}
+                          </span>{" "}
+                          ×{movement.quantity} {""}
+                          {movement.unit}
+                        </div>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-gray_m">
+                      {movement.description}
+                      {(movement.manualAmount ?? 0) > 0 &&
+                        !movement.isCreditPayment && (
+                          <div className="text-xs text-gray-500">
+                            (Incluye monto manual:{" "}
+                            {formatCurrency(movement.manualAmount ?? 0)}
+                          </div>
+                        )}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-gray_m">
                       {movement.combinedPaymentMethods ? (
                         <div className="flex flex-col">
                           {movement.combinedPaymentMethods.map((method, i) => (
@@ -724,37 +785,8 @@ const CajaDiariaPage = () => {
                         )}`
                       )}
                     </td>
-                    <td className=" px-4 py-2 text-sm text-gray-500">
-                      {Array.isArray(movement.items) &&
-                      movement.items.length > 0 ? (
-                        <div className="flex flex-col">
-                          {movement.items.map((item, i) => (
-                            <div key={i} className="flex justify-between">
-                              <span className="font-semibold">
-                                {item.productName}
-                              </span>{" "}
-                              ×{item.quantity} {""}
-                              {item.unit}
-                            </div>
-                          ))}
-                        </div>
-                      ) : movement.productName ? (
-                        <div className="flex justify-between">
-                          <span className="font-semibold">
-                            {movement.productName}
-                          </span>{" "}
-                          ×{movement.quantity} {""}
-                          {movement.unit}
-                        </div>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-sm text-gray-500">
-                      {movement.description}
-                    </td>
 
-                    <td className="px-4 py-2 text-sm text-center font-medium text-green-600">
+                    <td className="px-4 py-2 text-sm text-center font-medium text-green_b">
                       {formatCurrency(movement.amount)}
                     </td>
                   </tr>
@@ -776,7 +808,7 @@ const CajaDiariaPage = () => {
   useEffect(() => {
     const checkInitialCashStatus = async () => {
       await checkAndCloseOldCashes();
-      const today = new Date().toISOString().split("T")[0];
+      const today = getLocalDateString();
       const dailyCash = await db.dailyCashes.get({ date: today });
 
       if (!dailyCash) {
@@ -793,32 +825,48 @@ const CajaDiariaPage = () => {
       <div className="px-10 2xl:px-10 py-4 text-gray_l dark:text-white h-[calc(100vh-80px)] flex flex-col justify-between ">
         <div className="flex flex-col justify-between h-[calc(100vh-80px)]">
           <div>
-            <h1 className="text-xl 2xl:text-2xl font-semibold mb-2">
+            <h1 className="text-lg 2xl:text-xl font-semibold mb-2">
               Caja Diaria
             </h1>
             {currentDailyCash ? (
               <div
                 className={`p-3 rounded-lg mb-4 ${
-                  currentDailyCash.closed ? "bg-red-100" : "bg-green-100"
+                  currentDailyCash.closed ? "bg-red_xl" : "bg-green_xl"
                 }`}
               >
-                <div className="flex justify-between items-center">
-                  <div className="text-gray_m font-semibold">
-                    <h3
-                      className={`text-gray_b font-bold ${
-                        currentDailyCash.closed
-                          ? "text-red-600"
-                          : "text-green-600"
-                      }`}
-                    >
-                      {currentDailyCash.closed
-                        ? "Caja Cerrada"
-                        : "Caja Abierta"}
-                    </h3>
-                    <p>
-                      Fecha:{" "}
-                      {format(parseISO(currentDailyCash.date), "dd/MM/yyyy")}
-                    </p>
+                <div className="items-center">
+                  <div className="flex justify-between items-center gap-2 pb-4">
+                    <div className="flex items-center gap-2">
+                      <h3
+                        className={`text-gray_b text-sm 2xl:text-lg font-bold  ${
+                          currentDailyCash.closed
+                            ? "text-red_b"
+                            : "text-green_b"
+                        }`}
+                      >
+                        {currentDailyCash.closed
+                          ? "Caja Cerrada"
+                          : "Caja Abierta"}
+                      </h3>
+                      <p className="text-gray_m font-medium">
+                        {format(parseISO(currentDailyCash.date), "dd/MM/yyyy")}
+                      </p>
+                    </div>
+                    <div>
+                      {!currentDailyCash.closed && (
+                        <Button
+                          icon={<X />}
+                          text="Cerrar Caja"
+                          colorText="text-white"
+                          colorTextHover="text-white"
+                          colorBg="bg-red_m"
+                          colorBgHover="hover:bg-red_b"
+                          onClick={() => setIsCloseCashModal(true)}
+                        />
+                      )}
+                    </div>
+                  </div>
+                  <div className=" grid grid-cols-2 text-gray_m font-semibold mb-4">
                     <p>
                       Monto inicial:{" "}
                       {formatCurrency(currentDailyCash.initialAmount)}
@@ -849,48 +897,45 @@ const CajaDiariaPage = () => {
                           Efectivo contado:{" "}
                           {formatCurrency(currentDailyCash.closingAmount || 0)}
                         </p>
-                        <p
-                          className={`font-bold ${
-                            (currentDailyCash.closingDifference || 0) >= 0
-                              ? "text-green-600"
-                              : "text-red-600"
-                          }`}
-                        >
-                          Diferencia:{" "}
-                          {formatCurrency(
-                            currentDailyCash.closingDifference || 0
-                          )}
-                        </p>
                       </>
                     ) : null}
                   </div>
-                  {!currentDailyCash.closed && (
-                    <Button
-                      icon={<X />}
-                      text="Cerrar Caja"
-                      colorText="text-white"
-                      colorTextHover="text-white"
-                      colorBg="bg-red-500"
-                      colorBgHover="hover:bg-red-700"
-                      onClick={() => setIsCloseCashModal(true)}
-                    />
-                  )}
+                  {currentDailyCash.closed ? (
+                    <p
+                      className={`font-bold text-sm 2xl:text-lg text-center text-white p-2 ${
+                        (currentDailyCash.closingDifference || 0) >= 0
+                          ? "bg-green_m"
+                          : "bg-red_m "
+                      } w-full ${
+                        (currentDailyCash.closingDifference || 0) >= 0
+                          ? "text-green_b"
+                          : "text-red_b"
+                      }`}
+                    >
+                      Diferencia:{" "}
+                      {formatCurrency(currentDailyCash.closingDifference || 0)}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             ) : (
-              <div className="bg-yellow-100 text-yellow-800 p-3 rounded-lg mb-4 space-y-6">
-                <p className="text-gray_m mb-2">No hay caja abierta para hoy</p>
+              <div className="bg-gradient-to-bl from-blue_m to-blue_b p-3 rounded-lg mb-4 flex items-center space-x-10">
+                <p className="text-md text-white">
+                  No hay caja abierta para hoy
+                </p>
                 <Button
                   text="Abrir Caja"
-                  colorText="text-white"
-                  colorTextHover="text-white"
+                  colorText="text-gray_b"
+                  colorTextHover="hover:text-white"
+                  colorBg="bg-blue_xl"
+                  colorBgHover="hover:bg-blue_b"
                   onClick={() => setIsOpenCashModal(true)}
                 />
               </div>
             )}
 
             <div className="flex justify-between mb-2">
-              <div className="flex gap-4">
+              <div className="flex gap-2">
                 <Select
                   options={monthOptions}
                   value={monthOptions.find((m) => m.value === selectedMonth)}
@@ -923,7 +968,7 @@ const CajaDiariaPage = () => {
               } `}
             >
               <table className=" table-auto w-full text-center border-collapse overflow-y-auto shadow-sm shadow-gray_l">
-                <thead className="text-white bg-blue_b">
+                <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b">
                   <tr>
                     <th className="text-sm 2xl:text-lg px-4 py-2 text-start">
                       Fecha
@@ -946,15 +991,15 @@ const CajaDiariaPage = () => {
                     currentItems.map((day, index) => (
                       <tr
                         key={index}
-                        className="text-xs 2xl:text-[.9rem] bg-white text-gray_b border-b border-gray_xl"
+                        className="text-xs 2xl:text-[.9rem] bg-white text-gray_b border border-gray_xl"
                       >
                         <td className="font-semibold px-4 py-2  border-x border-gray_xltext-start">
                           {format(parseISO(day.date), "dd/MM/yyyy")}
                         </td>
-                        <td className="font-semibold text-green-600 px-4 py-2  border-x border-gray_xl">
+                        <td className="font-semibold text-green_b px-4 py-2  border-x border-gray_xl">
                           {formatCurrency(day.ingresos)}
                         </td>
-                        <td className="font-semibold text-red-600 px-4 py-2  border-x border-gray_xl">
+                        <td className="font-semibold text-red_b px-4 py-2  border-x border-gray_xl">
                           {formatCurrency(day.egresos)}
                         </td>
                         <td className="font-semibold text-purple-600 px-4 py-2">
@@ -964,14 +1009,14 @@ const CajaDiariaPage = () => {
                           <span
                             className={`px-2 py-1 rounded-full text-xs ${
                               day.closed
-                                ? "bg-red-100 text-red-800"
-                                : "bg-green-100 text-green-800"
+                                ? "bg-red_m text-white"
+                                : "bg-green_m text-white"
                             }`}
                           >
                             {day.closed ? "Cerrada" : "Abierta"}
                           </span>
                         </td>
-                        <td className="px-4 py-2 flex justify-center items-center gap-4 border-x border-gray_xl">
+                        <td className="px-4 py-2 flex justify-center items-center gap-2 border-x border-gray_xl">
                           <Button
                             icon={<Info size={20} />}
                             colorText="text-gray_b"
@@ -1026,7 +1071,7 @@ const CajaDiariaPage = () => {
           title="Nuevo Movimiento"
           onConfirm={addMovement}
         >
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
             <div className="w-full flex justify-between space-x-4">
               <div className="flex flex-col w-full">
                 <label className="block text-gray_m dark:text-white text-sm font-semibold">
@@ -1068,7 +1113,7 @@ const CajaDiariaPage = () => {
               {paymentMethods.map((method, index) => (
                 <div
                   key={index}
-                  className={`flex items-center gap-4 ${
+                  className={`flex items-center gap-2 ${
                     paymentMethods.length > 1 ? "space-y-6" : ""
                   }`}
                 >
@@ -1104,7 +1149,7 @@ const CajaDiariaPage = () => {
                     <button
                       type="button"
                       onClick={() => removePaymentMethod(index)}
-                      className={`text-red-500 hover:text-red-700 ${
+                      className={`cursor-pointer text-red_m hover:text-red_b transition-all duration-300 ${
                         paymentMethods.length > 1 ? "-mt-6 pr-2" : ""
                       }`}
                     >
@@ -1117,7 +1162,7 @@ const CajaDiariaPage = () => {
                 <button
                   type="button"
                   onClick={addPaymentMethod}
-                  className={`cursor-pointer text-sm text-blue_b dark:text-blue_l hover:text-blue_m flex items-center transition-all duration-200 ${
+                  className={`cursor-pointer text-sm text-blue_b dark:text-blue_l hover:text-blue_m flex items-center transition-all duration-300 ${
                     paymentMethods.length === 1 ? "mt-4" : "-mt-2"
                   }`}
                 >
@@ -1136,7 +1181,7 @@ const CajaDiariaPage = () => {
               onChange={(e) => setDescription(e.target.value)}
             />
             <div className="p-2 bg-gray_b text-white text-center">
-              <p className="font-semibold text-3xl">
+              <p className="font-bold text-3xl">
                 TOTAL:{" "}
                 {formatCurrency(
                   paymentMethods.reduce((sum, m) => sum + (m.amount || 0), 0)
@@ -1162,15 +1207,15 @@ const CajaDiariaPage = () => {
               <Button
                 text="Abrir más tarde"
                 colorText="text-gray_b dark:text-white"
-                colorTextHover="hover:text-white hover:dark:text-white"
-                colorBg="bg-gray_xl dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_m hover:dark:bg-gray_l"
+                colorTextHover="hover:dark:text-white"
+                colorBg="bg-transparent dark:bg-gray_m"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
                 onClick={() => setIsOpenCashModal(false)}
               />
             </div>
           }
         >
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
             <p className="text-gray_m dark:text-white">
               Para comenzar, ingrese el monto inicial en caja.
             </p>
@@ -1189,7 +1234,7 @@ const CajaDiariaPage = () => {
           title="Cierre de Caja"
           onConfirm={closeCash}
         >
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
             <InputCash
               label="Monto Contado en Efectivo"
               value={Number(actualCashCount) || 0}
