@@ -197,7 +197,12 @@ const ProductsPage = () => {
       originalProduct.price !== updatedProduct.price ||
       originalProduct.expiration !== updatedProduct.expiration ||
       originalProduct.unit !== updatedProduct.unit ||
-      originalProduct.barcode !== updatedProduct.barcode
+      originalProduct.barcode !== updatedProduct.barcode ||
+      (rubro === "indumentaria" &&
+        (originalProduct.category !== updatedProduct.category ||
+          originalProduct.color !== updatedProduct.color ||
+          originalProduct.size !== updatedProduct.size ||
+          originalProduct.brand !== updatedProduct.brand))
     );
   };
   const showNotification = (
@@ -230,8 +235,7 @@ const ProductsPage = () => {
       !newProduct.stock ||
       !newProduct.costPrice ||
       !newProduct.price ||
-      !newProduct.unit ||
-      (rubro === "indumentaria" && (!newProduct.category || !newProduct.size))
+      !newProduct.unit
     ) {
       showNotification("Por favor, complete todos los campos", "error");
       return;
@@ -329,7 +333,12 @@ const ProductsPage = () => {
   };
   const handleEditProduct = (product: Product) => {
     setEditingProduct(product);
-    setNewProduct(product);
+    setNewProduct({
+      ...product,
+      category: product.category || "",
+      size: product.size || "",
+      color: product.color || "",
+    });
     setIsOpenModal(true);
   };
   const handleDeleteProduct = (product: Product) => {

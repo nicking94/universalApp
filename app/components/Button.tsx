@@ -19,6 +19,7 @@ const Button: React.FC<ButtonProps> = ({
   colorBg = "bg-blue_b",
   colorBgHover = "hover:bg-blue_m",
   disabled = false,
+  title,
   hotkey,
 }) => {
   useHotkeys(
@@ -51,6 +52,7 @@ const Button: React.FC<ButtonProps> = ({
       disabled={disabled}
       tabIndex={0}
       aria-label={text}
+      title={title}
       className={`${colorText} ${colorTextHover} ${width} ${minwidth} ${height} ${px} ${py} ${colorBg} ${colorBgHover} ${
         disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
       } flex items-center justify-center gap-2 rounded transition-all duration-300 font-normal uppercase shadow shadow-blue_m`}

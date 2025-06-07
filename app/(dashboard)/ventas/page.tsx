@@ -12,8 +12,8 @@ import {
   Sale,
   UnitOption,
 } from "@/app/lib/types/types";
-import { Info, Plus, ShoppingCart, Trash } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Plus, Printer, ShoppingCart, Trash } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { db } from "@/app/database/db";
 import { parseISO, format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -28,6 +28,10 @@ import InputCash from "@/app/components/InputCash";
 import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
 import { useRubro } from "@/app/context/RubroContext";
 import { getLocalDateString } from "@/app/lib/utils/getLocalDate";
+
+import PrintableTicket, {
+  PrintableTicketHandle,
+} from "@/app/components/PrintableTicket";
 
 type SelectOption = {
   value: number;
@@ -50,6 +54,7 @@ const VentasPage = () => {
     manualAmount: 0,
   });
   const router = useRouter();
+  const ticketRef = useRef<PrintableTicketHandle>(null);
   const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -431,6 +436,24 @@ const VentasPage = () => {
       }
     });
   };
+
+  const handlePrintTicket = async () => {
+    if (!ticketRef.current || !selectedSale) return;
+
+    try {
+      if (selectedSale?.credit) {
+        showNotification("No se puede imprimir ticket de venta fiada", "error");
+        return;
+      }
+
+      await ticketRef.current.print();
+      showNotification("Ticket enviado a impresión", "success");
+    } catch (error) {
+      console.error("Error al imprimir ticket:", error);
+      showNotification("Error al imprimir ticket", "error");
+    }
+  };
+
   const handleManualAmountChange = (value: number) => {
     setNewSale((prev) => ({
       ...prev,
@@ -606,8 +629,8 @@ const VentasPage = () => {
       );
       return;
     }
-    const needsRedirect = await checkCashStatus();
 
+    const needsRedirect = await checkCashStatus();
     if (needsRedirect) {
       setShouldRedirectToCash(true);
       showNotification(
@@ -616,6 +639,7 @@ const VentasPage = () => {
       );
       return;
     }
+
     const totalPaymentMethods = newSale.paymentMethods.reduce(
       (sum, method) => sum + method.amount,
       0
@@ -629,6 +653,7 @@ const VentasPage = () => {
       showNotification(`La suma de los métodos de pago no coinciden`, "error");
       return;
     }
+
     if (newSale.products.length === 0) {
       showNotification("Debe agregar al menos un producto", "error");
       return;
@@ -636,7 +661,6 @@ const VentasPage = () => {
 
     if (isCredit) {
       const normalizedName = customerName.toUpperCase().trim();
-
       if (!normalizedName) {
         showNotification("Debe ingresar un nombre de cliente", "error");
         return;
@@ -656,6 +680,7 @@ const VentasPage = () => {
         return;
       }
     }
+
     try {
       for (const product of newSale.products) {
         const updatedStock = updateStockAfterSale(
@@ -711,11 +736,26 @@ const VentasPage = () => {
         customerId: isCredit ? customerId : "",
         paid: false,
       };
+
       await db.sales.add(saleToSave);
       setSales([...sales, saleToSave]);
+
       if (!isCredit) {
         await addIncomeToDailyCash(saleToSave);
+        setSelectedSale(saleToSave);
+
+        setTimeout(async () => {
+          if (ticketRef.current) {
+            try {
+              await ticketRef.current.print();
+            } catch (error) {
+              console.error("Error al imprimir ticket:", error);
+              showNotification("Error al imprimir ticket", "error");
+            }
+          }
+        }, 100);
       }
+
       setNewSale({
         products: [],
         paymentMethods: [{ method: "EFECTIVO", amount: 0 }],
@@ -862,7 +902,6 @@ const VentasPage = () => {
     }[]
   ) => {
     setNewSale((prevState) => {
-      // Filtrar solo productos habilitados
       const enabledOptions = selectedOptions.filter((opt) => !opt.isDisabled);
 
       const updatedProducts = enabledOptions
@@ -871,7 +910,6 @@ const VentasPage = () => {
             option.product || products.find((p) => p.id === option.value);
           if (!product) return null;
 
-          // Verificar stock
           const stockInBaseUnit = convertToGrams(
             Number(product.stock),
             product.unit
@@ -1179,7 +1217,8 @@ const VentasPage = () => {
                       <td className="px-4 py-2 border border-gray_xl">
                         <div className="flex justify-center items-center gap-2 h-full">
                           <Button
-                            icon={<Info size={20} />}
+                            title="Imprimir ticket"
+                            icon={<Printer size={20} />}
                             colorText="text-gray_b"
                             colorTextHover="hover:text-white"
                             colorBg="bg-transparent"
@@ -1214,9 +1253,19 @@ const VentasPage = () => {
               isOpen={isInfoModalOpen}
               onClose={handleCloseInfoModal}
               title="Detalles de la venta"
-              bgColor="bg-white dark:bg-gray_b text-gray_m dark:text-white "
               buttons={
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-4">
+                  <Button
+                    text="Imprimir"
+                    icon={<Printer size={20} />}
+                    colorText="text-white"
+                    colorTextHover="hover:text-white"
+                    px="px-1"
+                    py="py-1"
+                    onClick={handlePrintTicket}
+                    title="Imprimir ticket"
+                    disabled={selectedSale?.credit}
+                  />
                   <Button
                     text="Cerrar"
                     colorText="text-gray_b dark:text-white"
@@ -1228,80 +1277,12 @@ const VentasPage = () => {
                 </div>
               }
             >
-              <div className="space-y-6 p-4 bg-white rounded-lg shadow-sm">
-                <div className="space-y-3 p-4 bg-blue_xl rounded-md border border-gray_l">
-                  <h3 className="text-lg font-semibold text-gray_b border-b pb-2">
-                    Resumen de Venta
-                  </h3>
-
-                  <div className="flex justify-between text-base text-gray_b">
-                    <span className="font-medium ">Fecha:</span>
-                    <span>
-                      {format(
-                        parseISO(selectedSale.date),
-                        "dd 'de' MMMM 'de' yyyy",
-                        { locale: es }
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between text-base text-gray_b">
-                    <span className="font-medium">Forma de Pago:</span>
-                    {selectedSale.credit ? (
-                      <span className="text-orange-500 font-semibold">
-                        VENTA FIADA
-                      </span>
-                    ) : (
-                      <div className="text-right">
-                        {selectedSale.paymentMethods.map((payment, i) => (
-                          <div key={i} className="text-sm">
-                            {payment.method}:{" "}
-                            <span className="font-medium">
-                              {formatCurrency(payment.amount)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex justify-between text-gray_b border-t text-3xl font-bold">
-                    <span className="font-medium ">Total:</span>
-                    <span className="font-semibold">
-                      {formatCurrency(selectedSale.total)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-3 p-4 bg-blue_xl rounded-md border border-gray_l">
-                  <h3 className="text-lg font-semibold text-gray_b border-b pb-2">
-                    Detalles de Productos
-                  </h3>
-                  <ul className="divide-y divide-gray_l">
-                    {selectedSale.products.map((product, index) => (
-                      <li
-                        key={index}
-                        className="py-3 flex justify-between items-center"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray_b truncate capitalize">
-                            {getDisplayProductName(product, rubro)}
-                          </p>
-                          <p className="text-xs text-gray_l">
-                            {product.barcode
-                              ? `Código: ${product.barcode}`
-                              : "Sin código"}
-                          </p>
-                        </div>
-                        <div className="ml-4 flex-shrink-0">
-                          <span className="text-sm font-medium text-gray_b">
-                            {product.quantity} {product.unit.toLowerCase()} ={" "}
-                            {formatCurrency(calculatePrice(product))}
-                          </span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+              <div className="border border-gray-300 p-4 mb-4">
+                <PrintableTicket
+                  ref={ticketRef}
+                  sale={selectedSale}
+                  rubro={rubro}
+                />
               </div>
             </Modal>
           )}
@@ -1347,9 +1328,12 @@ const VentasPage = () => {
           }
           minheight="min-h-[26rem]"
         >
-          <form onSubmit={handleConfirmAddSale} className="flex flex-col gap-2">
+          <form
+            onSubmit={handleConfirmAddSale}
+            className="flex flex-col gap-2 "
+          >
             <div className="w-full flex items-center space-x-4">
-              <div className="w-full ">
+              <div className="w-full  ">
                 <label className="block text-sm font-medium text-gray_m dark:text-white">
                   Escanear código de barras
                 </label>
@@ -1378,6 +1362,7 @@ const VentasPage = () => {
                   Productos
                 </label>
                 <Select
+                  placeholder="Seleccionar productos..."
                   isMulti
                   options={productOptions}
                   value={newSale.products.map((p) => ({
@@ -1387,126 +1372,138 @@ const VentasPage = () => {
                     isDisabled: false,
                   }))}
                   onChange={handleProductSelect}
-                  formatOptionLabel={(option: SelectOption) =>
-                    `${option.label}${option.isDisabled ? " (Sin stock)" : ""}`
-                  }
-                  getOptionValue={(option: SelectOption) =>
-                    option.value.toString()
-                  }
-                  isOptionDisabled={(option: SelectOption) => option.isDisabled}
-                  closeMenuOnSelect={false}
-                  placeholder="Buscar productos..."
-                  noOptionsMessage={() => "No hay productos disponibles"}
                   className="text-black"
                   classNamePrefix="react-select"
+                  styles={{
+                    control: (provided) => ({
+                      ...provided,
+                      maxHeight: "100px",
+                      overflowY: "auto",
+                    }),
+                    multiValue: (provided) => ({
+                      ...provided,
+                      maxWidth: "200px",
+                    }),
+                  }}
                 />
               </div>
             </div>
             {newSale.products.length > 0 && (
-              <table className="table-auto w-full  ">
-                <thead className=" bg-gradient-to-bl from-blue_m to-blue_b text-white text-sm 2xl:text-lg">
-                  <tr>
-                    <th className="px-4 py-2">Producto</th>
-                    <th className="px-4 py-2 text-center">Unidad</th>
-                    <th className="px-4 py-2 text-center">Cantidad</th>
-                    <th className="px-4 py-2 text-center">Total</th>
-                    <th className="w-40 max-w-[10rem] px-4 py-2 text-center">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white text-gray_b divide-y divide-gray_xl ">
-                  {newSale.products.map((product) => {
-                    return (
-                      <tr className="border-b border-gray-xl" key={product.id}>
-                        <td className=" px-4 py-2">
-                          {product.name.toUpperCase()}
-                        </td>
-                        <td className="w-40 max-w-40 px-4 py-2">
-                          {["Kg", "gr", "L", "ml"].includes(product.unit) ? (
-                            <Select
-                              placeholder="Unidad"
-                              options={unitOptions}
-                              value={unitOptions.find(
-                                (option) => option.value === product.unit
-                              )}
-                              onChange={(selectedOption) => {
-                                handleUnitChange(
-                                  product.id,
-                                  selectedOption,
-                                  product.quantity
-                                );
+              <div className="max-h-[14rem] overflow-y-auto">
+                <table className="table-auto w-full">
+                  <thead className=" bg-gradient-to-bl from-blue_m to-blue_b text-white text-sm 2xl:text-lg">
+                    <tr>
+                      <th className="px-4 py-2">Producto</th>
+                      <th className="px-4 py-2 text-center">Unidad</th>
+                      <th className="px-4 py-2 text-center">Cantidad</th>
+                      <th className="px-4 py-2 text-center">Total</th>
+                      <th className="w-40 max-w-[10rem] px-4 py-2 text-center">
+                        Acciones
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white text-gray_b divide-y divide-gray_xl max-h-[10rem] ">
+                    {newSale.products.map((product) => {
+                      return (
+                        <tr
+                          className="border-b border-gray-xl"
+                          key={product.id}
+                        >
+                          <td className=" px-4 py-2">
+                            {product.name.toUpperCase()}
+                          </td>
+                          <td className="w-40 max-w-40 px-4 py-2">
+                            {["Kg", "gr", "L", "ml"].includes(product.unit) ? (
+                              <Select
+                                placeholder="Unidad"
+                                options={unitOptions}
+                                value={unitOptions.find(
+                                  (option) => option.value === product.unit
+                                )}
+                                onChange={(selectedOption) => {
+                                  handleUnitChange(
+                                    product.id,
+                                    selectedOption,
+                                    product.quantity
+                                  );
+                                }}
+                                className="text-black"
+                              />
+                            ) : (
+                              <div className="text-center py-2 text-gray_m">
+                                {product.unit}
+                              </div>
+                            )}
+                          </td>
+                          <td className="w-20 max-w-20 px-4 py-2  ">
+                            <Input
+                              textPosition="text-center"
+                              type="number"
+                              value={product.quantity.toString() || ""}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                if (value === "" || !isNaN(Number(value))) {
+                                  handleQuantityChange(
+                                    product.id,
+                                    value === "" ? 0 : Number(value),
+                                    product.unit
+                                  );
+                                }
                               }}
-                              className="text-black"
+                              step={
+                                product.unit === "Kg" || product.unit === "L"
+                                  ? "0.001"
+                                  : "1"
+                              }
+                              onBlur={(
+                                e: React.FocusEvent<HTMLInputElement>
+                              ) => {
+                                if (e.target.value === "") {
+                                  handleQuantityChange(
+                                    product.id,
+                                    0,
+                                    product.unit
+                                  );
+                                }
+                              }}
                             />
-                          ) : (
-                            <div className="text-center py-2 text-gray_m">
-                              {product.unit}
-                            </div>
-                          )}
-                        </td>
-                        <td className="w-20 max-w-20 px-4 py-2  ">
-                          <Input
-                            textPosition="text-center"
-                            type="number"
-                            value={product.quantity.toString() || ""}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              if (value === "" || !isNaN(Number(value))) {
-                                handleQuantityChange(
-                                  product.id,
-                                  value === "" ? 0 : Number(value),
-                                  product.unit
-                                );
-                              }
-                            }}
-                            step={
-                              product.unit === "Kg" || product.unit === "L"
-                                ? "0.001"
-                                : "1"
-                            }
-                            onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
-                              if (e.target.value === "") {
-                                handleQuantityChange(
-                                  product.id,
-                                  0,
-                                  product.unit
-                                );
-                              }
-                            }}
-                          />
-                        </td>
+                          </td>
 
-                        <td className="w-30 max-w-30 px-4 py-2 text-center ">
-                          {formatCurrency(
-                            calculatePrice({
-                              ...product,
-                              price: product.price || 0,
-                              quantity: product.quantity || 0,
-                              unit: product.unit || "Unid.",
-                            })
-                          )}
-                        </td>
-                        <td className=" px-4 py-2 text-center">
-                          <button
-                            onClick={() => handleRemoveProduct(product.id)}
-                            className="cursor-pointer hover:bg-red_b text-gray_b hover:text-white p-1 rounded-sm transition-all duration-300"
-                          >
-                            <Trash size={20} />
-                          </button>
-                        </td>
-                        <div></div>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          <td className="w-30 max-w-30 px-4 py-2 text-center ">
+                            {formatCurrency(
+                              calculatePrice({
+                                ...product,
+                                price: product.price || 0,
+                                quantity: product.quantity || 0,
+                                unit: product.unit || "Unid.",
+                              })
+                            )}
+                          </td>
+                          <td className=" px-4 py-2 text-center">
+                            <button
+                              onClick={() => handleRemoveProduct(product.id)}
+                              className="cursor-pointer hover:bg-red_b text-gray_b hover:text-white p-1 rounded-sm transition-all duration-300"
+                            >
+                              <Trash size={20} />
+                            </button>
+                          </td>
+                          <div></div>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
+          </form>
+          <div>
             <div className="flex items-center space-x-4">
               <div className="w-full flex flex-col">
                 {isCredit ? (
-                  <div className="p-2 bg-gray-100 text-gray-800 rounded-md mt-6">
-                    <p className="font-semibold">MONTO MANUAL DESHABILITADO</p>
+                  <div className="p-2 bg-gray-100 text-gray-800 rounded-md ">
+                    <p className="font-semibold">
+                      VENTA FIADA - Monto manual deshabilitado
+                    </p>
                   </div>
                 ) : (
                   <InputCash
@@ -1519,7 +1516,9 @@ const VentasPage = () => {
               </div>
 
               <div
-                className={`w-full flex flex-col ${isCredit ? "mt-5" : "mt-8"}`}
+                className={`w-full flex flex-col ${
+                  isCredit ? "py-4 mt-5" : "mt-8"
+                }`}
               >
                 <label
                   className={`${
@@ -1530,7 +1529,7 @@ const VentasPage = () => {
                 </label>
 
                 {isCredit ? (
-                  <div className="p-2 bg-orange-100 text-orange-800 rounded-md mt-1">
+                  <div className="p-2  bg-orange-100 text-orange-800 rounded-md -mt-5">
                     <p className="font-semibold">
                       VENTA FIADA - Métodos de pago deshabilitados
                     </p>
@@ -1675,16 +1674,8 @@ const VentasPage = () => {
                   currency: "ARS",
                 })}
               </p>
-              {Math.abs(
-                newSale.paymentMethods.reduce((sum, m) => sum + m.amount, 0) -
-                  newSale.total
-              ) > 0.1 && (
-                <p className="text-red_m text-sm">
-                  La suma de los métodos no coincide con el total
-                </p>
-              )}
             </div>
-          </form>
+          </div>
         </Modal>
 
         <Modal

@@ -32,6 +32,7 @@ export type ButtonProps = {
   colorTextHover?: string;
   disabled?: boolean;
   hotkey?: string;
+  title?: string;
 };
 
 export type NavbarProps = {
@@ -302,4 +303,11 @@ export type DatepickerProps = {
   isClearable?: boolean;
   label?: string;
   placeholderText?: string;
+};
+export type TicketProps = {
+  items: { nombre: string; cantidad: number; precio: number; unit?: string }[];
+  total: number;
+  fecha: string;
+  paymentMethods?: { method: string; amount: number }[];
+  isCredit?: boolean;
 };
