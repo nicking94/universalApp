@@ -1389,7 +1389,7 @@ const VentasPage = () => {
               </div>
             </div>
             {newSale.products.length > 0 && (
-              <div className="max-h-[14rem] overflow-y-auto">
+              <div className="h-[14rem] max-h-[14rem] overflow-y-auto">
                 <table className="table-auto w-full">
                   <thead className=" bg-gradient-to-bl from-blue_m to-blue_b text-white text-sm 2xl:text-lg">
                     <tr>

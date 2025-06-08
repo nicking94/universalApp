@@ -257,7 +257,7 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
                 <span className="font-bold max-w-30">
                   {getDisplayProductName(product, rubro)}
                 </span>
-                <span>
+                <span className="mr-2">
                   {product.quantity} {product.unit?.toLowerCase() || "un"}
                 </span>
               </div>

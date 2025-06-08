@@ -34,7 +34,7 @@ const CustomDatePicker: React.FC<DatePickerProps> = ({
   };
 
   return (
-    <div className="flex flex-col w-full">
+    <div className="flex flex-col w-full mt-1.5">
       {label && (
         <label className="block text-sm font-medium leading-none text-gray_m dark:text-white mb-1">
           {label}

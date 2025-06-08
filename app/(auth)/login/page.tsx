@@ -34,11 +34,16 @@ const LoginPage = () => {
       }
       const count = await db.users.count();
       if (count === 0) {
-        const usersToAdd: User[] = USERS.map((user) => ({
-          id: user.id,
-          username: user.username,
-          password: user.password,
-        }));
+        const usersToAdd: User[] = USERS.map((user) => {
+          if (!user.username || !user.password) {
+            throw new Error("Username or password is undefined");
+          }
+          return {
+            id: user.id,
+            username: user.username,
+            password: user.password,
+          };
+        });
         await db.users.bulkAdd(usersToAdd);
       } else {
         const adminUser = await db.users.get(2);

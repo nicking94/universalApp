@@ -149,7 +149,14 @@ const CajaDiariaPage = () => {
     } else if (!dailyCash.closed) {
       return true;
     } else {
-      showNotification("La caja ya fue cerrada hoy", "info");
+      const shouldReopen = window.confirm(
+        "La caja ya fue cerrada hoy. ¿Deseas reabrirla?"
+      );
+      if (shouldReopen) {
+        await db.dailyCashes.update(dailyCash.id, { closed: false });
+        setCurrentDailyCash({ ...dailyCash, closed: false });
+        return true;
+      }
       return false;
     }
   };
@@ -240,6 +247,38 @@ const CajaDiariaPage = () => {
       return;
     }
 
+    // Si estamos reabriendo una caja cerrada
+    if (currentDailyCash?.closed) {
+      try {
+        const updatedCash = {
+          ...currentDailyCash,
+          closed: false,
+          initialAmount: currentDailyCash.closingAmount || 0,
+          // Resetear los campos de cierre
+          closingAmount: undefined,
+          cashIncome: undefined,
+          cashExpense: undefined,
+          otherIncome: undefined,
+          closingDifference: undefined,
+          closingDate: undefined,
+        };
+
+        await db.dailyCashes.update(currentDailyCash.id, updatedCash);
+        setDailyCashes((prev) =>
+          prev.map((dc) => (dc.id === currentDailyCash.id ? updatedCash : dc))
+        );
+        setCurrentDailyCash(updatedCash);
+        setIsOpenCashModal(false);
+        showNotification("Caja reabierta correctamente", "success");
+        return;
+      } catch (error) {
+        console.error("Error al reabrir caja:", error);
+        showNotification("Error al reabrir caja", "error");
+        return;
+      }
+    }
+
+    // Código original para abrir nueva caja
     if (!initialAmount) {
       showNotification("Debe ingresar un monto inicial", "error");
       return;
@@ -853,7 +892,15 @@ const CajaDiariaPage = () => {
                       </p>
                     </div>
                     <div>
-                      {!currentDailyCash.closed && (
+                      {currentDailyCash.closed ? (
+                        <Button
+                          icon={<Plus />}
+                          text="Reabrir Caja"
+                          colorText="text-white"
+                          colorTextHover="text-white"
+                          onClick={() => setIsOpenCashModal(true)}
+                        />
+                      ) : (
                         <Button
                           icon={<X />}
                           text="Cerrar Caja"
@@ -1193,19 +1240,21 @@ const CajaDiariaPage = () => {
         <Modal
           isOpen={isOpenCashModal}
           onClose={() => setIsOpenCashModal(false)}
-          title="Apertura de caja"
+          title={
+            currentDailyCash?.closed ? "Reapertura de caja" : "Apertura de caja"
+          }
           onConfirm={openCash}
           buttons={
             <div className="flex justify-end space-x-4">
               <Button
-                text="Abrir Caja"
+                text={currentDailyCash?.closed ? "Reabrir Caja" : "Abrir Caja"}
                 icon={<Check />}
                 colorText="text-white"
                 colorTextHover="text-white"
                 onClick={openCash}
               />
               <Button
-                text="Abrir más tarde"
+                text="Cancelar"
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
@@ -1216,15 +1265,25 @@ const CajaDiariaPage = () => {
           }
         >
           <div className="flex flex-col gap-2">
-            <p className="text-gray_m dark:text-white">
-              Para comenzar, ingrese el monto inicial en caja.
-            </p>
-            <InputCash
-              label="Monto Inicial"
-              value={Number(initialAmount) || 0}
-              onChange={(value) => setInitialAmount(value.toString())}
-              placeholder="Ingrese el monto inicial..."
-            />
+            {currentDailyCash?.closed ? (
+              <>
+                <p className=" text-gray_m dark:text-white">
+                  ¿Desea reabrir la caja?
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-gray_m dark:text-white">
+                  Para comenzar, ingrese el monto inicial en caja.
+                </p>
+                <InputCash
+                  label="Monto Inicial"
+                  value={Number(initialAmount) || 0}
+                  onChange={(value) => setInitialAmount(value.toString())}
+                  placeholder="Ingrese el monto inicial..."
+                />
+              </>
+            )}
           </div>
         </Modal>
         <DetailModal />

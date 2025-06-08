@@ -116,7 +116,7 @@ export type Product = {
   price: number;
   expiration?: string;
   quantity: number;
-  unit: "Unid." | "gr" | "Kg" | "ml" | "L";
+  unit: "Unid." | "gr" | "Kg" | "ml" | "L" | "Bulto" | "Caja" | "Cajón";
   barcode?: string;
   description?: string;
   category?: string;
@@ -220,7 +220,7 @@ export type DailyCashMovement = {
   sellPrice?: number;
   quantity?: number;
   profit?: number;
-  unit?: "Unid." | "gr" | "Kg" | "ml" | "L";
+  unit?: "Unid." | "gr" | "Kg" | "ml" | "L" | "Bulto" | "Caja" | "Cajón";
   isCreditPayment?: boolean;
   originalSaleId?: number;
   supplierId?: number;
@@ -310,4 +310,33 @@ export type TicketProps = {
   fecha: string;
   paymentMethods?: { method: string; amount: number }[];
   isCredit?: boolean;
+};
+export type ProductFilters = {
+  category?: string;
+  color?: string;
+  size?: string;
+  brand?: string;
+};
+export type ClothingCategoryOption = {
+  value: string;
+  label: string;
+};
+
+export type ClothingSizeOption = {
+  value: string;
+  label: string;
+};
+export type CommercialCategoryOption = {
+  value: string;
+  label: string;
+};
+export type GroupedOption = {
+  label: string;
+  options: (
+    | ClothingCategoryOption
+    | ClothingSizeOption
+    | CommercialCategoryOption
+  ) & {
+    groupType: string;
+  };
 };

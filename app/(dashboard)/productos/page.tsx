@@ -3,7 +3,15 @@ import Button from "@/app/components/Button";
 import Input from "@/app/components/Input";
 import Modal from "@/app/components/Modal";
 import Notification from "@/app/components/Notification";
-import { Product } from "@/app/lib/types/types";
+import {
+  ClothingCategoryOption,
+  ClothingSizeOption,
+  CommercialCategoryOption,
+  GroupedOption,
+  Product,
+  ProductFilters,
+  UnitOption,
+} from "@/app/lib/types/types";
 import {
   Edit,
   Trash,
@@ -28,19 +36,6 @@ import InputCash from "@/app/components/InputCash";
 import { useRubro } from "@/app/context/RubroContext";
 import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
 
-type UnitOption = {
-  value: Product["unit"];
-  label: string;
-};
-type ClothingCategoryOption = {
-  value: string;
-  label: string;
-};
-
-type ClothingSizeOption = {
-  value: string;
-  label: string;
-};
 const clothingCategories: ClothingCategoryOption[] = [
   { value: "remera", label: "Remera" },
   { value: "pantalon", label: "Pantalón" },
@@ -66,6 +61,21 @@ const clothingSizes: ClothingSizeOption[] = [
   { value: "XXXL", label: "XXXL" },
   { value: "unico", label: "Único" },
 ];
+const commercialCategories: CommercialCategoryOption[] = [
+  { value: "frutas", label: "Frutas" },
+  { value: "verduras", label: "Verduras" },
+  { value: "lacteos", label: "Lácteos" },
+  { value: "fiambres", label: "Fiambres" },
+  { value: "bebidas", label: "Bebidas" },
+  { value: "limpieza", label: "Limpieza" },
+  { value: "panaderia", label: "Panadería" },
+  { value: "carnes", label: "Carnes" },
+  { value: "congelados", label: "Congelados" },
+  { value: "almacen", label: "Almacén" },
+  { value: "perfumeria", label: "Perfumería" },
+  { value: "bazar", label: "Bazar" },
+  { value: "otros", label: "Otros" },
+];
 
 const ProductsPage = () => {
   const { rubro } = useRubro();
@@ -88,6 +98,8 @@ const ProductsPage = () => {
     size: "",
     rubro: rubro,
   });
+  const [filters, setFilters] = useState<ProductFilters>({});
+
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -112,20 +124,68 @@ const ProductsPage = () => {
     { value: "gr", label: "gr" },
     { value: "L", label: "L" },
     { value: "ml", label: "Ml" },
+    { value: "Bulto", label: "Bulto" },
+    { value: "Caja", label: "Caja" },
+    { value: "Cajón", label: "Cajón" },
   ];
+
+  const handleFilterChange = (
+    filterType: keyof ProductFilters,
+    value: string
+  ) => {
+    setFilters((prev) => ({
+      ...prev,
+      [filterType]: value || undefined,
+    }));
+  };
 
   const selectedUnit =
     unitOptions.find((opt) => opt.value === newProduct.unit) ?? null;
 
+  const getFilterOptionsByRubro = () => {
+    if (rubro === "indumentaria") {
+      return [
+        { type: "category", options: clothingCategories, label: "Categoría" },
+        { type: "size", options: sizeOptions, label: "Talle" },
+        { type: "color", options: colorOptions, label: "Color" },
+        { type: "brand", options: brandOptions, label: "Marca" },
+      ];
+    } else {
+      return [
+        { type: "category", options: commercialCategories, label: "Categoría" },
+      ];
+    }
+  };
   const toggleSortOrder = () => {
     setSortOrder((prevOrder) => (prevOrder === "asc" ? "desc" : "asc"));
   };
+
+  const getUniqueOptions = (field: keyof Product) => {
+    return Array.from(
+      new Set(
+        products
+          .filter((p) => p.rubro === "indumentaria" && p[field])
+          .map((p) => String(p[field]))
+      )
+    )
+      .sort()
+      .map((value) => ({ value, label: value }));
+  };
+
+  const sizeOptions = getUniqueOptions("size");
+  const colorOptions = getUniqueOptions("color");
+  const brandOptions = getUniqueOptions("brand");
+
   const sortedProducts = useMemo(() => {
     const filtered = products.filter(
       (product) =>
         (rubro === "todos los rubros" || product.rubro === rubro) &&
         (product.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          product.barcode?.includes(searchQuery))
+          product.barcode?.includes(searchQuery)) &&
+        (!filters.category || product.category === filters.category) &&
+        (!filters.size || product.size === filters.size) &&
+        (!filters.color || product.color === filters.color) &&
+        (!filters.brand || product.brand === filters.brand)
     );
 
     return [...filtered].sort((a, b) => {
@@ -155,11 +215,12 @@ const ProductsPage = () => {
         ? Number(a.stock) - Number(b.stock)
         : Number(b.stock) - Number(a.stock);
     });
-  }, [products, searchQuery, sortOrder, rubro]);
+  }, [products, searchQuery, sortOrder, rubro, filters]);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query.toLowerCase());
   };
+
   const handleOpenPriceModal = () => {
     setIsPriceModalOpen(true);
     setScannedProduct(null);
@@ -189,6 +250,7 @@ const ProductsPage = () => {
     }
     setBarcodeInput("");
   };
+
   const hasChanges = (originalProduct: Product, updatedProduct: Product) => {
     return (
       originalProduct.name !== updatedProduct.name ||
@@ -198,6 +260,7 @@ const ProductsPage = () => {
       originalProduct.expiration !== updatedProduct.expiration ||
       originalProduct.unit !== updatedProduct.unit ||
       originalProduct.barcode !== updatedProduct.barcode ||
+      originalProduct.category !== updatedProduct.category ||
       (rubro === "indumentaria" &&
         (originalProduct.category !== updatedProduct.category ||
           originalProduct.color !== updatedProduct.color ||
@@ -205,6 +268,7 @@ const ProductsPage = () => {
           originalProduct.brand !== updatedProduct.brand))
     );
   };
+
   const showNotification = (
     message: string,
     type: "success" | "error" | "info"
@@ -217,6 +281,7 @@ const ProductsPage = () => {
       setIsNotificationOpen(false);
     }, 2500);
   };
+
   const handleAddProduct = () => {
     setIsOpenModal(true);
   };
@@ -331,6 +396,7 @@ const ProductsPage = () => {
           : value,
     });
   };
+
   const handleEditProduct = (product: Product) => {
     setEditingProduct(product);
     setNewProduct({
@@ -341,6 +407,7 @@ const ProductsPage = () => {
     });
     setIsOpenModal(true);
   };
+
   const handleDeleteProduct = (product: Product) => {
     setProductToDelete(product);
     setIsConfirmModalOpen(true);
@@ -359,6 +426,7 @@ const ProductsPage = () => {
       );
     }
   }, [newProduct, editingProduct]);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -384,6 +452,7 @@ const ProductsPage = () => {
       isMounted = false;
     };
   }, []);
+
   useEffect(() => {
     const loadSuppliers = async () => {
       const supplierMap: Record<number, string> = {};
@@ -407,11 +476,14 @@ const ProductsPage = () => {
 
     loadSuppliers();
   }, [products]);
+
   useEffect(() => {
     setNewProduct((prev) => ({
       ...prev,
       rubro: rubro,
     }));
+    setFilters({});
+    setSearchQuery("");
   }, [rubro]);
 
   const indexOfLastProduct = currentPage * productsPerPage;
@@ -434,8 +506,55 @@ const ProductsPage = () => {
         <h1 className="text-lg 2xl:text-xl font-semibold mb-2">Productos</h1>
 
         <div className="flex justify-between mb-2">
-          <div className="w-full">
+          <div className="w-full flex gap-2">
             <SearchBar onSearch={handleSearch} />
+
+            <div className="w-50">
+              <Select
+                options={getFilterOptionsByRubro().flatMap((group) => ({
+                  label: group.label,
+                  options: group.options.map((opt) => ({
+                    ...opt,
+                    groupType: group.type,
+                  })),
+                }))}
+                value={(() => {
+                  const allOptions = getFilterOptionsByRubro().flatMap(
+                    (group) =>
+                      group.options.map((opt) => ({
+                        ...opt,
+                        groupType: group.type,
+                      }))
+                  );
+                  return (
+                    allOptions.find(
+                      (opt) =>
+                        filters[opt.groupType as keyof typeof filters] ===
+                        opt.value
+                    ) || null
+                  );
+                })()}
+                onChange={(selectedOption: GroupedOption["options"] | null) => {
+                  if (selectedOption) {
+                    setFilters({});
+                    handleFilterChange(
+                      selectedOption.groupType as keyof typeof filters,
+                      selectedOption.value
+                    );
+                  } else {
+                    setFilters({});
+                  }
+                }}
+                placeholder="Filtrar por..."
+                isClearable
+                className="text-black"
+                formatGroupLabel={(group) => (
+                  <div className="text-gray-700 font-semibold">
+                    {group.label}
+                  </div>
+                )}
+              />
+            </div>
           </div>
           <div className="w-full flex justify-end gap-2 ">
             <Button
@@ -462,6 +581,7 @@ const ProductsPage = () => {
                 <th className="px-4 py-2 text-start text-sm 2xl:text-lg ">
                   Producto
                 </th>
+                <th className="text-sm 2xl:text-lg px-4 py-2">Categoría</th>
                 {rubro === "indumentaria" && (
                   <th className="text-sm 2xl:text-lg px-4 py-2">Talle</th>
                 )}
@@ -562,6 +682,9 @@ const ProductsPage = () => {
                             </span>
                           </div>
                         </td>
+                        <td className="px-4 py-2 border border-gray_xl capitalize">
+                          {product.category || "-"}
+                        </td>
                         {rubro === "indumentaria" && (
                           <td className="px-4 py-2 border border-gray_xl">
                             {product.size || "-"}
@@ -648,7 +771,7 @@ const ProductsPage = () => {
               ) : (
                 <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
                   <td
-                    colSpan={rubro === "indumentaria" ? 8 : 7}
+                    colSpan={rubro === "indumentaria" ? 9 : 8}
                     className="py-4 text-center"
                   >
                     <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
@@ -743,13 +866,56 @@ const ProductsPage = () => {
                 onChange={handleInputChange}
               />
             </div>
-
-            {rubro === "indumentaria" ? (
+            {(rubro === "comercio" || rubro === "todos los rubros") && (
               <>
-                <div className="w-full flex items-center space-x-4">
+                <div className="w-full grid grid-cols-2 gap-4">
                   <div className="w-full">
                     <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
-                      Categoría de prenda
+                      Categoría
+                    </label>
+                    <Select
+                      options={commercialCategories}
+                      value={
+                        commercialCategories.find(
+                          (opt) => opt.value === newProduct.category
+                        ) || null
+                      }
+                      onChange={(selectedOption) => {
+                        setNewProduct({
+                          ...newProduct,
+                          category: selectedOption?.value || "",
+                        });
+                      }}
+                      className="text-black"
+                      placeholder="Seleccionar categoría..."
+                    />
+                  </div>
+                  <div className="w-full">
+                    <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                      Unidad
+                    </label>
+                    <Select
+                      options={unitOptions}
+                      value={selectedUnit}
+                      onChange={(selectedOption) => {
+                        setNewProduct({
+                          ...newProduct,
+                          unit: selectedOption?.value as Product["unit"],
+                        });
+                      }}
+                      className="text-black"
+                      isSearchable={false}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+            {rubro === "indumentaria" ? (
+              <>
+                <div className="w-full grid grid-cols-2 gap-4">
+                  <div className="w-full">
+                    <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                      Categoría
                     </label>
                     <Select
                       options={clothingCategories}
@@ -768,26 +934,6 @@ const ProductsPage = () => {
                       placeholder="Seleccionar categoría..."
                     />
                   </div>
-                  <Input
-                    label="Marca"
-                    type="text"
-                    name="brand"
-                    placeholder="Marca..."
-                    value={newProduct.brand || ""}
-                    onChange={handleInputChange}
-                  />
-                </div>
-
-                <div className="w-full flex items-center space-x-4">
-                  <Input
-                    label="Color"
-                    type="text"
-                    name="color"
-                    placeholder="Color..."
-                    value={newProduct.color || ""}
-                    onChange={handleInputChange}
-                  />
-
                   <div className="w-full">
                     <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
                       Talle
@@ -811,46 +957,26 @@ const ProductsPage = () => {
                   </div>
                 </div>
 
-                <div className="w-full">
+                <div className="w-full flex items-center space-x-4">
                   <Input
-                    label="Stock"
-                    type="number"
-                    name="stock"
-                    placeholder="Stock..."
-                    value={newProduct.stock.toString()}
+                    label="Color"
+                    type="text"
+                    name="color"
+                    placeholder="Color..."
+                    value={newProduct.color || ""}
+                    onChange={handleInputChange}
+                  />
+                  <Input
+                    label="Marca"
+                    type="text"
+                    name="brand"
+                    placeholder="Marca..."
+                    value={newProduct.brand || ""}
                     onChange={handleInputChange}
                   />
                 </div>
               </>
-            ) : (
-              <div className="w-full flex items-center space-x-4">
-                <div className="w-full">
-                  <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
-                    Unidad
-                  </label>
-                  <Select
-                    options={unitOptions}
-                    value={selectedUnit}
-                    onChange={(selectedOption) => {
-                      setNewProduct({
-                        ...newProduct,
-                        unit: selectedOption?.value as Product["unit"],
-                      });
-                    }}
-                    className="text-black"
-                    isSearchable={false}
-                  />
-                </div>
-                <Input
-                  label="Stock"
-                  type="number"
-                  name="stock"
-                  placeholder="Stock..."
-                  value={newProduct.stock.toString()}
-                  onChange={handleInputChange}
-                />
-              </div>
-            )}
+            ) : null}
 
             <div className="flex items-center space-x-4">
               <div className="w-full flex items-center space-x-4">
@@ -872,14 +998,36 @@ const ProductsPage = () => {
               </div>
             </div>
 
-            {rubro !== "indumentaria" && (
-              <CustomDatePicker
-                value={newProduct.expiration || ""}
-                onChange={(newDate) => {
-                  setNewProduct({ ...newProduct, expiration: newDate });
-                }}
-                isClearable={true}
-              />
+            {rubro !== "indumentaria" ? (
+              <div className="flex items-center space-x-4 ">
+                <CustomDatePicker
+                  value={newProduct.expiration || ""}
+                  onChange={(newDate) => {
+                    setNewProduct({ ...newProduct, expiration: newDate });
+                  }}
+                  isClearable={true}
+                />
+
+                <Input
+                  label="Stock"
+                  type="number"
+                  name="stock"
+                  placeholder="Stock..."
+                  value={newProduct.stock.toString()}
+                  onChange={handleInputChange}
+                />
+              </div>
+            ) : (
+              <div className="w-full">
+                <Input
+                  label="Stock"
+                  type="number"
+                  name="stock"
+                  placeholder="Stock..."
+                  value={newProduct.stock.toString()}
+                  onChange={handleInputChange}
+                />
+              </div>
             )}
           </form>
         </Modal>

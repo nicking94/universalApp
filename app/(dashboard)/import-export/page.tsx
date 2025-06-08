@@ -35,13 +35,28 @@ export default function ImportExportPage() {
       const products = await db.products.toArray();
       const sales = await db.sales.toArray();
       const auth = await db.auth.toArray();
+      const dailyCashes = await db.dailyCashes.toArray();
+      const payments = await db.payments.toArray();
+      const customers = await db.customers.toArray();
+      const suppliers = await db.suppliers.toArray();
+      const supplierProducts = await db.supplierProducts.toArray();
 
-      const data = { theme, products, sales, auth };
+      const data = {
+        theme,
+        products,
+        sales,
+        auth,
+        dailyCashes,
+        payments,
+        customers,
+        suppliers,
+        supplierProducts,
+      };
       const json = JSON.stringify(data, null, 2);
       const blob = new Blob([json], { type: "application/json;charset=utf-8" });
       const formattedDate = format(new Date(), "dd-MM-yyyy");
 
-      saveAs(blob, `copia del dia ${formattedDate}.json`);
+      saveAs(blob, `copia_seguridad_${formattedDate}.json`);
     } catch (error) {
       console.error("Error al exportar datos:", error);
       showNotification("Error al exportar los datos", "error");
@@ -61,38 +76,41 @@ export default function ImportExportPage() {
     try {
       await db.transaction(
         "rw",
-        db.theme,
-        db.products,
-        db.sales,
-        db.auth,
+        [
+          db.theme,
+          db.products,
+          db.sales,
+          db.auth,
+          db.dailyCashes,
+          db.payments,
+          db.customers,
+          db.suppliers,
+          db.supplierProducts,
+        ],
         async () => {
           await db.theme.clear();
           await db.products.clear();
           await db.sales.clear();
           await db.auth.clear();
+          await db.dailyCashes.clear();
+          await db.payments.clear();
+          await db.customers.clear();
+          await db.suppliers.clear();
+          await db.supplierProducts.clear();
 
           try {
             await db.theme.bulkAdd(data.theme || []);
-          } catch (e) {
-            console.error("Error en theme:", e);
-          }
-
-          try {
             await db.products.bulkAdd(data.products || []);
-          } catch (e) {
-            console.error("Error en products:", e);
-          }
-
-          try {
             await db.sales.bulkPut(data.sales || []);
-          } catch (e) {
-            console.error("Error en sales:", e);
-          }
-
-          try {
             await db.auth.bulkAdd(data.auth || []);
+            await db.dailyCashes.bulkAdd(data.dailyCashes || []);
+            await db.payments.bulkAdd(data.payments || []);
+            await db.customers.bulkAdd(data.customers || []);
+            await db.suppliers.bulkAdd(data.suppliers || []);
+            await db.supplierProducts.bulkAdd(data.supplierProducts || []);
           } catch (e) {
-            console.error("Error en auth:", e);
+            console.error("Error al importar datos:", e);
+            throw e;
           }
         }
       );
