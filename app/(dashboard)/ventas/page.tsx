@@ -92,6 +92,7 @@ const VentasPage = () => {
     const pricePerUnit = product.price;
     const quantity = product.quantity;
     const unit = product.unit;
+    const discount = product.discount || 0;
 
     let quantityInBaseUnit: number;
 
@@ -110,10 +111,14 @@ const VentasPage = () => {
         break;
       case "Unid.":
       default:
-        return parseFloat((pricePerUnit * quantity).toFixed(2));
+        const priceWithoutDiscount = pricePerUnit * quantity;
+        const discountAmount = (priceWithoutDiscount * discount) / 100;
+        return parseFloat((priceWithoutDiscount - discountAmount).toFixed(2));
     }
 
-    return parseFloat((pricePerUnit * quantityInBaseUnit).toFixed(2));
+    const priceWithoutDiscount = pricePerUnit * quantityInBaseUnit;
+    const discountAmount = (priceWithoutDiscount * discount) / 100;
+    return parseFloat((priceWithoutDiscount - discountAmount).toFixed(2));
   }, []);
 
   const calculateTotal = (
@@ -127,12 +132,15 @@ const VentasPage = () => {
     return parseFloat((productsTotal + manualAmount).toFixed(2));
   };
   const calculateProfit = (product: Product): number => {
-    const profitPerKg = product.price - product.costPrice;
+    const profitPerUnit = product.price - product.costPrice;
     const quantity = product.quantity;
     const unit = product.unit;
+    const discount = product.discount || 0;
 
     if (unit === "Unid.") {
-      return profitPerKg * quantity;
+      const profitWithoutDiscount = profitPerUnit * quantity;
+      const discountAmount = (product.price * quantity * discount) / 100;
+      return profitWithoutDiscount - discountAmount;
     }
 
     let quantityInKg: number;
@@ -149,10 +157,14 @@ const VentasPage = () => {
         quantityInKg = unit === "L" ? quantity : quantity / 1000;
         break;
       default:
-        return profitPerKg * quantity;
+        const profitWithoutDiscount = profitPerUnit * quantity;
+        const discountAmount = (product.price * quantity * discount) / 100;
+        return profitWithoutDiscount - discountAmount;
     }
 
-    return parseFloat((profitPerKg * quantityInKg).toFixed(2));
+    const profitWithoutDiscount = profitPerUnit * quantityInKg;
+    const discountAmount = (product.price * quantityInKg * discount) / 100;
+    return parseFloat((profitWithoutDiscount - discountAmount).toFixed(2));
   };
 
   const calculateCombinedTotal = useCallback(
@@ -1397,6 +1409,7 @@ const VentasPage = () => {
                       <th className="px-4 py-2 text-center">Unidad</th>
                       <th className="px-4 py-2 text-center">Cantidad</th>
                       <th className="px-4 py-2 text-center">Total</th>
+                      <th>descuento</th>
                       <th className="w-40 max-w-[10rem] px-4 py-2 text-center">
                         Acciones
                       </th>
@@ -1468,7 +1481,6 @@ const VentasPage = () => {
                               }}
                             />
                           </td>
-
                           <td className="w-30 max-w-30 px-4 py-2 text-center ">
                             {formatCurrency(
                               calculatePrice({
@@ -1478,6 +1490,37 @@ const VentasPage = () => {
                                 unit: product.unit || "Unid.",
                               })
                             )}
+                          </td>
+
+                          <td className="w-20 max-w-20 px-4 py-2">
+                            <Input
+                              textPosition="text-center"
+                              type="number"
+                              value={product.discount?.toString() || "0"}
+                              onChange={(e) => {
+                                const value = Math.min(
+                                  100,
+                                  Math.max(0, Number(e.target.value))
+                                );
+                                setNewSale((prev) => {
+                                  const updatedProducts = prev.products.map(
+                                    (p) =>
+                                      p.id === product.id
+                                        ? { ...p, discount: value }
+                                        : p
+                                  );
+                                  return {
+                                    ...prev,
+                                    products: updatedProducts,
+                                    total: calculateTotal(
+                                      updatedProducts,
+                                      prev.manualAmount || 0
+                                    ),
+                                  };
+                                });
+                              }}
+                              step="1"
+                            />
                           </td>
                           <td className=" px-4 py-2 text-center">
                             <button

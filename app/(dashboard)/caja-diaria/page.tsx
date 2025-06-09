@@ -477,7 +477,7 @@ const CajaDiariaPage = () => {
 
       const movement: DailyCashMovement = {
         id: Date.now() + Math.random(),
-        amount: totalPayment,
+        amount: totalPayment || 0,
         description,
         type: movementType,
         paymentMethod: paymentMethods[0].method,
@@ -485,6 +485,7 @@ const CajaDiariaPage = () => {
         supplierId: selectedSupplier?.value,
         supplierName: selectedSupplier?.label,
         combinedPaymentMethods: paymentMethods,
+        discount: 0,
       };
 
       const updatedCash = {
@@ -1192,6 +1193,7 @@ const CajaDiariaPage = () => {
                     }}
                     className="w-32"
                   />
+
                   {paymentMethods.length > 1 && (
                     <button
                       type="button"

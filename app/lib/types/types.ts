@@ -124,6 +124,7 @@ export type Product = {
   color?: string;
   size?: string;
   rubro: Rubro;
+  discount?: number;
 };
 export type ProductDisplayInfo = {
   name: string;
@@ -163,6 +164,7 @@ export type Sale = {
   customerName?: string;
   customerPhone?: string;
   customerId?: string;
+  discount?: number;
 };
 
 export type SaleItem = {
@@ -173,6 +175,7 @@ export type SaleItem = {
   price: number;
   size?: string;
   color?: string;
+  discount?: number;
 };
 
 export type PaginationProps = {
@@ -210,6 +213,8 @@ export type DailyCashMovement = {
   method?: PaymentMethod;
   amount: number;
   manualAmount?: number;
+  discount?: number;
+
   description: string;
   type: "INGRESO" | "EGRESO";
   date: string;
