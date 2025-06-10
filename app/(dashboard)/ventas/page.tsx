@@ -1149,7 +1149,7 @@ const VentasPage = () => {
                   Forma De Pago
                 </th>
                 <th className="text-sm 2xl:text-lg px-4 py-2 ">Total</th>
-                <th className="w-40 max-w-[10rem] text-sm 2xl:text-lg px-4 py-2">
+                <th className="w-40 max-w-[5rem] 2xl:max-w-[10rem] text-sm 2xl:text-lg px-4 py-2">
                   Acciones
                 </th>
               </tr>
@@ -1264,7 +1264,7 @@ const VentasPage = () => {
             <Modal
               isOpen={isInfoModalOpen}
               onClose={handleCloseInfoModal}
-              title="Detalles de la venta"
+              title="Ticket de la venta"
               buttons={
                 <div className="flex justify-end gap-4">
                   <Button
@@ -1289,7 +1289,7 @@ const VentasPage = () => {
                 </div>
               }
             >
-              <div className="border border-gray-300 p-4 mb-4">
+              <div className="shadow overflow-y-auto bg-white">
                 <PrintableTicket
                   ref={ticketRef}
                   sale={selectedSale}
@@ -1338,378 +1338,394 @@ const VentasPage = () => {
               />
             </div>
           }
-          minheight="min-h-[26rem]"
+          minheight="min-h-[26rem] "
         >
-          <form
-            onSubmit={handleConfirmAddSale}
-            className="flex flex-col gap-2 "
-          >
-            <div className="w-full flex items-center space-x-4">
-              <div className="w-full  ">
-                <label className="block text-sm font-medium text-gray_m dark:text-white">
-                  Escanear código de barras
-                </label>
-                <BarcodeScanner
-                  value={newSale.barcode || ""}
-                  onChange={(value) =>
-                    setNewSale({ ...newSale, barcode: value })
-                  }
-                  onScanComplete={(code) => {
-                    const productToAdd = products.find(
-                      (p) => p.barcode === code
-                    );
-                    if (productToAdd) {
-                      handleProductScan(productToAdd.id);
-                    } else {
-                      showNotification("Producto no encontrado", "error");
-                    }
-                  }}
-                />
-              </div>
-              <div className="w-full flex flex-col">
-                <label
-                  htmlFor="productSelect"
-                  className="block text-gray_m dark:text-white text-sm font-semibold "
-                >
-                  Productos
-                </label>
-                <Select
-                  placeholder="Seleccionar productos..."
-                  isMulti
-                  options={productOptions}
-                  value={newSale.products.map((p) => ({
-                    value: p.id,
-                    label: getDisplayProductName(p, rubro, true),
-                    product: p,
-                    isDisabled: false,
-                  }))}
-                  onChange={handleProductSelect}
-                  className="text-black"
-                  classNamePrefix="react-select"
-                  styles={{
-                    control: (provided) => ({
-                      ...provided,
-                      maxHeight: "100px",
-                      overflowY: "auto",
-                    }),
-                    multiValue: (provided) => ({
-                      ...provided,
-                      maxWidth: "200px",
-                    }),
-                  }}
-                />
-              </div>
-            </div>
-            {newSale.products.length > 0 && (
-              <div className="h-[14rem] max-h-[14rem] overflow-y-auto">
-                <table className="table-auto w-full">
-                  <thead className=" bg-gradient-to-bl from-blue_m to-blue_b text-white text-sm 2xl:text-lg">
-                    <tr>
-                      <th className="px-4 py-2">Producto</th>
-                      <th className="px-4 py-2 text-center">Unidad</th>
-                      <th className="px-4 py-2 text-center">Cantidad</th>
-                      <th className="px-4 py-2 text-center">Total</th>
-                      <th>descuento</th>
-                      <th className="w-40 max-w-[10rem] px-4 py-2 text-center">
-                        Acciones
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white text-gray_b divide-y divide-gray_xl max-h-[10rem] ">
-                    {newSale.products.map((product) => {
-                      return (
-                        <tr
-                          className="border-b border-gray-xl"
-                          key={product.id}
-                        >
-                          <td className=" px-4 py-2">
-                            {product.name.toUpperCase()}
-                          </td>
-                          <td className="w-40 max-w-40 px-4 py-2">
-                            {["Kg", "gr", "L", "ml"].includes(product.unit) ? (
-                              <Select
-                                placeholder="Unidad"
-                                options={unitOptions}
-                                value={unitOptions.find(
-                                  (option) => option.value === product.unit
-                                )}
-                                onChange={(selectedOption) => {
-                                  handleUnitChange(
-                                    product.id,
-                                    selectedOption,
-                                    product.quantity
-                                  );
-                                }}
-                                className="text-black"
-                              />
-                            ) : (
-                              <div className="text-center py-2 text-gray_m">
-                                {product.unit}
-                              </div>
-                            )}
-                          </td>
-                          <td className="w-20 max-w-20 px-4 py-2  ">
-                            <Input
-                              textPosition="text-center"
-                              type="number"
-                              value={product.quantity.toString() || ""}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                if (value === "" || !isNaN(Number(value))) {
-                                  handleQuantityChange(
-                                    product.id,
-                                    value === "" ? 0 : Number(value),
-                                    product.unit
-                                  );
-                                }
-                              }}
-                              step={
-                                product.unit === "Kg" || product.unit === "L"
-                                  ? "0.001"
-                                  : "1"
-                              }
-                              onBlur={(
-                                e: React.FocusEvent<HTMLInputElement>
-                              ) => {
-                                if (e.target.value === "") {
-                                  handleQuantityChange(
-                                    product.id,
-                                    0,
-                                    product.unit
-                                  );
-                                }
-                              }}
-                            />
-                          </td>
-                          <td className="w-30 max-w-30 px-4 py-2 text-center ">
-                            {formatCurrency(
-                              calculatePrice({
-                                ...product,
-                                price: product.price || 0,
-                                quantity: product.quantity || 0,
-                                unit: product.unit || "Unid.",
-                              })
-                            )}
-                          </td>
-
-                          <td className="w-20 max-w-20 px-4 py-2">
-                            <Input
-                              textPosition="text-center"
-                              type="number"
-                              value={product.discount?.toString() || "0"}
-                              onChange={(e) => {
-                                const value = Math.min(
-                                  100,
-                                  Math.max(0, Number(e.target.value))
-                                );
-                                setNewSale((prev) => {
-                                  const updatedProducts = prev.products.map(
-                                    (p) =>
-                                      p.id === product.id
-                                        ? { ...p, discount: value }
-                                        : p
-                                  );
-                                  return {
-                                    ...prev,
-                                    products: updatedProducts,
-                                    total: calculateTotal(
-                                      updatedProducts,
-                                      prev.manualAmount || 0
-                                    ),
-                                  };
-                                });
-                              }}
-                              step="1"
-                            />
-                          </td>
-                          <td className=" px-4 py-2 text-center">
-                            <button
-                              onClick={() => handleRemoveProduct(product.id)}
-                              className="cursor-pointer hover:bg-red_b text-gray_b hover:text-white p-1 rounded-sm transition-all duration-300"
-                            >
-                              <Trash size={20} />
-                            </button>
-                          </td>
-                          <div></div>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </form>
-          <div>
-            <div className="flex items-center space-x-4">
-              <div className="w-full flex flex-col">
-                {isCredit ? (
-                  <div className="p-2 bg-gray-100 text-gray-800 rounded-md ">
-                    <p className="font-semibold">
-                      VENTA FIADA - Monto manual deshabilitado
-                    </p>
-                  </div>
-                ) : (
-                  <InputCash
-                    label="Monto manual (opcional)"
-                    value={newSale.manualAmount || 0}
-                    onChange={handleManualAmountChange}
-                    disabled={isCredit}
-                  />
-                )}
-              </div>
-
-              <div
-                className={`w-full flex flex-col ${
-                  isCredit ? "py-4 mt-5" : "mt-8"
-                }`}
+          <div className="overflow-y-auto">
+            <div className="flex flex-col min-h-[24rem] max-h-[24rem] 2xl:max-h-[27rem] justify-between overflow-y-auto">
+              <form
+                onSubmit={handleConfirmAddSale}
+                className="flex flex-col gap-2"
               >
-                <label
-                  className={`${
-                    isCredit ? "hidden" : "block"
-                  } text-gray_m dark:text-white text-sm font-semibold`}
-                >
-                  Métodos de Pago
-                </label>
-
-                {isCredit ? (
-                  <div className="p-2  bg-orange-100 text-orange-800 rounded-md -mt-5">
-                    <p className="font-semibold">
-                      VENTA FIADA - Métodos de pago deshabilitados
-                    </p>
+                <div className="w-full flex items-center space-x-4">
+                  <div className="w-full  ">
+                    <label className="block text-sm font-medium text-gray_m dark:text-white">
+                      Escanear código de barras
+                    </label>
+                    <BarcodeScanner
+                      value={newSale.barcode || ""}
+                      onChange={(value) =>
+                        setNewSale({ ...newSale, barcode: value })
+                      }
+                      onScanComplete={(code) => {
+                        const productToAdd = products.find(
+                          (p) => p.barcode === code
+                        );
+                        if (productToAdd) {
+                          handleProductScan(productToAdd.id);
+                        } else {
+                          showNotification("Producto no encontrado", "error");
+                        }
+                      }}
+                    />
                   </div>
-                ) : (
-                  <>
-                    {newSale.paymentMethods.map((payment, index) => (
-                      <div key={index} className="flex items-center gap-2 mb-2">
-                        <Select
-                          value={paymentOptions.find(
-                            (option) => option.value === payment.method
-                          )}
-                          onChange={(selected) =>
-                            selected &&
-                            handlePaymentMethodChange(
-                              index,
-                              "method",
-                              selected.value
-                            )
-                          }
-                          options={paymentOptions}
-                          className="w-60 max-w-60 text-gray_b"
-                          isDisabled={isCredit}
-                        />
+                  <div className="w-full flex flex-col">
+                    <label
+                      htmlFor="productSelect"
+                      className="block text-gray_m dark:text-white text-sm font-semibold "
+                    >
+                      Productos
+                    </label>
+                    <Select
+                      placeholder="Seleccionar productos..."
+                      isMulti
+                      options={productOptions}
+                      value={newSale.products.map((p) => ({
+                        value: p.id,
+                        label: getDisplayProductName(p, rubro, true),
+                        product: p,
+                        isDisabled: false,
+                      }))}
+                      onChange={handleProductSelect}
+                      className="text-black"
+                      classNamePrefix="react-select"
+                      styles={{
+                        control: (provided) => ({
+                          ...provided,
+                          maxHeight: "100px",
+                          overflowY: "auto",
+                        }),
+                        multiValue: (provided) => ({
+                          ...provided,
+                          maxWidth: "200px",
+                        }),
+                      }}
+                    />
+                  </div>
+                </div>
+                {newSale.products.length > 0 && (
+                  <div className="h-[9.5rem] max-h-[9.5rem]  overflow-y-auto ">
+                    <table className="table-auto w-full shadow">
+                      <thead className=" bg-gradient-to-bl from-blue_m to-blue_b text-white text-sm 2xl:text-lg">
+                        <tr className="text-sm">
+                          <th className="px-4 py-2">Producto</th>
+                          <th className="px-4 py-2 text-center">Unidad</th>
+                          <th className="px-4 py-2 text-center">Cantidad</th>
+                          <th className="px-4 py-2 text-center">Total</th>
+                          <th>descuento</th>
+                          <th className="w-40 max-w-[10rem] px-4 py-2 text-center">
+                            Acciones
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white text-gray_b divide-y divide-gray_xl max-h-[10rem] ">
+                        {newSale.products.map((product) => {
+                          return (
+                            <tr
+                              className="text-sm border-b border-gray-xl"
+                              key={product.id}
+                            >
+                              <td className=" px-4 py-2">
+                                {getDisplayProductName(product, rubro)}
+                              </td>
+                              <td className="w-40 max-w-40 px-4 py-2">
+                                {["Kg", "gr", "L", "ml"].includes(
+                                  product.unit
+                                ) ? (
+                                  <Select
+                                    placeholder="Unidad"
+                                    options={unitOptions}
+                                    value={unitOptions.find(
+                                      (option) => option.value === product.unit
+                                    )}
+                                    onChange={(selectedOption) => {
+                                      handleUnitChange(
+                                        product.id,
+                                        selectedOption,
+                                        product.quantity
+                                      );
+                                    }}
+                                    className="text-black"
+                                  />
+                                ) : (
+                                  <div className="text-center py-2 text-gray_m">
+                                    {product.unit}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="w-20 max-w-20 px-4 py-2  ">
+                                <Input
+                                  textPosition="text-center"
+                                  type="number"
+                                  value={product.quantity.toString() || ""}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    if (value === "" || !isNaN(Number(value))) {
+                                      handleQuantityChange(
+                                        product.id,
+                                        value === "" ? 0 : Number(value),
+                                        product.unit
+                                      );
+                                    }
+                                  }}
+                                  step={
+                                    product.unit === "Kg" ||
+                                    product.unit === "L"
+                                      ? "0.001"
+                                      : "1"
+                                  }
+                                  onBlur={(
+                                    e: React.FocusEvent<HTMLInputElement>
+                                  ) => {
+                                    if (e.target.value === "") {
+                                      handleQuantityChange(
+                                        product.id,
+                                        0,
+                                        product.unit
+                                      );
+                                    }
+                                  }}
+                                />
+                              </td>
+                              <td className="w-30 max-w-30 px-4 py-2 text-center ">
+                                {formatCurrency(
+                                  calculatePrice({
+                                    ...product,
+                                    price: product.price || 0,
+                                    quantity: product.quantity || 0,
+                                    unit: product.unit || "Unid.",
+                                  })
+                                )}
+                              </td>
 
-                        <div className="relative">
-                          <InputCash
-                            value={payment.amount}
-                            onChange={(value) =>
-                              handlePaymentMethodChange(index, "amount", value)
-                            }
-                            placeholder="Monto"
-                            disabled={isCredit}
-                          />
-                          {index === newSale.paymentMethods.length - 1 &&
-                            newSale.paymentMethods.reduce(
-                              (sum, m) => sum + m.amount,
-                              0
-                            ) >
-                              newSale.total + 0.1 && (
-                              <span className="text-xs text-red_m ml-2">
-                                Exceso: $
-                                {(
-                                  newSale.paymentMethods.reduce(
-                                    (sum, m) => sum + m.amount,
-                                    0
-                                  ) - newSale.total
-                                ).toFixed(2)}
-                              </span>
+                              <td className="w-20 max-w-20 px-4 py-2">
+                                <Input
+                                  textPosition="text-center"
+                                  type="number"
+                                  value={product.discount?.toString() || "0"}
+                                  onChange={(e) => {
+                                    const value = Math.min(
+                                      100,
+                                      Math.max(0, Number(e.target.value))
+                                    );
+                                    setNewSale((prev) => {
+                                      const updatedProducts = prev.products.map(
+                                        (p) =>
+                                          p.id === product.id
+                                            ? { ...p, discount: value }
+                                            : p
+                                      );
+                                      return {
+                                        ...prev,
+                                        products: updatedProducts,
+                                        total: calculateTotal(
+                                          updatedProducts,
+                                          prev.manualAmount || 0
+                                        ),
+                                      };
+                                    });
+                                  }}
+                                  step="1"
+                                />
+                              </td>
+                              <td className=" px-4 py-2 text-center">
+                                <button
+                                  onClick={() =>
+                                    handleRemoveProduct(product.id)
+                                  }
+                                  className="cursor-pointer hover:bg-red_b text-gray_b hover:text-white p-1 rounded-sm transition-all duration-300"
+                                >
+                                  <Trash size={20} />
+                                </button>
+                              </td>
+                              <div></div>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </form>
+              <div>
+                <div className="flex items-center space-x-4">
+                  <div className="w-full flex flex-col">
+                    {isCredit ? (
+                      <div className="p-2 bg-gray-100 text-gray-800 rounded-md ">
+                        <p className="font-semibold">
+                          VENTA FIADA - Monto manual deshabilitado
+                        </p>
+                      </div>
+                    ) : (
+                      <InputCash
+                        label="Monto manual (opcional)"
+                        value={newSale.manualAmount || 0}
+                        onChange={handleManualAmountChange}
+                        disabled={isCredit}
+                      />
+                    )}
+                  </div>
+
+                  <div
+                    className={`w-full flex flex-col ${
+                      isCredit ? "py-4 mt-5" : "mt-8"
+                    }`}
+                  >
+                    <label
+                      className={`${
+                        isCredit ? "hidden" : "block"
+                      } text-gray_m dark:text-white text-sm font-semibold`}
+                    >
+                      Métodos de Pago
+                    </label>
+
+                    {isCredit ? (
+                      <div className="p-2  bg-orange-100 text-orange-800 rounded-md -mt-5">
+                        <p className="font-semibold">
+                          VENTA FIADA - Métodos de pago deshabilitados
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        {newSale.paymentMethods.map((payment, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center gap-2 mb-2"
+                          >
+                            <Select
+                              value={paymentOptions.find(
+                                (option) => option.value === payment.method
+                              )}
+                              onChange={(selected) =>
+                                selected &&
+                                handlePaymentMethodChange(
+                                  index,
+                                  "method",
+                                  selected.value
+                                )
+                              }
+                              options={paymentOptions}
+                              className="w-60 max-w-60 text-gray_b"
+                              isDisabled={isCredit}
+                            />
+
+                            <div className="relative">
+                              <InputCash
+                                value={payment.amount}
+                                onChange={(value) =>
+                                  handlePaymentMethodChange(
+                                    index,
+                                    "amount",
+                                    value
+                                  )
+                                }
+                                placeholder="Monto"
+                                disabled={isCredit}
+                              />
+                              {index === newSale.paymentMethods.length - 1 &&
+                                newSale.paymentMethods.reduce(
+                                  (sum, m) => sum + m.amount,
+                                  0
+                                ) >
+                                  newSale.total + 0.1 && (
+                                  <span className="text-xs text-red_m ml-2">
+                                    Exceso: $
+                                    {(
+                                      newSale.paymentMethods.reduce(
+                                        (sum, m) => sum + m.amount,
+                                        0
+                                      ) - newSale.total
+                                    ).toFixed(2)}
+                                  </span>
+                                )}
+                            </div>
+
+                            {newSale.paymentMethods.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removePaymentMethod(index)}
+                                className="cursor-pointer text-red_m hover:text-red_b"
+                              >
+                                <Trash size={16} />
+                              </button>
                             )}
-                        </div>
-
-                        {newSale.paymentMethods.length > 1 && (
+                          </div>
+                        ))}
+                        {!isCredit && (
                           <button
                             type="button"
-                            onClick={() => removePaymentMethod(index)}
-                            className="cursor-pointer text-red_m hover:text-red_b"
+                            onClick={addPaymentMethod}
+                            className="cursor-pointer text-sm text-blue_b dark:text-blue_l hover:text-blue_m flex items-center transition-all duration-300"
                           >
-                            <Trash size={16} />
+                            <Plus size={16} className="mr-1" /> Agregar otro
+                            método de pago
                           </button>
                         )}
-                      </div>
-                    ))}
-                    {!isCredit && (
-                      <button
-                        type="button"
-                        onClick={addPaymentMethod}
-                        className="cursor-pointer text-sm text-blue_b dark:text-blue_l hover:text-blue_m flex items-center transition-all duration-300"
-                      >
-                        <Plus size={16} className="mr-1" /> Agregar otro método
-                        de pago
-                      </button>
+                      </>
                     )}
-                  </>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="checkbox"
+                    id="creditCheckbox"
+                    checked={isCredit}
+                    onChange={handleCreditChange}
+                    className="cursor-pointer"
+                  />
+                  <label>Registrar Fiado</label>
+                </div>
+
+                {isCredit && (
+                  <div>
+                    <label className="block text-gray_m dark:text-white text-sm font-semibold">
+                      Cliente existente
+                    </label>
+                    <Select
+                      options={customerOptions}
+                      value={selectedCustomer}
+                      onChange={(selected) => {
+                        setSelectedCustomer(selected);
+                        if (selected) {
+                          const customer = customers.find(
+                            (c) => c.id === selected.value
+                          );
+                          setCustomerName(customer?.name || "");
+                          setCustomerPhone(customer?.phone || "");
+                        }
+                      }}
+                      placeholder="Buscar cliente..."
+                      isClearable
+                      className="text-black"
+                      classNamePrefix="react-select"
+                      noOptionsMessage={() => "No se encontraron clientes"}
+                    />
+                    <div className="flex items-center space-x-4 mt-4">
+                      <Input
+                        label="Nuevo cliente"
+                        placeholder="Nombre del cliente..."
+                        value={customerName}
+                        onChange={(e) => {
+                          setCustomerName(e.target.value.toUpperCase());
+                          setSelectedCustomer(null);
+                        }}
+                        disabled={!!selectedCustomer}
+                        onBlur={(e) => {
+                          setCustomerName(e.target.value.trim());
+                        }}
+                      />
+
+                      <Input
+                        label="Teléfono del cliente"
+                        placeholder="Teléfono del cliente..."
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                      />
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="creditCheckbox"
-                checked={isCredit}
-                onChange={handleCreditChange}
-                className="cursor-pointer"
-              />
-              <label>Registrar Fiado</label>
-            </div>
-
-            {isCredit && (
-              <div>
-                <label className="block text-gray_m dark:text-white text-sm font-semibold">
-                  Cliente existente
-                </label>
-                <Select
-                  options={customerOptions}
-                  value={selectedCustomer}
-                  onChange={(selected) => {
-                    setSelectedCustomer(selected);
-                    if (selected) {
-                      const customer = customers.find(
-                        (c) => c.id === selected.value
-                      );
-                      setCustomerName(customer?.name || "");
-                      setCustomerPhone(customer?.phone || "");
-                    }
-                  }}
-                  placeholder="Buscar cliente..."
-                  isClearable
-                  className="text-black"
-                  classNamePrefix="react-select"
-                  noOptionsMessage={() => "No se encontraron clientes"}
-                />
-                <div className="flex items-center space-x-4 mt-4">
-                  <Input
-                    label="Nuevo cliente"
-                    placeholder="Nombre del cliente..."
-                    value={customerName}
-                    onChange={(e) => {
-                      setCustomerName(e.target.value.toUpperCase());
-                      setSelectedCustomer(null);
-                    }}
-                    disabled={!!selectedCustomer}
-                    onBlur={(e) => {
-                      setCustomerName(e.target.value.trim());
-                    }}
-                  />
-
-                  <Input
-                    label="Teléfono del cliente"
-                    placeholder="Teléfono del cliente..."
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                  />
-                </div>
-              </div>
-            )}
-            <div className="p-4 bg-gray_b dark:bg-gray_m text-white text-center mt-4">
+            <div className="p-2 xl:p-4 bg-gray_b dark:bg-gray_m text-white text-center mt-4">
               <p className="font-bold text-3xl">
                 TOTAL:{" "}
                 {newSale.total.toLocaleString("es-AR", {

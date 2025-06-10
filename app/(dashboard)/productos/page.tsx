@@ -7,7 +7,7 @@ import {
   ClothingCategoryOption,
   ClothingSizeOption,
   CommercialCategoryOption,
-  GroupedOption,
+  FilterOption,
   Product,
   ProductFilters,
   UnitOption,
@@ -46,7 +46,7 @@ const clothingCategories: ClothingCategoryOption[] = [
   { value: "vestido", label: "Vestido" },
   { value: "pollera", label: "Pollera" },
   { value: "calza", label: "Calza" },
-  { value: "ropa_interior", label: "Ropa Interior" },
+  { value: "ropa interior", label: "Ropa Interior" },
   { value: "accesorio", label: "Accesorio" },
   { value: "otro", label: "Otro" },
 ];
@@ -129,30 +129,40 @@ const ProductsPage = () => {
     { value: "Cajón", label: "Cajón" },
   ];
 
-  const handleFilterChange = (
-    filterType: keyof ProductFilters,
-    value: string
-  ) => {
-    setFilters((prev) => ({
-      ...prev,
-      [filterType]: value || undefined,
-    }));
-  };
-
   const selectedUnit =
     unitOptions.find((opt) => opt.value === newProduct.unit) ?? null;
 
   const getFilterOptionsByRubro = () => {
     if (rubro === "indumentaria") {
       return [
-        { type: "category", options: clothingCategories, label: "Categoría" },
-        { type: "size", options: sizeOptions, label: "Talle" },
-        { type: "color", options: colorOptions, label: "Color" },
-        { type: "brand", options: brandOptions, label: "Marca" },
+        {
+          type: "category",
+          options: clothingCategories,
+          label: "Categoría",
+        },
+        {
+          type: "size",
+          options: clothingSizes,
+          label: "Talle",
+        },
+        {
+          type: "color",
+          options: colorOptions,
+          label: "Color",
+        },
+        {
+          type: "brand",
+          options: brandOptions,
+          label: "Marca",
+        },
       ];
     } else {
       return [
-        { type: "category", options: commercialCategories, label: "Categoría" },
+        {
+          type: "category",
+          options: commercialCategories,
+          label: "Categoría",
+        },
       ];
     }
   };
@@ -172,7 +182,6 @@ const ProductsPage = () => {
       .map((value) => ({ value, label: value }));
   };
 
-  const sizeOptions = getUniqueOptions("size");
   const colorOptions = getUniqueOptions("color");
   const brandOptions = getUniqueOptions("brand");
 
@@ -182,10 +191,11 @@ const ProductsPage = () => {
         (rubro === "todos los rubros" || product.rubro === rubro) &&
         (product.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
           product.barcode?.includes(searchQuery)) &&
-        (!filters.category || product.category === filters.category) &&
-        (!filters.size || product.size === filters.size) &&
-        (!filters.color || product.color === filters.color) &&
-        (!filters.brand || product.brand === filters.brand)
+        (!filters.category ||
+          filters.category.includes(product.category || "")) &&
+        (!filters.size || filters.size.includes(product.size || "")) &&
+        (!filters.color || filters.color.includes(product.color || "")) &&
+        (!filters.brand || filters.brand.includes(product.brand || ""))
     );
 
     return [...filtered].sort((a, b) => {
@@ -505,58 +515,76 @@ const ProductsPage = () => {
       <div className="px-10 2xl:px-10 py-4 text-gray_l dark:text-white h-[calc(100vh-80px)]">
         <h1 className="text-lg 2xl:text-xl font-semibold mb-2">Productos</h1>
 
-        <div className="flex justify-between mb-2">
-          <div className="w-full flex gap-2">
+        <div className="flex justify-between mb-2 w-full">
+          <div className="w-full flex items-center gap-2 ">
             <SearchBar onSearch={handleSearch} />
 
-            <div className="w-50">
-              <Select
-                options={getFilterOptionsByRubro().flatMap((group) => ({
+            <div className="w-90">
+              <Select<FilterOption, true>
+                options={getFilterOptionsByRubro().map((group) => ({
                   label: group.label,
                   options: group.options.map((opt) => ({
                     ...opt,
-                    groupType: group.type,
+                    groupType: group.type as keyof ProductFilters,
                   })),
                 }))}
                 value={(() => {
-                  const allOptions = getFilterOptionsByRubro().flatMap(
-                    (group) =>
-                      group.options.map((opt) => ({
-                        ...opt,
-                        groupType: group.type,
-                      }))
-                  );
-                  return (
-                    allOptions.find(
-                      (opt) =>
-                        filters[opt.groupType as keyof typeof filters] ===
-                        opt.value
-                    ) || null
-                  );
+                  const selectedValues: FilterOption[] = [];
+                  getFilterOptionsByRubro().forEach((group) => {
+                    const filterValues =
+                      filters[group.type as keyof ProductFilters];
+                    if (filterValues && Array.isArray(filterValues)) {
+                      group.options.forEach((opt) => {
+                        if (filterValues.includes(opt.value)) {
+                          selectedValues.push({
+                            ...opt,
+                            groupType: group.type as keyof ProductFilters,
+                          });
+                        }
+                      });
+                    }
+                  });
+                  return selectedValues;
                 })()}
-                onChange={(selectedOption: GroupedOption["options"] | null) => {
-                  if (selectedOption) {
-                    setFilters({});
-                    handleFilterChange(
-                      selectedOption.groupType as keyof typeof filters,
-                      selectedOption.value
+                onChange={(selectedOptions) => {
+                  if (selectedOptions) {
+                    const newFilters: ProductFilters = {
+                      category: undefined,
+                      size: undefined,
+                      color: undefined,
+                      brand: undefined,
+                    };
+
+                    const groupedOptions = selectedOptions.reduce(
+                      (acc, option) => {
+                        if (!acc[option.groupType]) {
+                          acc[option.groupType] = [];
+                        }
+                        acc[option.groupType].push(option.value);
+                        return acc;
+                      },
+                      {} as Record<keyof ProductFilters, string[]>
                     );
+
+                    (
+                      Object.keys(groupedOptions) as Array<keyof ProductFilters>
+                    ).forEach((key) => {
+                      newFilters[key] = groupedOptions[key];
+                    });
+
+                    setFilters(newFilters);
                   } else {
                     setFilters({});
                   }
                 }}
                 placeholder="Filtrar por..."
                 isClearable
+                isMulti
                 className="text-black"
-                formatGroupLabel={(group) => (
-                  <div className="text-gray-700 font-semibold">
-                    {group.label}
-                  </div>
-                )}
               />
             </div>
           </div>
-          <div className="w-full flex justify-end gap-2 ">
+          <div className="w-full flex justify-end items-center gap-2 ">
             <Button
               text="Ver Precio [F5]"
               colorText="text-white"
@@ -588,6 +616,9 @@ const ProductsPage = () => {
                 {rubro === "indumentaria" && (
                   <th className="text-sm 2xl:text-lg px-4 py-2">Color</th>
                 )}
+                {rubro === "indumentaria" && (
+                  <th className="text-sm 2xl:text-lg px-4 py-2">Marca</th>
+                )}
                 <th
                   onClick={toggleSortOrder}
                   className="text-sm 2xl:text-lg cursor-pointer flex justify-center items-center px-4 py-2"
@@ -613,7 +644,7 @@ const ProductsPage = () => {
                   </th>
                 )}
                 <th className="text-sm 2xl:text-lg px-4 py-2">Proveedor</th>
-                <th className="w-40 max-w-[10rem] text-sm 2xl:text-lg px-4 py-2">
+                <th className="w-40 max-w-[5rem] 2xl:max-w-[10rem] text-sm 2xl:text-lg px-4 py-2">
                   Acciones
                 </th>
               </tr>
@@ -685,16 +716,21 @@ const ProductsPage = () => {
                         <td className="px-4 py-2 border border-gray_xl capitalize">
                           {product.category || "-"}
                         </td>
+
                         {rubro === "indumentaria" && (
-                          <td className="px-4 py-2 border border-gray_xl">
-                            {product.size || "-"}
-                          </td>
+                          <>
+                            <td className="px-4 py-2 border border-gray_xl">
+                              {product.size || "-"}
+                            </td>
+                            <td className="px-4 py-2 border border-gray_xl capitalize">
+                              {product.color || "-"}
+                            </td>
+                            <td className="px-4 py-2 border border-gray_xl capitalize">
+                              {product.brand || "-"}
+                            </td>
+                          </>
                         )}
-                        {rubro === "indumentaria" && (
-                          <td className="px-4 py-2 border border-gray_xl capitalize">
-                            {product.color || "-"}
-                          </td>
-                        )}
+
                         <td
                           className={`${
                             !isNaN(Number(product.stock)) &&
@@ -771,7 +807,7 @@ const ProductsPage = () => {
               ) : (
                 <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
                   <td
-                    colSpan={rubro === "indumentaria" ? 9 : 8}
+                    colSpan={rubro === "indumentaria" ? 10 : 8}
                     className="py-4 text-center"
                   >
                     <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">

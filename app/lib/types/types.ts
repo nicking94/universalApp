@@ -317,10 +317,10 @@ export type TicketProps = {
   isCredit?: boolean;
 };
 export type ProductFilters = {
-  category?: string;
-  color?: string;
-  size?: string;
-  brand?: string;
+  category?: string[];
+  color?: string[];
+  size?: string[];
+  brand?: string[];
 };
 export type ClothingCategoryOption = {
   value: string;
@@ -344,4 +344,14 @@ export type GroupedOption = {
   ) & {
     groupType: string;
   };
+};
+export type FilterOption = {
+  value: string;
+  label: string;
+  groupType: keyof ProductFilters;
+};
+
+export type GroupedFilterOption = {
+  label: string;
+  options: FilterOption[];
 };
