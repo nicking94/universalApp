@@ -453,11 +453,6 @@ const VentasPage = () => {
     if (!ticketRef.current || !selectedSale) return;
 
     try {
-      if (selectedSale?.credit) {
-        showNotification("No se puede imprimir ticket de venta fiada", "error");
-        return;
-      }
-
       await ticketRef.current.print();
       showNotification("Ticket enviado a impresión", "success");
     } catch (error) {
@@ -755,15 +750,14 @@ const VentasPage = () => {
       if (!isCredit) {
         await addIncomeToDailyCash(saleToSave);
         setSelectedSale(saleToSave);
+        setIsInfoModalOpen(true);
 
-        setTimeout(async () => {
+        setTimeout(() => {
           if (ticketRef.current) {
-            try {
-              await ticketRef.current.print();
-            } catch (error) {
+            ticketRef.current.print().catch((error) => {
               console.error("Error al imprimir ticket:", error);
               showNotification("Error al imprimir ticket", "error");
-            }
+            });
           }
         }, 100);
       }

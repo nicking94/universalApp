@@ -1,5 +1,5 @@
 "use client";
-import { forwardRef, useImperativeHandle } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { Rubro, Sale } from "@/app/lib/types/types";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
@@ -10,6 +10,7 @@ type PrintableTicketProps = {
   sale: Sale;
   rubro: Rubro;
   onPrint?: () => void;
+  autoPrint?: boolean;
 };
 
 export type PrintableTicketHandle = {
@@ -17,7 +18,8 @@ export type PrintableTicketHandle = {
 };
 
 const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
-  ({ sale, rubro, onPrint }, ref) => {
+  ({ sale, rubro, onPrint, autoPrint = false }, ref) => {
+    const ticketRef = useRef<PrintableTicketHandle>(null);
     const fecha = format(parseISO(sale.date), "dd/MM/yyyy HH:mm", {
       locale: es,
     });
@@ -31,148 +33,156 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
       return price * quantity * (1 - discountPercent / 100);
     };
 
+    const generateEscPosCommands = () => {
+      // Inicializar impresora
+      let commands = "\x1B@"; // Inicializar
+      commands += "\x1B!\x38"; // Establecer tamaño de fuente (double height)
+
+      // Encabezado
+      commands += "Universal App\n\n";
+      commands += "\x1B!\x00"; // Resetear tamaño de fuente
+      commands += "Dirección: Calle Falsa 123\n";
+      commands += "Tel: 123-456789\n";
+      commands += "CUIT: 12-34567890-1\n\n";
+
+      // Información del ticket
+      commands += "\x1B!\x08"; // Fuente enfatizada
+      commands += `TICKET #${sale.id}\n`;
+      commands += "\x1B!\x00"; // Resetear tamaño de fuente
+      commands += `${fecha}\n\n`;
+
+      // Productos
+      sale.products.forEach((product) => {
+        const discountedPrice = calculateDiscountedPrice(
+          product.price,
+          product.quantity,
+          product.discount
+        );
+
+        const productName = getDisplayProductName(product, rubro);
+        // Asegurarse de que el nombre no sea demasiado largo
+        const truncatedName =
+          productName.length > 20
+            ? productName.substring(0, 20) + "..."
+            : productName;
+
+        commands += `${truncatedName}\n`;
+        commands += `${product.quantity} ${
+          product.unit?.toLowerCase() || "un"
+        } x ${formatCurrency(product.price)}`;
+
+        if (product.discount) {
+          commands += ` (-${product.discount}%)`;
+        }
+
+        commands += `\n${formatCurrency(discountedPrice)}\n\n`;
+      });
+
+      // Descuento total si aplica
+      if (sale.discount && sale.discount > 0) {
+        commands += "Descuento total:\n";
+        commands += `-${formatCurrency(sale.discount)}\n\n`;
+      }
+
+      // Métodos de pago
+      if (sale.paymentMethods?.length > 0 && !sale.credit) {
+        sale.paymentMethods.forEach((method) => {
+          commands += `${method.method}:\n`;
+          commands += `${formatCurrency(method.amount)}\n\n`;
+        });
+      }
+
+      // Venta fiada
+      if (sale.credit) {
+        commands += "\x1B!\x08"; // Fuente enfatizada
+        commands += "** VENTA FIADA **\n";
+        commands += "\x1B!\x00"; // Resetear tamaño de fuente
+        if (sale.customerName) {
+          commands += `Cliente: ${sale.customerName}\n\n`;
+        }
+      }
+
+      // Total
+      commands += "\x1B!\x18"; // Fuente grande
+      commands += "TOTAL:\n";
+      commands += `${formatCurrency(sale.total)}\n\n`;
+      commands += "\x1B!\x00"; // Resetear tamaño de fuente
+
+      // Pie de página
+      commands += "¡Gracias por su compra!\n";
+      commands += "Conserve este ticket\n";
+      commands += "---\n";
+      commands += "Ticket no válido como factura\n\n\n";
+
+      // Cortar papel (si la impresora lo soporta)
+      commands += "\x1DVA\x03"; // Cortar papel parcialmente
+
+      return commands;
+    };
+
     useImperativeHandle(ref, () => ({
       print: async () => {
         if (onPrint) {
           onPrint();
           return;
         }
-        const printWindow = window.open("", "_blank");
-        if (!printWindow) {
-          throw new Error("No se pudo abrir la ventana de impresión");
+
+        const escPosCommands = generateEscPosCommands();
+
+        try {
+          if ("serial" in navigator) {
+            try {
+              const port = await (navigator as Navigator).serial!.requestPort();
+              await port.open({ baudRate: 9600 });
+
+              const writer = port.writable!.getWriter();
+              try {
+                await writer.write(new TextEncoder().encode(escPosCommands));
+                await writer.close();
+              } catch (writeError) {
+                console.error(
+                  "Error al escribir en el puerto serial:",
+                  writeError
+                );
+                throw writeError;
+              } finally {
+                writer.releaseLock();
+              }
+
+              await port.close();
+              return;
+            } catch (serialError) {
+              console.error("Error con puerto serial:", serialError);
+            }
+          }
+
+          downloadAsFile(escPosCommands, sale.id);
+        } catch (error) {
+          console.error("Error general al imprimir:", error);
+          downloadAsFile(escPosCommands, sale.id);
+          throw error;
         }
-
-        printWindow.document.write(`
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <title>Ticket de Venta</title>
-              <style>
-                /* ... (mantén todos los estilos existentes) ... */
-              </style>
-            </head>
-            <body>
-              <div class="header">
-                <div class="title">Universal App</div>
-                <div>Dirección: Calle Falsa 123</div>
-                <div>Tel: 123-456789</div>
-                <div>CUIT: 12-34567890-1</div>
-              </div>
-              
-              <div>
-                <div style="font-weight: bold;">
-                  <span>TICKET #${sale.id}</span>
-                </div>
-                <div style="margin-bottom: 30px;">
-                  <span>${fecha}</span>
-                </div>
-              </div>
-              
-              <div style="margin-bottom: 10px; margin-top: 10px; border-top: 1px solid #000;">
-                ${sale.products
-                  .map((product) => {
-                    const discountedPrice = calculateDiscountedPrice(
-                      product.price,
-                      product.quantity,
-                      product.discount
-                    );
-                    return `
-                      <div class="product-row">
-                        <div class="product-info">
-                          <span class="product-name">${getDisplayProductName(
-                            product,
-                            rubro
-                          )}</span>
-                          <span>${product.quantity} ${
-                      product.unit?.toLowerCase() || "un"
-                    } x ${formatCurrency(product.price)}</span>
-                        </div>
-                        <div class="product-price">
-                          <span>${formatCurrency(discountedPrice)}</span>
-                          ${
-                            product.discount
-                              ? `<span class="product-discount">(-${product.discount}%)</span>`
-                              : ""
-                          }
-                        </div>
-                      </div>
-                    `;
-                  })
-                  .join("")}
-              </div>
-              
-              ${
-                sale.discount && sale.discount > 0
-                  ? `
-                <div class="discount-section">
-                  <div style="display: flex; justify-content: space-between;">
-                    <span>Descuento total:</span>
-                    <span>-${formatCurrency(sale.discount)}</span>
-                  </div>
-                </div>
-              `
-                  : ""
-              }
-              
-              ${
-                sale.paymentMethods?.length > 0 && !sale.credit
-                  ? `
-                <div class="payment-section">
-                  ${sale.paymentMethods
-                    .map(
-                      (method) => `
-                    <div style="display: flex; justify-content: space-between;">
-                      <span>${method.method}:</span>
-                      <span>${formatCurrency(method.amount)}</span>
-                    </div>
-                  `
-                    )
-                    .join("")}
-                </div>
-              `
-                  : ""
-              }
-              
-              ${
-                sale.credit
-                  ? `
-                <div class="credit-section">
-                  <div>** VENTA FIADA **</div>
-                  ${
-                    sale.customerName
-                      ? `<div>Cliente: ${sale.customerName}</div>`
-                      : ""
-                  }
-                </div>
-              `
-                  : ""
-              }
-              
-              <div class="total">
-                <span>TOTAL:</span>
-                <span>${formatCurrency(sale.total)}</span>
-              </div>
-              
-              <div class="footer">
-                <div>¡Gracias por su compra!</div>
-                <div>Conserve este ticket</div>
-                <div>---</div>
-                <div>Ticket no válido como factura</div>
-              </div>
-              
-              <script>
-                setTimeout(() => {
-                  window.print();
-                  setTimeout(() => window.close(), 500);
-                }, 100);
-              </script>
-            </body>
-          </html>
-        `);
-
-        printWindow.document.close();
       },
     }));
+
+    useEffect(() => {
+      if (autoPrint && ticketRef.current) {
+        ticketRef.current.print().catch((error) => {
+          console.error("Error en impresión automática:", error);
+        });
+      }
+    }, [autoPrint]);
+    function downloadAsFile(commands: string, saleId: number) {
+      const blob = new Blob([commands], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ticket_${saleId}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
 
     return (
       <div

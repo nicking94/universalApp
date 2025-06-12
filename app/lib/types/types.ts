@@ -355,3 +355,37 @@ export type GroupedFilterOption = {
   label: string;
   options: FilterOption[];
 };
+
+declare global {
+  export interface Navigator {
+    serial?: {
+      requestPort(options?: SerialPortRequestOptions): Promise<SerialPort>;
+      getPorts(): Promise<SerialPort[]>;
+    };
+  }
+}
+
+export interface SerialPortRequestOptions {
+  filters: SerialPortFilter[];
+}
+
+export interface SerialPortFilter {
+  usbVendorId?: number;
+  usbProductId?: number;
+}
+
+export interface SerialPort {
+  readonly readable: ReadableStream<Uint8Array> | null;
+  readonly writable: WritableStream<Uint8Array> | null;
+  open: (options: SerialOptions) => Promise<void>;
+  close: () => Promise<void>;
+}
+
+export interface SerialOptions {
+  baudRate: number;
+  dataBits?: number;
+  stopBits?: number;
+  parity?: string;
+  bufferSize?: number;
+  flowControl?: string;
+}
