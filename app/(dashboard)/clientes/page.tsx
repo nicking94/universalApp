@@ -96,7 +96,7 @@ const ClientesPage = () => {
       const customerToAdd: Customer = {
         ...newCustomer,
         id: generateCustomerId(newCustomer.name),
-        name: newCustomer.name.toUpperCase().trim(),
+        name: newCustomer.name.trim(),
         rubro: rubro === "todos los rubros" ? undefined : rubro,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -116,7 +116,6 @@ const ClientesPage = () => {
 
   const generateCustomerId = (name: string): string => {
     const cleanName = name
-      .toUpperCase()
       .trim()
       .replace(/\s+/g, "-")
       .replace(/[^a-zA-Z0-9-]/g, "");
@@ -187,7 +186,7 @@ const ClientesPage = () => {
 
       const updatedCustomer = {
         ...editingCustomer,
-        name: newCustomer.name.toUpperCase().trim(),
+        name: newCustomer.name.trim(),
         phone: newCustomer.phone,
         rubro: rubro === "todos los rubros" ? undefined : rubro,
         updatedAt: new Date().toISOString(),

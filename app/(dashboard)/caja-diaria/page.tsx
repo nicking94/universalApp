@@ -149,14 +149,7 @@ const CajaDiariaPage = () => {
     } else if (!dailyCash.closed) {
       return true;
     } else {
-      const shouldReopen = window.confirm(
-        "La caja ya fue cerrada hoy. ¿Deseas reabrirla?"
-      );
-      if (shouldReopen) {
-        await db.dailyCashes.update(dailyCash.id, { closed: false });
-        setCurrentDailyCash({ ...dailyCash, closed: false });
-        return true;
-      }
+      setIsOpenCashModal(true);
       return false;
     }
   };
@@ -247,13 +240,25 @@ const CajaDiariaPage = () => {
       return;
     }
 
-    // Si estamos reabriendo una caja cerrada
-    if (currentDailyCash?.closed) {
-      try {
+    // Validar el monto inicial tanto para apertura como reapertura
+    if (!initialAmount) {
+      showNotification("Debe ingresar un monto inicial", "error");
+      return;
+    }
+
+    const initialAmountNumber = parseFloat(initialAmount);
+    if (isNaN(initialAmountNumber)) {
+      showNotification("El monto inicial debe ser un número válido", "error");
+      return;
+    }
+
+    try {
+      // Si estamos reabriendo una caja cerrada
+      if (currentDailyCash?.closed) {
         const updatedCash = {
           ...currentDailyCash,
           closed: false,
-          initialAmount: currentDailyCash.closingAmount || 0,
+          initialAmount: initialAmountNumber, // Usar el monto ingresado en el modal
           // Resetear los campos de cierre
           closingAmount: undefined,
           cashIncome: undefined,
@@ -269,28 +274,11 @@ const CajaDiariaPage = () => {
         );
         setCurrentDailyCash(updatedCash);
         setIsOpenCashModal(false);
+        setInitialAmount("");
         showNotification("Caja reabierta correctamente", "success");
         return;
-      } catch (error) {
-        console.error("Error al reabrir caja:", error);
-        showNotification("Error al reabrir caja", "error");
-        return;
       }
-    }
 
-    // Código original para abrir nueva caja
-    if (!initialAmount) {
-      showNotification("Debe ingresar un monto inicial", "error");
-      return;
-    }
-
-    const initialAmountNumber = parseFloat(initialAmount);
-    if (isNaN(initialAmountNumber)) {
-      showNotification("El monto inicial debe ser un número válido", "error");
-      return;
-    }
-
-    try {
       const dailyCash: DailyCash = {
         id: Date.now(),
         date: today,
@@ -308,8 +296,8 @@ const CajaDiariaPage = () => {
       setInitialAmount("");
       showNotification("Caja abierta correctamente", "success");
     } catch (error) {
-      console.error("Error al abrir caja:", error);
-      showNotification("Error al abrir caja", "error");
+      console.error("Error al abrir/reabrir caja:", error);
+      showNotification("Error al abrir/reabrir caja", "error");
     }
   };
 
@@ -330,13 +318,22 @@ const CajaDiariaPage = () => {
       const dailyCash = await db.dailyCashes.get({ date: today });
 
       if (dailyCash) {
+        // Calcular solo ingresos en efectivo (EFECTIVO)
         const cashIncome = dailyCash.movements
           .filter((m) => m.type === "INGRESO" && m.paymentMethod === "EFECTIVO")
           .reduce((sum, m) => sum + m.amount, 0);
+
+        // Calcular egresos (todos)
         const cashExpense = dailyCash.movements
           .filter((m) => m.type === "EGRESO")
           .reduce((sum, m) => sum + m.amount, 0);
 
+        // Calcular otros ingresos (no EFECTIVO)
+        const otherIncome = dailyCash.movements
+          .filter((m) => m.type === "INGRESO" && m.paymentMethod !== "EFECTIVO")
+          .reduce((sum, m) => sum + m.amount, 0);
+
+        // Monto esperado solo considera efectivo
         const expectedAmount =
           dailyCash.initialAmount + cashIncome - cashExpense;
         const difference = actualCashCountNumber - expectedAmount;
@@ -345,16 +342,13 @@ const CajaDiariaPage = () => {
           ...dailyCash,
           closed: true,
           closingAmount: actualCashCountNumber,
-          cashIncome,
-          cashExpense,
-          otherIncome: dailyCash.movements
-            .filter(
-              (m) => m.type === "INGRESO" && m.paymentMethod !== "EFECTIVO"
-            )
-            .reduce((sum, m) => sum + m.amount, 0),
+          cashIncome, // Solo ingresos en efectivo
+          cashExpense, // Todos los egresos
+          otherIncome, // Ingresos no en efectivo
           closingDifference: difference,
           closingDate: new Date().toISOString(),
         };
+
         await db.dailyCashes.update(dailyCash.id, updatedCash);
         setDailyCashes((prev) =>
           prev.map((dc) => (dc.id === dailyCash.id ? updatedCash : dc))
@@ -418,14 +412,14 @@ const CajaDiariaPage = () => {
 
         if (movement.type === "INGRESO") {
           summary[date].ingresos += amount;
-          if (movement.profit) {
-            summary[date].gananciaNeta += Number(movement.profit) || 0;
-          }
+          // Sumar la ganancia neta (ya incluye productos + manual)
+          summary[date].gananciaNeta += Number(movement.profit) || 0;
         } else {
           summary[date].egresos += amount;
         }
       });
 
+      // Ganancia bruta (ingresos - egresos)
       summary[date].ganancia = summary[date].ingresos - summary[date].egresos;
     });
 
@@ -454,7 +448,6 @@ const CajaDiariaPage = () => {
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   };
-
   const dailySummaries = getDailySummary();
 
   const addMovement = async () => {
@@ -744,7 +737,7 @@ const CajaDiariaPage = () => {
                     key={index}
                     className={movement.type === "EGRESO" ? "bg-red_xl" : ""}
                   >
-                    <td className="px-4 py-2 whitespace-nowrap text-sm">
+                    <td className="whitespace-nowrap text-sm">
                       <span
                         className={`px-2 py-1 rounded-full text-xs ${
                           movement.type === "INGRESO"
@@ -756,7 +749,7 @@ const CajaDiariaPage = () => {
                       </span>
                     </td>
 
-                    <td className="px-4 py-2 text-sm text-gray_m">
+                    <td className="px-4 py-2 text-sm text-gray_m min-w-[23rem]">
                       {Array.isArray(movement.items) &&
                       movement.items.length > 0 ? (
                         <div className="flex flex-col">
@@ -774,8 +767,10 @@ const CajaDiariaPage = () => {
                                   true
                                 )}
                               </span>{" "}
-                              ×{item.quantity} {""}
-                              {item.unit}
+                              <div className=" min-w-[5rem]">
+                                ×{item.quantity} {""}
+                                {item.unit}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -802,13 +797,6 @@ const CajaDiariaPage = () => {
                     </td>
                     <td className="px-4 py-2 text-sm text-gray_m">
                       {movement.description}
-                      {(movement.manualAmount ?? 0) > 0 &&
-                        !movement.isCreditPayment && (
-                          <div className="text-xs text-gray-500">
-                            (Incluye monto manual:{" "}
-                            {formatCurrency(movement.manualAmount ?? 0)}
-                          </div>
-                        )}
                     </td>
                     <td className="px-4 py-2 text-sm text-gray_m">
                       {movement.combinedPaymentMethods ? (
@@ -914,7 +902,7 @@ const CajaDiariaPage = () => {
                       )}
                     </div>
                   </div>
-                  <div className=" grid grid-cols-2 text-gray_m font-semibold mb-4">
+                  <div className="grid grid-cols-2 text-gray_m font-semibold mb-4">
                     <p>
                       Monto inicial:{" "}
                       {formatCurrency(currentDailyCash.initialAmount)}
@@ -961,13 +949,25 @@ const CajaDiariaPage = () => {
                       }`}
                     >
                       Diferencia:{" "}
-                      {formatCurrency(currentDailyCash.closingDifference || 0)}
+                      {Math.abs(currentDailyCash.closingDifference || 0) >
+                        0 && (
+                        <>
+                          {(currentDailyCash.closingDifference || 0) > 0
+                            ? "+"
+                            : "-"}
+                          {formatCurrency(
+                            Math.abs(currentDailyCash.closingDifference || 0)
+                          )}
+                        </>
+                      )}
+                      {Math.abs(currentDailyCash.closingDifference || 0) ===
+                        0 && formatCurrency(0)}
                     </p>
                   ) : null}
                 </div>
               </div>
             ) : (
-              <div className="bg-gradient-to-bl from-blue_m to-blue_b p-3 rounded-lg mb-4 flex items-center space-x-10">
+              <div className="bg-gradient-to-bl from-blue_m to-blue_b p-3 rounded-lg mb-4 flex justify-between items-center space-x-10">
                 <p className="text-md text-white">
                   No hay caja abierta para hoy
                 </p>
@@ -976,7 +976,7 @@ const CajaDiariaPage = () => {
                   colorText="text-gray_b"
                   colorTextHover="hover:text-white"
                   colorBg="bg-blue_xl"
-                  colorBgHover="hover:bg-blue_b"
+                  colorBgHover="hover:bg-green_m"
                   onClick={() => setIsOpenCashModal(true)}
                 />
               </div>
@@ -1241,7 +1241,10 @@ const CajaDiariaPage = () => {
         </Modal>
         <Modal
           isOpen={isOpenCashModal}
-          onClose={() => setIsOpenCashModal(false)}
+          onClose={() => {
+            setIsOpenCashModal(false);
+            setInitialAmount(""); // Limpiar el campo al cerrar
+          }}
           title={
             currentDailyCash?.closed ? "Reapertura de caja" : "Apertura de caja"
           }
@@ -1256,36 +1259,31 @@ const CajaDiariaPage = () => {
                 onClick={openCash}
               />
               <Button
-                text="Cancelar"
+                text="Abrir más tarde"
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
                 colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
-                onClick={() => setIsOpenCashModal(false)}
+                onClick={() => {
+                  setIsOpenCashModal(false);
+                  setInitialAmount(""); // Limpiar el campo al cancelar
+                }}
               />
             </div>
           }
         >
           <div className="flex flex-col gap-2">
-            {currentDailyCash?.closed ? (
-              <>
-                <p className=" text-gray_m dark:text-white">
-                  ¿Desea reabrir la caja?
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="text-gray_m dark:text-white">
-                  Para comenzar, ingrese el monto inicial en caja.
-                </p>
-                <InputCash
-                  label="Monto Inicial"
-                  value={Number(initialAmount) || 0}
-                  onChange={(value) => setInitialAmount(value.toString())}
-                  placeholder="Ingrese el monto inicial..."
-                />
-              </>
-            )}
+            <p className="text-gray_m dark:text-white">
+              {currentDailyCash?.closed
+                ? "Ingrese el monto inicial para reabrir la caja:"
+                : "Para comenzar, ingrese el monto inicial en caja."}
+            </p>
+            <InputCash
+              label="Monto Inicial"
+              value={Number(initialAmount) || 0}
+              onChange={(value) => setInitialAmount(value.toString())}
+              placeholder="Ingrese el monto inicial..."
+            />
           </div>
         </Modal>
         <DetailModal />

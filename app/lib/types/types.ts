@@ -159,6 +159,7 @@ export type Sale = {
   date: string;
   barcode?: string;
   manualAmount?: number;
+  manualProfitPercentage?: number;
   credit?: boolean;
   paid?: boolean;
   customerName?: string;
@@ -214,7 +215,7 @@ export type DailyCashMovement = {
   amount: number;
   manualAmount?: number;
   discount?: number;
-
+  manualProfitPercentage?: number;
   description: string;
   type: "INGRESO" | "EGRESO";
   date: string;

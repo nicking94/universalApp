@@ -34,24 +34,18 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
     };
 
     const generateEscPosCommands = () => {
-      // Inicializar impresora
-      let commands = "\x1B@"; // Inicializar
-      commands += "\x1B!\x38"; // Establecer tamaño de fuente (double height)
-
-      // Encabezado
+      let commands = "\x1B@";
+      commands += "\x1B!\x38";
       commands += "Universal App\n\n";
-      commands += "\x1B!\x00"; // Resetear tamaño de fuente
+      commands += "\x1B!\x00";
       commands += "Dirección: Calle Falsa 123\n";
       commands += "Tel: 123-456789\n";
       commands += "CUIT: 12-34567890-1\n\n";
-
-      // Información del ticket
-      commands += "\x1B!\x08"; // Fuente enfatizada
+      commands += "\x1B!\x08";
       commands += `TICKET #${sale.id}\n`;
-      commands += "\x1B!\x00"; // Resetear tamaño de fuente
+      commands += "\x1B!\x00";
       commands += `${fecha}\n\n`;
 
-      // Productos
       sale.products.forEach((product) => {
         const discountedPrice = calculateDiscountedPrice(
           product.price,
@@ -60,7 +54,6 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
         );
 
         const productName = getDisplayProductName(product, rubro);
-        // Asegurarse de que el nombre no sea demasiado largo
         const truncatedName =
           productName.length > 20
             ? productName.substring(0, 20) + "..."
@@ -76,15 +69,17 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
         }
 
         commands += `\n${formatCurrency(discountedPrice)}\n\n`;
+        if (sale.manualAmount && sale.manualAmount > 0) {
+          commands += "Monto Manual:\n";
+          commands += `${formatCurrency(sale.manualAmount)}\n\n`;
+        }
       });
 
-      // Descuento total si aplica
       if (sale.discount && sale.discount > 0) {
         commands += "Descuento total:\n";
         commands += `-${formatCurrency(sale.discount)}\n\n`;
       }
 
-      // Métodos de pago
       if (sale.paymentMethods?.length > 0 && !sale.credit) {
         sale.paymentMethods.forEach((method) => {
           commands += `${method.method}:\n`;
@@ -92,30 +87,23 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
         });
       }
 
-      // Venta fiada
       if (sale.credit) {
-        commands += "\x1B!\x08"; // Fuente enfatizada
+        commands += "\x1B!\x08";
         commands += "** VENTA FIADA **\n";
-        commands += "\x1B!\x00"; // Resetear tamaño de fuente
+        commands += "\x1B!\x00";
         if (sale.customerName) {
           commands += `Cliente: ${sale.customerName}\n\n`;
         }
       }
-
-      // Total
-      commands += "\x1B!\x18"; // Fuente grande
+      commands += "\x1B!\x18";
       commands += "TOTAL:\n";
       commands += `${formatCurrency(sale.total)}\n\n`;
-      commands += "\x1B!\x00"; // Resetear tamaño de fuente
-
-      // Pie de página
+      commands += "\x1B!\x00";
       commands += "¡Gracias por su compra!\n";
       commands += "Conserve este ticket\n";
       commands += "---\n";
       commands += "Ticket no válido como factura\n\n\n";
-
-      // Cortar papel (si la impresora lo soporta)
-      commands += "\x1DVA\x03"; // Cortar papel parcialmente
+      commands += "\x1DVA\x03";
 
       return commands;
     };
@@ -194,15 +182,22 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
       >
         <div className="mb-2">
           <h2 className="font-bold text-sm text-center mb-1">Universal App</h2>
-          <p>Dirección: Calle Falsa 123</p>
-          <p>Tel: 123-456789</p>
-          <p>CUIT: 12-34567890-1</p>
+          <p>
+            <span className="font-semibold">Dirección: </span>Calle Falsa 123
+          </p>
+          <p>
+            <span className="font-semibold">Tel: </span>123-456789
+          </p>
+          <p>
+            {" "}
+            <span className="font-semibold">CUIT: </span>12-34567890-1
+          </p>
         </div>
-        <div className="mb-2 border-b border-black pb-2">
+        <div className="py-1 border-b border-black ">
           <p className="font-bold">TICKET #{sale.id}</p>
           <p>{fecha}</p>
         </div>
-        <div className="mb-2">
+        <div className="mb-2 mt-4">
           {sale.products.map((product, idx) => {
             const discountedPrice = calculateDiscountedPrice(
               product.price,
@@ -215,14 +210,14 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
                 key={idx}
                 className="flex justify-between items-center mb-1 border-b border-gray_xl"
               >
-                <div className="flex justify-between items-center w-full max-w-46 gap-2">
-                  <span className="font-bold max-w-30">
+                <div className="flex items-center w-full gap-4">
+                  <span className="font-bold w-24 text-xs text-[.8rem]">
                     {getDisplayProductName(product, rubro)}
                   </span>
-                  <span className="mr-2">
-                    {product.quantity} {product.unit?.toLowerCase() || "un"} x{" "}
-                    {formatCurrency(product.price)}
-                  </span>
+                  <div className="flex flex-col text-center px-2 text-xs min-w-20">
+                    {product.quantity} {product.unit?.toLowerCase() || "un"}
+                    <span className="text-[.6rem]">($ {product.price})</span>
+                  </div>
                 </div>
 
                 <div className="flex flex-col items-end">
@@ -236,10 +231,25 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
               </div>
             );
           })}
+          {sale.manualAmount === undefined ||
+            (sale.manualAmount > 0 && (
+              <div className="mt-4">
+                <span className="w-full">
+                  ---------------------------------------
+                </span>
+                <div className="flex justify-between">
+                  <span className="uppercase font-semibold">Monto Manual:</span>
+                  <span>{formatCurrency(sale.manualAmount)}</span>
+                </div>
+                <span className="w-full">
+                  ---------------------------------------
+                </span>
+              </div>
+            ))}
         </div>
 
         {sale.paymentMethods?.length > 0 && !sale.credit && (
-          <div className="mb-2 mt-8 pt-2">
+          <div className="mb-2 mt-10 space-y-1">
             {sale.paymentMethods.map((method, idx) => (
               <div key={idx} className="flex justify-between">
                 <span>{method.method}:</span>

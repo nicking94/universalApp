@@ -52,6 +52,7 @@ const VentasPage = () => {
     date: new Date().toISOString(),
     barcode: "",
     manualAmount: 0,
+    manualProfitPercentage: 0,
   });
   const router = useRouter();
   const ticketRef = useRef<PrintableTicketHandle>(null);
@@ -129,8 +130,10 @@ const VentasPage = () => {
       (sum, p) => sum + calculatePrice(p),
       0
     );
+
     return parseFloat((productsTotal + manualAmount).toFixed(2));
   };
+
   const calculateProfit = (product: Product): number => {
     const profitPerUnit = product.price - product.costPrice;
     const quantity = product.quantity;
@@ -168,12 +171,8 @@ const VentasPage = () => {
   };
 
   const calculateCombinedTotal = useCallback(
-    (products: Product[], manualAmount: number) => {
-      const productsTotal = products.reduce(
-        (sum, p) => sum + calculatePrice(p),
-        0
-      );
-      return productsTotal + manualAmount;
+    (products: Product[]) => {
+      return products.reduce((sum, p) => sum + calculatePrice(p), 0);
     },
     [calculatePrice]
   );
@@ -312,60 +311,51 @@ const VentasPage = () => {
       setIsNotificationOpen(false);
     }, 2500);
   };
-  const addIncomeToDailyCash = async (
-    sale: Sale & { manualAmount?: number; credit?: boolean; paid?: boolean }
-  ) => {
+  const addIncomeToDailyCash = async (sale: Sale) => {
     try {
       const today = getLocalDateString();
       let dailyCash = await db.dailyCashes.get({ date: today });
 
       const movements: DailyCashMovement[] = [];
       const totalSaleAmount = sale.total;
-      if (sale.products.length > 0) {
+
+      const productsProfit = sale.products.reduce(
+        (sum, p) => sum + calculateProfit(p),
+        0
+      );
+
+      const manualProfit = sale.manualAmount
+        ? (sale.manualAmount * (sale.manualProfitPercentage || 0)) / 100
+        : 0;
+
+      sale.paymentMethods.forEach((payment) => {
+        const paymentRatio = payment.amount / totalSaleAmount;
+
         const movement: DailyCashMovement = {
-          id: Date.now(),
-          amount: totalSaleAmount,
-          description:
-            (sale.manualAmount ?? 0) > 0 && !sale.credit
-              ? `Venta con monto manual de: ${formatCurrency(
-                  sale.manualAmount ?? 0
-                )}`
-              : "Venta",
+          id: Date.now() + Math.random(),
+          amount: payment.amount,
+          description: sale.manualAmount
+            ? `Venta + Monto manual (${formatCurrency(sale.manualAmount)})`
+            : "Venta regular",
+          type: "INGRESO",
+          date: new Date().toISOString(),
+          paymentMethod: payment.method,
           items: sale.products.map((p) => ({
             productId: p.id,
             productName: p.name,
             quantity: p.quantity,
             unit: p.unit,
             price: p.price,
-            size: p.size,
-            color: p.color,
           })),
-
-          type: "INGRESO",
-          date: new Date().toISOString(),
-          paymentMethod: "MIXTO",
-          productId: sale.products[0].id,
-          productName: sale.products.map((p) => p.name).join(", "),
-          costPrice: sale.products.reduce(
-            (sum, p) => sum + p.costPrice * p.quantity,
-            0
-          ),
-          sellPrice: sale.products.reduce(
-            (sum, p) => sum + p.price * p.quantity,
-            0
-          ),
-          quantity: sale.products.reduce((sum, p) => sum + p.quantity, 0),
-          unit: sale.products[0].unit,
-          profit: sale.products.reduce((sum, p) => sum + calculateProfit(p), 0),
-          isCreditPayment: sale.credit,
-          originalSaleId: sale.id,
-          combinedPaymentMethods: sale.paymentMethods,
-          size: sale.products[0].size,
-          color: sale.products[0].color,
+          profit: (productsProfit + manualProfit) * paymentRatio,
+          manualAmount: sale.manualAmount
+            ? sale.manualAmount * paymentRatio
+            : undefined,
+          manualProfitPercentage: sale.manualProfitPercentage,
         };
 
         movements.push(movement);
-      }
+      });
 
       if (!dailyCash) {
         dailyCash = {
@@ -393,7 +383,7 @@ const VentasPage = () => {
         await db.dailyCashes.update(dailyCash.id, updatedCash);
       }
     } catch (error) {
-      console.error("Error al registrar ingreso en caja diaria:", error);
+      console.error("Error al registrar ingreso:", error);
       throw error;
     }
   };
@@ -465,7 +455,7 @@ const VentasPage = () => {
     setNewSale((prev) => ({
       ...prev,
       manualAmount: value,
-      total: calculateTotal(prev.products, value),
+      total: calculateCombinedTotal(prev.products) + value,
     }));
   };
   const handleCreditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -504,10 +494,7 @@ const VentasPage = () => {
   ) => {
     setNewSale((prev) => {
       const updatedMethods = [...prev.paymentMethods];
-      const total = calculateCombinedTotal(
-        prev.products,
-        prev.manualAmount || 0
-      );
+      const total = calculateCombinedTotal(prev.products || 0);
 
       if (field === "amount") {
         const numericValue =
@@ -595,10 +582,7 @@ const VentasPage = () => {
       const updatedMethods = [...prev.paymentMethods];
       updatedMethods.splice(index, 1);
       if (updatedMethods.length === 2) {
-        const total = calculateCombinedTotal(
-          prev.products,
-          prev.manualAmount || 0
-        );
+        const total = calculateCombinedTotal(prev.products || 0);
         updatedMethods[0].amount = total / 2;
         updatedMethods[1].amount = total / 2;
       }
@@ -651,10 +635,8 @@ const VentasPage = () => {
       (sum, method) => sum + method.amount,
       0
     );
-    const calculatedTotal = calculateCombinedTotal(
-      newSale.products,
-      newSale.manualAmount || 0
-    );
+    const calculatedTotal =
+      calculateCombinedTotal(newSale.products) + (newSale.manualAmount || 0);
 
     if (Math.abs(totalPaymentMethods - calculatedTotal) > 0.01) {
       showNotification(`La suma de los métodos de pago no coinciden`, "error");
@@ -735,6 +717,7 @@ const VentasPage = () => {
         date: new Date().toISOString(),
         barcode: newSale.barcode,
         manualAmount: newSale.manualAmount,
+        manualProfitPercentage: newSale.manualProfitPercentage,
         credit: isCredit,
         customerName: isCredit
           ? customerName.toUpperCase().trim()
@@ -867,10 +850,7 @@ const VentasPage = () => {
   }, []);
   useEffect(() => {
     setNewSale((prev) => {
-      const total = calculateCombinedTotal(
-        prev.products,
-        prev.manualAmount || 0
-      );
+      const total = calculateCombinedTotal(prev.products || 0);
       const updatedMethods = [...prev.paymentMethods];
       if (updatedMethods.length === 1) {
         updatedMethods[0].amount = total;
@@ -950,10 +930,7 @@ const VentasPage = () => {
         })
         .filter(Boolean) as Product[];
 
-      const newTotal = calculateCombinedTotal(
-        updatedProducts,
-        prevState.manualAmount || 0
-      );
+      const newTotal = calculateCombinedTotal(updatedProducts || []);
 
       return {
         ...prevState,
@@ -988,10 +965,7 @@ const VentasPage = () => {
         return p;
       });
 
-      const newTotal = calculateCombinedTotal(
-        updatedProducts,
-        prevState.manualAmount || 0
-      );
+      const newTotal = calculateCombinedTotal(updatedProducts);
       const updatedPaymentMethods = [...prevState.paymentMethods];
       if (updatedPaymentMethods.length > 0) {
         updatedPaymentMethods[0].amount = newTotal;
@@ -1042,10 +1016,9 @@ const VentasPage = () => {
       return {
         ...prevState,
         products: updatedProducts,
-        total: calculateCombinedTotal(
-          updatedProducts,
-          prevState.manualAmount || 0
-        ),
+        total:
+          calculateCombinedTotal(updatedProducts) +
+          (prevState.manualAmount || 0),
       };
     });
   };
@@ -1058,10 +1031,9 @@ const VentasPage = () => {
       return {
         ...prevState,
         products: updatedProducts,
-        total: calculateCombinedTotal(
-          updatedProducts,
-          prevState.manualAmount || 0
-        ),
+        total:
+          calculateCombinedTotal(updatedProducts) +
+          (prevState.manualAmount || 0),
       };
     });
   };
@@ -1128,7 +1100,7 @@ const VentasPage = () => {
             <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b">
               <tr>
                 <th className="text-sm 2xl:text-lg px-4 py-2 text-start ">
-                  Producto
+                  Productos
                 </th>
                 {rubro === "indumentaria" && (
                   <th className="text-sm 2xl:text-lg px-4 py-2">Talle</th>
@@ -1142,7 +1114,7 @@ const VentasPage = () => {
                 <th className="text-sm 2xl:text-lg px-4 py-2 ">
                   Forma De Pago
                 </th>
-                <th className="text-sm 2xl:text-lg px-4 py-2 ">Total</th>
+                <th className="text-sm 2xl:text-lg px-4 py-2">Total</th>
                 <th className="w-40 max-w-[5rem] 2xl:max-w-[10rem] text-sm 2xl:text-lg px-4 py-2">
                   Acciones
                 </th>
@@ -1189,23 +1161,32 @@ const VentasPage = () => {
                           {products.map((p) => p.color || "-").join(", ")}
                         </td>
                       )}
-                      <td className=" px-4 py-2 border border-gray_xl">
+                      <td className="px-4 py-2 border border-gray_xl">
                         {format(saleDate, "dd/MM/yyyy", { locale: es })}
                       </td>
 
-                      <td className=" px-4 py-2 border border-gray_xl">
+                      <td className="2xl:w-70 px-4 py-2 border border-gray_xl">
                         {sale.credit ? (
-                          <span className="text-orange-500">VENTA FIADA</span>
+                          <span className="text-orange-500 font-semibold">
+                            VENTA FIADA
+                          </span>
                         ) : (
                           paymentMethods.map((payment, i) => (
-                            <div key={i} className="text-xs">
-                              {payment?.method || "Método no especificado"}:{" "}
-                              {formatCurrency(payment?.amount || 0)}
+                            <div
+                              key={i}
+                              className="text-xs flex justify-between"
+                            >
+                              <span>
+                                {payment?.method || "Método no especificado"}:{" "}
+                              </span>
+                              <span>
+                                {formatCurrency(payment?.amount || 0)}
+                              </span>
                             </div>
                           ))
                         )}
                       </td>
-                      <td className=" px-4 py-2 border border-gray_xl">
+                      <td className=" px-4 py-2 border border-gray_xl font-semibold">
                         {sale.credit ? (
                           <span className="text-orange-500">
                             FIADO - $
@@ -1550,12 +1531,40 @@ const VentasPage = () => {
                         </p>
                       </div>
                     ) : (
-                      <InputCash
-                        label="Monto manual (opcional)"
-                        value={newSale.manualAmount || 0}
-                        onChange={handleManualAmountChange}
-                        disabled={isCredit}
-                      />
+                      <div className="flex items-center space-x-4">
+                        <InputCash
+                          label="Monto manual (opcional)"
+                          value={newSale.manualAmount || 0}
+                          onChange={handleManualAmountChange}
+                          disabled={isCredit}
+                        />
+                        <div className="w-full">
+                          <label className="block text-sm font-medium text-gray_m dark:text-white">
+                            % Ganancia
+                          </label>
+                          <Input
+                            type="number"
+                            value={
+                              newSale.manualProfitPercentage?.toString() || "0"
+                            }
+                            onChange={(e) => {
+                              const value = Math.min(
+                                100,
+                                Math.max(0, Number(e.target.value))
+                              );
+                              setNewSale((prev) => ({
+                                ...prev,
+                                manualProfitPercentage: value || 0,
+                                total: calculateTotal(
+                                  prev.products,
+                                  prev.manualAmount || 0
+                                ),
+                              }));
+                            }}
+                            disabled={isCredit}
+                          />
+                        </div>
+                      </div>
                     )}
                   </div>
 
