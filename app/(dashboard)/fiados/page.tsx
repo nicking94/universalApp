@@ -203,22 +203,40 @@ const FiadosPage = () => {
   const addPaymentMethod = () => {
     setPaymentMethods((prev) => {
       if (prev.length >= paymentOptions.length) return prev;
-      const newMethods = [...prev];
-      if (newMethods.length === 2) {
-        newMethods.forEach((method) => {
-          method.amount = 0;
-        });
-      }
 
-      const usedMethods = newMethods.map((m) => m.method);
+      const total = calculateRemainingBalance(currentCreditSale!);
+
+      const usedMethods = prev.map((m) => m.method);
       const availableMethod = paymentOptions.find(
         (option) => !usedMethods.includes(option.value as PaymentMethod)
       );
 
+      if (!availableMethod) return prev;
+
+      // Si hay menos de 2 métodos, distribuimos el monto
+      if (prev.length < 2) {
+        const newMethodCount = prev.length + 1;
+        const share = total / newMethodCount;
+
+        const updatedMethods = prev.map((method) => ({
+          ...method,
+          amount: share,
+        }));
+
+        return [
+          ...updatedMethods,
+          {
+            method: availableMethod.value as PaymentMethod,
+            amount: share,
+          },
+        ];
+      }
+
+      // Si hay 2 o más, agregamos con amount 0
       return [
-        ...newMethods,
+        ...prev,
         {
-          method: (availableMethod?.value as PaymentMethod) || "EFECTIVO",
+          method: availableMethod.value as PaymentMethod,
           amount: 0,
         },
       ];
@@ -501,15 +519,24 @@ const FiadosPage = () => {
     setPaymentMethods((prev) => {
       if (prev.length <= 1) return prev;
 
-      const updated = [...prev];
-      updated.splice(index, 1);
-      if (updated.length === 2) {
-        const remainingBalance = calculateRemainingBalance(currentCreditSale!);
-        updated[0].amount = remainingBalance / 2;
-        updated[1].amount = remainingBalance / 2;
+      const updatedMethods = [...prev];
+      updatedMethods.splice(index, 1);
+
+      const total = calculateRemainingBalance(currentCreditSale!);
+
+      if (updatedMethods.length === 1) {
+        updatedMethods[0].amount = total;
+      } else {
+        const share = total / updatedMethods.length;
+        updatedMethods.forEach((m, i) => {
+          updatedMethods[i] = {
+            ...m,
+            amount: share,
+          };
+        });
       }
 
-      return updated;
+      return updatedMethods;
     });
   };
 
@@ -598,7 +625,7 @@ const FiadosPage = () => {
                             colorText="text-gray_b"
                             colorTextHover="hover:text-white"
                             colorBg="bg-transparent"
-                            colorBgHover="hover:bg-red_b"
+                            colorBgHover="hover:bg-red_m"
                             px="px-2"
                             py="py-1"
                             minwidth="min-w-0"
@@ -990,7 +1017,7 @@ const FiadosPage = () => {
               </p>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-2">
               <label className="block text-sm font-medium">
                 Métodos de Pago
               </label>
@@ -1027,7 +1054,7 @@ const FiadosPage = () => {
                     <button
                       type="button"
                       onClick={() => removePaymentMethod(index)}
-                      className="text-red_m hover:text-red_m"
+                      className="cursor-pointer text-red_m hover:text-red_m"
                     >
                       <Trash size={16} />
                     </button>
@@ -1046,7 +1073,7 @@ const FiadosPage = () => {
             </div>
 
             <div className="p-2 bg-gray_b dark:bg-gray_m text-white text-center mt-4">
-              <p className="font-semibold">
+              <p className="font-semibold uppercase py-2 text-lg">
                 Total a pagar:{" "}
                 {paymentMethods
                   .reduce((sum, m) => sum + m.amount, 0)
@@ -1075,8 +1102,6 @@ const FiadosPage = () => {
                 text="Si"
                 colorText="text-white"
                 colorTextHover="text-white"
-                colorBg="bg-red_b"
-                colorBgHover="hover:bg-red_m"
                 onClick={handleDeleteCustomerCredits}
               />
               <Button

@@ -794,7 +794,7 @@ const ProductsPage = () => {
                             colorText="text-gray_b"
                             colorTextHover="hover:text-white"
                             colorBg="bg-transparent"
-                            colorBgHover="hover:bg-red_b"
+                            colorBgHover="hover:bg-red_m"
                             px="px-1"
                             py="py-1"
                             minwidth="min-w-0"

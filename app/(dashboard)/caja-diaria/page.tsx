@@ -527,12 +527,27 @@ const CajaDiariaPage = () => {
           ...updated[index],
           amount: numericValue,
         };
+
+        // Solo ajustamos automáticamente si hay exactamente 2 métodos de pago
+        if (updated.length === 2) {
+          const otherIndex = index === 0 ? 1 : 0;
+          const totalAmount = parseFloat(amount) || 0;
+          const remaining = totalAmount - numericValue;
+          updated[otherIndex] = {
+            ...updated[otherIndex],
+            amount: Math.max(0, remaining),
+          };
+        }
       } else {
         updated[index] = {
           ...updated[index],
           method: value as PaymentMethod,
         };
       }
+
+      // Actualizar el monto total directamente aquí
+      const newTotal = updated.reduce((sum, m) => sum + (m.amount || 0), 0);
+      setAmount(newTotal.toString());
 
       return updated;
     });
@@ -542,19 +557,49 @@ const CajaDiariaPage = () => {
     setPaymentMethods((prev) => {
       if (prev.length >= paymentOptions.length) return prev;
 
-      const usedMethods = prev.map((m) => m.method);
-      const availableMethod =
-        paymentOptions.find(
-          (option) => !usedMethods.includes(option.value as PaymentMethod)
-        ) || paymentOptions[0];
+      const totalAmount = parseFloat(amount) || 0;
 
-      return [
-        ...prev,
-        {
-          method: availableMethod.value as PaymentMethod,
-          amount: 0,
-        },
-      ];
+      // Solo distribuimos automáticamente si hay menos de 2 métodos
+      if (prev.length < 2) {
+        const newMethodCount = prev.length + 1;
+        const share = totalAmount / newMethodCount;
+
+        const updatedMethods = prev.map((method) => ({
+          ...method,
+          amount: share,
+        }));
+
+        const newMethods = [
+          ...updatedMethods,
+          {
+            method:
+              (paymentOptions.find(
+                (option) => !prev.some((m) => m.method === option.value)
+              )?.value as PaymentMethod) || "EFECTIVO",
+            amount: share,
+          },
+        ];
+
+        // Actualizar el monto total (aunque debería ser el mismo)
+        setAmount(totalAmount.toString());
+
+        return newMethods;
+      } else {
+        // Para el tercer método en adelante, agregamos con monto 0
+        const newMethods = [
+          ...prev,
+          {
+            method:
+              (paymentOptions.find(
+                (option) => !prev.some((m) => m.method === option.value)
+              )?.value as PaymentMethod) || "EFECTIVO",
+            amount: 0,
+          },
+        ];
+
+        // El monto total no cambia al agregar un nuevo método
+        return newMethods;
+      }
     });
   };
   const removePaymentMethod = (index: number) => {
@@ -564,10 +609,20 @@ const CajaDiariaPage = () => {
       const updated = [...prev];
       updated.splice(index, 1);
 
-      if (updated.length === 1) {
+      // Solo sincronizamos automáticamente si hay 1 o 2 métodos después de eliminar
+      if (updated.length <= 2) {
         const totalAmount = parseFloat(amount) || 0;
-        updated[0].amount = totalAmount;
+        const share = totalAmount / updated.length;
+        updated.forEach((m, i) => {
+          updated[i] = {
+            ...m,
+            amount: share,
+          };
+        });
       }
+
+      const newTotal = updated.reduce((sum, m) => sum + (m.amount || 0), 0);
+      setAmount(newTotal.toString());
 
       return updated;
     });
@@ -896,7 +951,7 @@ const CajaDiariaPage = () => {
                           colorText="text-white"
                           colorTextHover="text-white"
                           colorBg="bg-red_m"
-                          colorBgHover="hover:bg-red_b"
+                          colorBgHover="hover:bg-red_m"
                           onClick={() => setIsCloseCashModal(true)}
                         />
                       )}
@@ -1162,7 +1217,7 @@ const CajaDiariaPage = () => {
                 <div
                   key={index}
                   className={`flex items-center gap-2 ${
-                    paymentMethods.length > 1 ? "space-y-6" : ""
+                    paymentMethods.length > 1 ? "space-y-2" : ""
                   }`}
                 >
                   <Select
@@ -1199,7 +1254,7 @@ const CajaDiariaPage = () => {
                       type="button"
                       onClick={() => removePaymentMethod(index)}
                       className={`cursor-pointer text-red_m hover:text-red_b transition-all duration-300 ${
-                        paymentMethods.length > 1 ? "-mt-6 pr-2" : ""
+                        paymentMethods.length > 1 ? "-mt-2" : ""
                       }`}
                     >
                       <Trash size={16} />

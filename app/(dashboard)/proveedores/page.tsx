@@ -466,7 +466,7 @@ const ProveedoresPage = () => {
                           colorText="text-gray_b"
                           colorTextHover="hover:text-white"
                           colorBg="bg-transparent"
-                          colorBgHover="hover:bg-blue-500"
+                          colorBgHover="hover:bg-blue_m"
                           px="px-1"
                           py="py-1"
                           minwidth="min-w-0"
@@ -487,7 +487,7 @@ const ProveedoresPage = () => {
                           colorText="text-gray_b"
                           colorTextHover="hover:text-white"
                           colorBg="bg-transparent"
-                          colorBgHover="hover:bg-red_b"
+                          colorBgHover="hover:bg-red_m"
                           px="px-1"
                           py="py-1"
                           minwidth="min-w-0"
@@ -793,8 +793,6 @@ const ProveedoresPage = () => {
                 text="Eliminar"
                 colorText="text-white"
                 colorTextHover="text-white"
-                colorBg="bg-red_b"
-                colorBgHover="hover:bg-red_m"
                 onClick={handleDelete}
               />
               <Button

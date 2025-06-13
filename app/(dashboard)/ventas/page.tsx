@@ -452,11 +452,23 @@ const VentasPage = () => {
   };
 
   const handleManualAmountChange = (value: number) => {
-    setNewSale((prev) => ({
-      ...prev,
-      manualAmount: value,
-      total: calculateCombinedTotal(prev.products) + value,
-    }));
+    setNewSale((prev) => {
+      const productsTotal = calculateCombinedTotal(prev.products);
+      const newTotal = productsTotal + value;
+
+      // Actualizar el monto del método de pago si solo hay uno
+      const updatedMethods = [...prev.paymentMethods];
+      if (updatedMethods.length === 1) {
+        updatedMethods[0].amount = newTotal;
+      }
+
+      return {
+        ...prev,
+        manualAmount: value,
+        total: newTotal,
+        paymentMethods: updatedMethods,
+      };
+    });
   };
   const handleCreditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const isCredit = e.target.checked;
@@ -494,7 +506,9 @@ const VentasPage = () => {
   ) => {
     setNewSale((prev) => {
       const updatedMethods = [...prev.paymentMethods];
-      const total = calculateCombinedTotal(prev.products || 0);
+      const productsTotal = calculateCombinedTotal(prev.products || []);
+      const manualAmount = prev.manualAmount || 0;
+      const total = productsTotal + manualAmount;
 
       if (field === "amount") {
         const numericValue =
@@ -506,30 +520,14 @@ const VentasPage = () => {
           ...updatedMethods[index],
           amount: parseFloat(numericValue.toFixed(2)),
         };
+
         if (updatedMethods.length === 2) {
-          let sum = 0;
-          for (let i = 0; i < updatedMethods.length; i++) {
-            sum += updatedMethods[i].amount;
-          }
-
-          const difference = total - sum;
-
-          if (updatedMethods.length > 1) {
-            const numOtherInputs = updatedMethods.length - 1;
-            const share = difference / numOtherInputs;
-
-            for (let i = 0; i < updatedMethods.length; i++) {
-              if (i !== index) {
-                const newAmount = parseFloat(
-                  Math.max(0, updatedMethods[i].amount + share).toFixed(2)
-                );
-                updatedMethods[i] = {
-                  ...updatedMethods[i],
-                  amount: newAmount,
-                };
-              }
-            }
-          }
+          const otherIndex = index === 0 ? 1 : 0;
+          const remaining = total - numericValue;
+          updatedMethods[otherIndex] = {
+            ...updatedMethods[otherIndex],
+            amount: parseFloat(Math.max(0, remaining).toFixed(2)),
+          };
         }
 
         return {
@@ -541,50 +539,85 @@ const VentasPage = () => {
           ...updatedMethods[index],
           method: value as "EFECTIVO" | "TRANSFERENCIA" | "TARJETA",
         };
+        return {
+          ...prev,
+          paymentMethods: updatedMethods,
+        };
       }
-
-      return {
-        ...prev,
-        paymentMethods: updatedMethods,
-      };
     });
   };
 
   const addPaymentMethod = () => {
     setNewSale((prev) => {
       if (prev.paymentMethods.length >= paymentOptions.length) return prev;
-      const newMethods = [...prev.paymentMethods];
-      if (newMethods.length === 2) {
-        newMethods.forEach((method) => {
-          method.amount = 0;
-        });
-      }
 
-      return {
-        ...prev,
-        paymentMethods: [
-          ...newMethods,
-          {
-            method: paymentOptions[prev.paymentMethods.length].value as
-              | "EFECTIVO"
-              | "TRANSFERENCIA"
-              | "TARJETA",
-            amount: 0,
-          },
-        ],
-      };
+      const productsTotal = calculateCombinedTotal(prev.products || []);
+      const manualAmount = prev.manualAmount || 0;
+      const total = productsTotal + manualAmount;
+
+      // Solo distribuimos automáticamente si hay menos de 2 métodos
+      if (prev.paymentMethods.length < 2) {
+        const newMethodCount = prev.paymentMethods.length + 1;
+        const share = total / newMethodCount;
+
+        const updatedMethods = prev.paymentMethods.map((method) => ({
+          ...method,
+          amount: share,
+        }));
+
+        return {
+          ...prev,
+          paymentMethods: [
+            ...updatedMethods,
+            {
+              method: paymentOptions[prev.paymentMethods.length].value as
+                | "EFECTIVO"
+                | "TRANSFERENCIA"
+                | "TARJETA",
+              amount: share,
+            },
+          ],
+        };
+      } else {
+        // Para el tercer método en adelante, agregamos con monto 0
+        return {
+          ...prev,
+          paymentMethods: [
+            ...prev.paymentMethods,
+            {
+              method: paymentOptions[prev.paymentMethods.length].value as
+                | "EFECTIVO"
+                | "TRANSFERENCIA"
+                | "TARJETA",
+              amount: 0,
+            },
+          ],
+        };
+      }
     });
   };
 
   const removePaymentMethod = (index: number) => {
     setNewSale((prev) => {
       if (prev.paymentMethods.length <= 1) return prev;
+
       const updatedMethods = [...prev.paymentMethods];
       updatedMethods.splice(index, 1);
-      if (updatedMethods.length === 2) {
-        const total = calculateCombinedTotal(prev.products || 0);
-        updatedMethods[0].amount = total / 2;
-        updatedMethods[1].amount = total / 2;
+
+      const productsTotal = calculateCombinedTotal(prev.products || []);
+      const manualAmount = prev.manualAmount || 0;
+      const total = productsTotal + manualAmount;
+
+      if (updatedMethods.length === 1) {
+        updatedMethods[0].amount = total;
+      } else {
+        const share = total / updatedMethods.length;
+        updatedMethods.forEach((m, i) => {
+          updatedMethods[i] = {
+            ...m,
+            amount: share,
+          };
+        });
       }
 
       return {
@@ -850,22 +883,27 @@ const VentasPage = () => {
   }, []);
   useEffect(() => {
     setNewSale((prev) => {
-      const total = calculateCombinedTotal(prev.products || 0);
-      const updatedMethods = [...prev.paymentMethods];
-      if (updatedMethods.length === 1) {
-        updatedMethods[0].amount = total;
-      } else if (updatedMethods.length === 2) {
-        const sumOthers = updatedMethods
-          .slice(0, -1)
-          .reduce((sum, m) => sum + m.amount, 0);
-        const remaining = total - sumOthers;
+      const productsTotal = calculateCombinedTotal(prev.products || []);
+      const manualAmount = prev.manualAmount || 0;
+      const total = productsTotal + manualAmount;
 
-        if (remaining >= 0) {
-          updatedMethods[updatedMethods.length - 1].amount = parseFloat(
-            remaining.toFixed(2)
-          );
+      const updatedMethods = [...prev.paymentMethods];
+
+      // Solo sincronizamos automáticamente si hay 1 o 2 métodos
+      if (updatedMethods.length <= 2) {
+        if (updatedMethods.length === 1) {
+          updatedMethods[0].amount = total;
+        } else {
+          const share = total / updatedMethods.length;
+          updatedMethods.forEach((m, i) => {
+            updatedMethods[i] = {
+              ...m,
+              amount: share,
+            };
+          });
         }
       }
+
       return {
         ...prev,
         paymentMethods: updatedMethods,
@@ -1068,6 +1106,10 @@ const VentasPage = () => {
               placeholder="Mes"
               className="w-full h-[2rem] 2xl:h-auto text-black"
               classNamePrefix="react-select"
+              menuPosition="fixed"
+              styles={{
+                menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+              }}
             />
             <Select
               value={
@@ -1082,6 +1124,10 @@ const VentasPage = () => {
               isClearable
               className="w-full h-[2rem] 2xl:h-auto text-black"
               classNamePrefix="react-select"
+              menuPosition="fixed"
+              styles={{
+                menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+              }}
             />
           </div>
           <div className="w-full  flex justify-end">
@@ -1165,7 +1211,7 @@ const VentasPage = () => {
                         {format(saleDate, "dd/MM/yyyy", { locale: es })}
                       </td>
 
-                      <td className="2xl:w-70 px-4 py-2 border border-gray_xl">
+                      <td className="w-55 px-4 py-2 border border-gray_xl">
                         {sale.credit ? (
                           <span className="text-orange-500 font-semibold">
                             VENTA FIADA
@@ -1313,10 +1359,9 @@ const VentasPage = () => {
               />
             </div>
           }
-          minheight="min-h-[26rem] "
         >
           <div className="overflow-y-auto">
-            <div className="flex flex-col min-h-[24rem] max-h-[24rem] 2xl:max-h-[27rem] justify-between overflow-y-auto">
+            <div className="flex flex-col min-h-[50vh] max-h-[50vh] 2xl:max-h-[27rem] justify-between overflow-y-auto">
               <form
                 onSubmit={handleConfirmAddSale}
                 className="flex flex-col gap-2"
@@ -1352,6 +1397,7 @@ const VentasPage = () => {
                     </label>
                     <Select
                       placeholder="Seleccionar productos..."
+                      noOptionsMessage={() => "No se encontraron productos"}
                       isMulti
                       options={productOptions}
                       value={newSale.products.map((p) => ({
@@ -1363,7 +1409,12 @@ const VentasPage = () => {
                       onChange={handleProductSelect}
                       className="text-black"
                       classNamePrefix="react-select"
+                      menuPosition="fixed"
                       styles={{
+                        menuPortal: (base) => ({
+                          ...base,
+                          zIndex: 9999,
+                        }),
                         control: (provided) => ({
                           ...provided,
                           maxHeight: "100px",
@@ -1385,9 +1436,10 @@ const VentasPage = () => {
                           <th className="px-4 py-2">Producto</th>
                           <th className="px-4 py-2 text-center">Unidad</th>
                           <th className="px-4 py-2 text-center">Cantidad</th>
+                          <th className="w-22">% descuento</th>
                           <th className="px-4 py-2 text-center">Total</th>
-                          <th>descuento</th>
-                          <th className="w-40 max-w-[10rem] px-4 py-2 text-center">
+
+                          <th className="w-30 max-w-[8rem] px-4 py-2 text-center">
                             Acciones
                           </th>
                         </tr>
@@ -1420,6 +1472,13 @@ const VentasPage = () => {
                                       );
                                     }}
                                     className="text-black"
+                                    menuPosition="fixed"
+                                    styles={{
+                                      menuPortal: (base) => ({
+                                        ...base,
+                                        zIndex: 9999,
+                                      }),
+                                    }}
                                   />
                                 ) : (
                                   <div className="text-center py-2 text-gray_m">
@@ -1460,18 +1519,7 @@ const VentasPage = () => {
                                     }
                                   }}
                                 />
-                              </td>
-                              <td className="w-30 max-w-30 px-4 py-2 text-center ">
-                                {formatCurrency(
-                                  calculatePrice({
-                                    ...product,
-                                    price: product.price || 0,
-                                    quantity: product.quantity || 0,
-                                    unit: product.unit || "Unid.",
-                                  })
-                                )}
-                              </td>
-
+                              </td>{" "}
                               <td className="w-20 max-w-20 px-4 py-2">
                                 <Input
                                   textPosition="text-center"
@@ -1502,12 +1550,22 @@ const VentasPage = () => {
                                   step="1"
                                 />
                               </td>
+                              <td className="w-30 max-w-30 px-4 py-2 text-center ">
+                                {formatCurrency(
+                                  calculatePrice({
+                                    ...product,
+                                    price: product.price || 0,
+                                    quantity: product.quantity || 0,
+                                    unit: product.unit || "Unid.",
+                                  })
+                                )}
+                              </td>
                               <td className=" px-4 py-2 text-center">
                                 <button
                                   onClick={() =>
                                     handleRemoveProduct(product.id)
                                   }
-                                  className="cursor-pointer hover:bg-red_b text-gray_b hover:text-white p-1 rounded-sm transition-all duration-300"
+                                  className="cursor-pointer hover:bg-red_m text-gray_b hover:text-white p-1 rounded-sm transition-all duration-300"
                                 >
                                   <Trash size={20} />
                                 </button>
@@ -1538,7 +1596,7 @@ const VentasPage = () => {
                           onChange={handleManualAmountChange}
                           disabled={isCredit}
                         />
-                        <div className="w-full">
+                        <div className="w-full mt-1 max-w-[5rem]">
                           <label className="block text-sm font-medium text-gray_m dark:text-white">
                             % Ganancia
                           </label>
@@ -1607,7 +1665,15 @@ const VentasPage = () => {
                                 )
                               }
                               options={paymentOptions}
+                              noOptionsMessage={() => "No hay opciones"}
                               className="w-60 max-w-60 text-gray_b"
+                              menuPosition="fixed"
+                              styles={{
+                                menuPortal: (base) => ({
+                                  ...base,
+                                  zIndex: 9999,
+                                }),
+                              }}
                               isDisabled={isCredit}
                             />
 
@@ -1653,7 +1719,7 @@ const VentasPage = () => {
                             )}
                           </div>
                         ))}
-                        {!isCredit && (
+                        {!isCredit && newSale.paymentMethods.length < 3 && (
                           <button
                             type="button"
                             onClick={addPaymentMethod}
@@ -1700,7 +1766,11 @@ const VentasPage = () => {
                       isClearable
                       className="text-black"
                       classNamePrefix="react-select"
-                      noOptionsMessage={() => "No se encontraron clientes"}
+                      noOptionsMessage={() => "No hay opciones"}
+                      menuPosition="fixed"
+                      styles={{
+                        menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                      }}
                     />
                     <div className="flex items-center space-x-4 mt-4">
                       <Input
@@ -1728,8 +1798,8 @@ const VentasPage = () => {
                 )}
               </div>
             </div>
-            <div className="p-2 xl:p-4 bg-gray_b dark:bg-gray_m text-white text-center mt-4">
-              <p className="font-bold text-3xl">
+            <div className="p-2 2xl:p-4 bg-gray_b dark:bg-gray_m text-white text-center mt-4">
+              <p className="font-bold text-2xl 2xl:text-3xl">
                 TOTAL:{" "}
                 {newSale.total.toLocaleString("es-AR", {
                   style: "currency",

@@ -390,3 +390,16 @@ export interface SerialOptions {
   bufferSize?: number;
   flowControl?: string;
 }
+export interface BusinessData {
+  id: number;
+  name: string;
+  address: string;
+  phone: string;
+  cuit: string;
+}
+export type UserPreferences = {
+  id?: number;
+  userId: number;
+  acceptedTerms: boolean;
+  acceptedTermsDate?: string;
+};

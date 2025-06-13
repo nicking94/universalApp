@@ -17,7 +17,7 @@ export default function Notification({
 
   return (
     <div
-      className={`fixed bottom-4 right-4 p-2 rounded-sm text-white ${typeClasses[type]}`}
+      className={`fixed bottom-4 right-4 p-2 rounded-sm text-white ${typeClasses[type]} z-50`}
     >
       {message}
     </div>

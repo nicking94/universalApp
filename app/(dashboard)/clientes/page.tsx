@@ -297,7 +297,7 @@ const ClientesPage = () => {
                           colorText="text-gray_b"
                           colorTextHover="hover:text-white"
                           colorBg="bg-transparent"
-                          colorBgHover="hover:bg-red_b"
+                          colorBgHover="hover:bg-red_m"
                           px="px-1"
                           py="py-1"
                           minwidth="min-w-0"
@@ -406,8 +406,6 @@ const ClientesPage = () => {
                 text="Eliminar"
                 colorText="text-white"
                 colorTextHover="text-white"
-                colorBg="bg-red_b"
-                colorBgHover="hover:bg-red_m"
                 onClick={handleConfirmDelete}
                 hotkey="enter"
               />
