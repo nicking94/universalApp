@@ -7,24 +7,19 @@ import Image from "next/image";
 import Logo from "../../public/logo.png";
 
 interface AuthFormProps {
-  type?: "login";
+  type?: "login" | "register";
   onSubmit: (data: AuthData) => void;
-  additionalContent?: React.ReactNode;
   showTermsCheckbox?: boolean;
-  onTermsCheckboxChange?: (accepted: boolean) => void;
   acceptedTerms?: boolean;
-  onShowTerms?: () => void;
-  forceShowTerms?: boolean;
+  onTermsCheckboxChange?: (accepted: boolean) => void;
 }
 
 const AuthForm: React.FC<AuthFormProps> = ({
   type = "login",
   onSubmit,
   showTermsCheckbox = false,
-  onTermsCheckboxChange,
   acceptedTerms = false,
-  onShowTerms,
-  forceShowTerms = false,
+  onTermsCheckboxChange,
 }) => {
   const [formData, setFormData] = useState<AuthData>({
     username: "",
@@ -39,15 +34,21 @@ const AuthForm: React.FC<AuthFormProps> = ({
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (showTermsCheckbox && !acceptedTerms) {
-      return; // No se envía el formulario si no se aceptaron los términos
+      return;
     }
     onSubmit(formData);
+  };
+
+  const handleTermsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (onTermsCheckboxChange) {
+      onTermsCheckboxChange(e.target.checked);
+    }
   };
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-blue_xl text-gray_b flex flex-col justify-center w-[35%] xl:w-[25%] p-10 space-y-10 shadow-2xl shadow-blue_b z-40"
+      className="bg-blue_xl text-gray_b flex flex-col justify-center w-[35%] xl:w-[25%] p-10 space-y-6 shadow-2xl shadow-blue_b z-40"
     >
       <div className="flex justify-center">
         <Image src={Logo} alt="logo" width={100} height={100} />
@@ -55,6 +56,7 @@ const AuthForm: React.FC<AuthFormProps> = ({
       <h2 className="font-semibold text-3xl 2xl:text-4xl text-center text-gray_b">
         {type === "login" ? "Iniciar sesión" : "Registrarse"}
       </h2>
+
       <div className="flex flex-col">
         <label htmlFor="username">Usuario</label>
         <input
@@ -68,6 +70,7 @@ const AuthForm: React.FC<AuthFormProps> = ({
           className="placeholder:text-gray_l outline-none p-2 border-[1px] border-blue_l rounded-sm focus:border-blue_b transition-colors duration-300"
         />
       </div>
+
       <div className="text-gray_b">
         <label htmlFor="password">Contraseña</label>
         <div className="relative border-[1px] border-blue_l rounded-sm focus:border-blue_b transition-colors duration-300">
@@ -95,47 +98,42 @@ const AuthForm: React.FC<AuthFormProps> = ({
         </div>
       </div>
 
-      {/* Checkbox de términos y condiciones */}
-
-      {(showTermsCheckbox && !acceptedTerms) || forceShowTerms ? (
-        <div className="flex items-start">
-          <div className="flex items-center h-5">
+      {showTermsCheckbox && (
+        <div className="space-y-2">
+          <div className="flex items-center">
             <input
-              id="terms"
-              name="terms"
+              id="terms-checkbox"
               type="checkbox"
               checked={acceptedTerms}
-              onChange={(e) => onTermsCheckboxChange?.(e.target.checked)}
-              className="focus:ring-blue_b h-4 w-4 text-blue_b border-gray-300 rounded cursor-pointer"
-              required={!acceptedTerms}
+              onChange={handleTermsChange}
+              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
             />
-          </div>
-          <div className="ml-3 text-sm">
-            <label htmlFor="terms" className="font-medium text-gray_b">
-              Acepto los{" "}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  onShowTerms?.();
-                }}
-                className="text-blue_b hover:text-blue-500 underline cursor-pointer"
-              >
-                términos y condiciones
-              </button>
+            <label
+              htmlFor="terms-checkbox"
+              className="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300"
+            >
+              Acepto los términos y condiciones
             </label>
           </div>
+          <a
+            href="/terminos-y-condiciones"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 dark:text-blue-400 text-xs hover:underline"
+          >
+            Leer términos y condiciones
+          </a>
         </div>
-      ) : null}
+      )}
 
-      <div className="flex items-center justify-center">
+      <div className="flex items-center justify-center pt-4">
         <Button
           type="submit"
           text={type === "login" ? "Iniciar Sesión" : "Registrarse"}
           colorText="text-white"
           colorTextHover="hover:text-white"
           disabled={showTermsCheckbox && !acceptedTerms}
-        ></Button>
+        />
       </div>
     </form>
   );

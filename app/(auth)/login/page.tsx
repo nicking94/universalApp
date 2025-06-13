@@ -9,11 +9,31 @@ import { db } from "../../database/db";
 
 const LoginPage = () => {
   const router = useRouter();
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showTermsCheckbox, setShowTermsCheckbox] = useState(true);
   const [isOpenNotification, setIsOpenNotification] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState("");
   const [notificationType, setNotificationType] = useState<
     "success" | "error" | "info"
   >("error");
+
+  useEffect(() => {
+    const loadPreferences = async () => {
+      try {
+        const preferences = await db.userPreferences.get(1);
+        if (preferences) {
+          setAcceptedTerms(preferences.acceptedTerms);
+          // Solo mostrar el checkbox si nunca se han aceptado los términos
+          setShowTermsCheckbox(!preferences.acceptedTerms);
+        }
+      } catch (error) {
+        console.error("Error cargando preferencias:", error);
+        setAcceptedTerms(false);
+        setShowTermsCheckbox(true);
+      }
+    };
+    loadPreferences();
+  }, []);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -92,6 +112,35 @@ const LoginPage = () => {
   };
 
   const handleLogin = async (data: AuthData) => {
+    // Solo validar términos si es la primera vez
+    if (showTermsCheckbox && !acceptedTerms) {
+      setNotificationMessage("Debes aceptar los términos y condiciones");
+      setNotificationType("error");
+      setIsOpenNotification(true);
+      setTimeout(() => setIsOpenNotification(false), 2500);
+      return;
+    }
+
+    // Guardar preferencias solo si es la primera vez
+    if (showTermsCheckbox) {
+      await db.userPreferences.put({
+        id: 1,
+        acceptedTerms: true,
+        acceptedTermsDate: new Date().toISOString(),
+      });
+    }
+    if (!acceptedTerms) {
+      setNotificationMessage("Debes aceptar los términos y condiciones");
+      setNotificationType("error");
+      setIsOpenNotification(true);
+      setTimeout(() => setIsOpenNotification(false), 2500);
+      return;
+    }
+    await db.userPreferences.put({
+      id: 1,
+      acceptedTerms: true,
+      acceptedTermsDate: new Date().toISOString(),
+    });
     if (
       data.username === TRIAL_CREDENTIALS.username &&
       data.password === TRIAL_CREDENTIALS.password
@@ -180,7 +229,13 @@ const LoginPage = () => {
 
   return (
     <div className="min-h-screen flex">
-      <AuthForm type="login" onSubmit={handleLogin} />
+      <AuthForm
+        type="login"
+        onSubmit={handleLogin}
+        showTermsCheckbox={showTermsCheckbox}
+        acceptedTerms={acceptedTerms}
+        onTermsCheckboxChange={setAcceptedTerms}
+      />
       <div className="w-[65%] xl:w-[75%]  flex flex-col justify-center bg-gradient-to-bl from-blue_m to-blue_xl">
         <div className="bg-gradient-to-bl from-blue_xl to-blue_xl flex justify-center text-center relative">
           <div

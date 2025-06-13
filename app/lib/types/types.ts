@@ -397,9 +397,10 @@ export interface BusinessData {
   phone: string;
   cuit: string;
 }
+
 export type UserPreferences = {
   id?: number;
-  userId: number;
+  userId?: number;
   acceptedTerms: boolean;
   acceptedTermsDate?: string;
 };
