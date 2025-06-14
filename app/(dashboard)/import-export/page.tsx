@@ -140,9 +140,9 @@ export default function ImportExportPage() {
             disabled={loading}
             text="Exportar Datos"
             colorText="text-gray_b dark:text-white"
-            colorTextHover="hover:text-white "
-            colorBg="bg-gray_xl border-b-1 dark:bg-gray_m"
-            colorBgHover="hover:bg-blue_l hover:dark:bg-gray_l"
+            colorTextHover="dark:hover:text-white "
+            colorBg="bg-white dark:bg-gray_m"
+            colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
           />
         </div>
         <p className="animate-pulse text-xs text-center font-light text-gray_l dark:text-gray_l italic">

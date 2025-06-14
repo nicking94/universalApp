@@ -32,9 +32,7 @@ export default function RootLayout({
       <RubroProvider>
         <SidebarProvider>
           <html lang="es">
-            <body
-              className={` ${roboto.variable} antialiased hidden md:block capitalize`}
-            >
+            <body className={` ${roboto.variable} antialiased hidden md:block`}>
               <main>
                 {children} <SessionChecker />
               </main>

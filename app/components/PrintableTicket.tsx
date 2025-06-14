@@ -1,6 +1,6 @@
 "use client";
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
-import { Rubro, Sale } from "@/app/lib/types/types";
+import { BusinessData, Rubro, Sale } from "@/app/lib/types/types";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
@@ -11,6 +11,7 @@ type PrintableTicketProps = {
   rubro: Rubro;
   onPrint?: () => void;
   autoPrint?: boolean;
+  businessData?: BusinessData;
 };
 
 export type PrintableTicketHandle = {
@@ -18,7 +19,7 @@ export type PrintableTicketHandle = {
 };
 
 const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
-  ({ sale, rubro, onPrint, autoPrint = false }, ref) => {
+  ({ sale, rubro, businessData, onPrint, autoPrint = false }, ref) => {
     const ticketRef = useRef<PrintableTicketHandle>(null);
     const fecha = format(parseISO(sale.date), "dd/MM/yyyy HH:mm", {
       locale: es,
@@ -36,11 +37,11 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
     const generateEscPosCommands = () => {
       let commands = "\x1B@";
       commands += "\x1B!\x38";
-      commands += "Universal App\n\n";
+      commands += `${businessData?.name || "Universal App"}\n\n`;
       commands += "\x1B!\x00";
-      commands += "Dirección: Calle Falsa 123\n";
-      commands += "Tel: 123-456789\n";
-      commands += "CUIT: 12-34567890-1\n\n";
+      commands += `Dirección: ${businessData?.address || "Calle Falsa 123"}\n`;
+      commands += `Tel: ${businessData?.phone || "123-456789"}\n`;
+      commands += `CUIT: ${businessData?.cuit || "12-34567890-1"}\n\n`;
       commands += "\x1B!\x08";
       commands += `TICKET #${sale.id}\n`;
       commands += "\x1B!\x00";
@@ -181,16 +182,20 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
         }}
       >
         <div className="mb-2">
-          <h2 className="font-bold text-sm text-center mb-1">Universal App</h2>
+          <h2 className="font-bold text-sm text-center mb-1">
+            {businessData?.name || "Universal App"}
+          </h2>
           <p>
-            <span className="font-semibold">Dirección: </span>Calle Falsa 123
+            <span className="font-semibold">Dirección: </span>
+            {businessData?.address || "Calle Falsa 123"}
           </p>
           <p>
-            <span className="font-semibold">Tel: </span>123-456789
+            <span className="font-semibold">Tel: </span>
+            {businessData?.phone || "123-456789"}
           </p>
           <p>
-            {" "}
-            <span className="font-semibold">CUIT: </span>12-34567890-1
+            <span className="font-semibold">CUIT: </span>
+            {businessData?.cuit || "12-34567890-1"}
           </p>
         </div>
         <div className="py-1 border-b border-black ">

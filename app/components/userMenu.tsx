@@ -1,6 +1,12 @@
-import { Sun, Moon, LogOut, Settings, HelpCircle } from "lucide-react";
+// components/UserMenu.tsx
+"use client";
+import { Sun, Moon, LogOut, Settings, HelpCircle, Ticket } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
-import { UserMenuProps } from "../lib/types/types";
+import { BusinessData, UserMenuProps } from "../lib/types/types";
+import Input from "./Input";
+import Button from "./Button";
+import Modal from "./Modal";
+import { useBusinessData } from "../context/BusinessDataContext";
 
 const UserMenu: React.FC<UserMenuProps> = ({
   theme,
@@ -10,6 +16,14 @@ const UserMenu: React.FC<UserMenuProps> = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const userIconRef = useRef<HTMLDivElement>(null);
+  const [isTicketDataModalOpen, setIsTicketDataModalOpen] = useState(false);
+  const { businessData, setBusinessData } = useBusinessData();
+  const [localBusinessData, setLocalBusinessData] = useState<BusinessData>({
+    name: "",
+    address: "",
+    phone: "",
+    cuit: "",
+  });
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -28,6 +42,30 @@ const UserMenu: React.FC<UserMenuProps> = ({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  useEffect(() => {
+    if (isTicketDataModalOpen && businessData) {
+      setLocalBusinessData(businessData);
+    }
+  }, [isTicketDataModalOpen, businessData]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setLocalBusinessData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const saveBusinessData = async () => {
+    try {
+      await setBusinessData(localBusinessData);
+      setIsTicketDataModalOpen(false);
+      setIsMenuOpen(false);
+    } catch (error) {
+      console.error("Error al guardar los datos del negocio:", error);
+    }
+  };
 
   return (
     <div className="relative">
@@ -57,8 +95,17 @@ const UserMenu: React.FC<UserMenuProps> = ({
             )}
             {theme === "dark" ? "Modo Claro" : "Modo Oscuro"}
           </button>
+          <button
+            onClick={() => {
+              setIsTicketDataModalOpen(true);
+            }}
+            className="cursor-pointer flex items-center w-full px-4 py-2 text-sm text-gray_b dark:text-white hover:bg-blue_xl dark:hover:bg-gray_b transition-all duration-300"
+          >
+            <Ticket className="mr-2" />
+            Datos de ticket
+          </button>
           <a
-            className="cursor-pointer flex items-center w-full px-4 py-2 text-sm text-gray_b dark:text-white hover:bg-blue_xl dark:hover:bg-gray_b transition-all duration-300 rounded-b-md"
+            className="cursor-pointer flex items-center w-full px-4 py-2 text-sm text-gray_b dark:text-white hover:bg-blue_xl dark:hover:bg-gray_b transition-all duration-300"
             href="https://www.youtube.com/watch?v=q6U8XRMTxJg&list=PLANJYSrB0A_HqQIHQs9ZIrwLOvMVGrA6W"
             target="_blank"
           >
@@ -77,6 +124,65 @@ const UserMenu: React.FC<UserMenuProps> = ({
           </button>
         </div>
       )}
+
+      <Modal
+        isOpen={isTicketDataModalOpen}
+        onClose={() => setIsTicketDataModalOpen(false)}
+        title="Datos de ticket"
+        bgColor="bg-white dark:bg-gray_b"
+        buttons={
+          <>
+            <Button
+              text="Guardar"
+              colorText="text-white"
+              colorTextHover="text-white"
+              onClick={saveBusinessData}
+              type="button"
+              hotkey="Enter"
+            />
+            <Button
+              text="Cancelar"
+              colorText="text-gray_b dark:text-white"
+              colorTextHover="hover:dark:text-white"
+              colorBg="bg-transparent dark:bg-gray_m"
+              colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+              onClick={() => setIsTicketDataModalOpen(false)}
+              type="button"
+            />
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Nombre del Negocio"
+            name="name"
+            value={localBusinessData.name}
+            onChange={handleInputChange}
+            placeholder="Ingrese el nombre del negocio"
+          />
+          <Input
+            label="Dirección"
+            name="address"
+            value={localBusinessData.address}
+            onChange={handleInputChange}
+            placeholder="Ingrese la dirección"
+          />
+          <Input
+            label="Teléfono"
+            name="phone"
+            value={localBusinessData.phone}
+            onChange={handleInputChange}
+            placeholder="Ingrese el teléfono"
+          />
+          <Input
+            label="CUIT"
+            name="cuit"
+            value={localBusinessData.cuit}
+            onChange={handleInputChange}
+            placeholder="Ingrese el CUIT"
+          />
+        </div>
+      </Modal>
     </div>
   );
 };

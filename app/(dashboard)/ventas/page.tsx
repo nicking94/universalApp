@@ -32,6 +32,7 @@ import { getLocalDateString } from "@/app/lib/utils/getLocalDate";
 import PrintableTicket, {
   PrintableTicketHandle,
 } from "@/app/components/PrintableTicket";
+import { useBusinessData } from "@/app/context/BusinessDataContext";
 
 type SelectOption = {
   value: number;
@@ -40,6 +41,7 @@ type SelectOption = {
   isDisabled: boolean;
 };
 const VentasPage = () => {
+  const { businessData } = useBusinessData();
   const { rubro } = useRubro();
   const currentYear = new Date().getFullYear();
   const [products, setProducts] = useState<Product[]>([]);
@@ -54,6 +56,7 @@ const VentasPage = () => {
     manualAmount: 0,
     manualProfitPercentage: 0,
   });
+
   const router = useRouter();
   const ticketRef = useRef<PrintableTicketHandle>(null);
   const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
@@ -881,15 +884,14 @@ const VentasPage = () => {
     fetchProducts();
     fetchSales();
   }, []);
+
   useEffect(() => {
     setNewSale((prev) => {
       const productsTotal = calculateCombinedTotal(prev.products || []);
       const manualAmount = prev.manualAmount || 0;
       const total = productsTotal + manualAmount;
-
       const updatedMethods = [...prev.paymentMethods];
 
-      // Solo sincronizamos automáticamente si hay 1 o 2 métodos
       if (updatedMethods.length <= 2) {
         if (updatedMethods.length === 1) {
           updatedMethods[0].amount = total;
@@ -1315,6 +1317,7 @@ const VentasPage = () => {
                   ref={ticketRef}
                   sale={selectedSale}
                   rubro={rubro}
+                  businessData={businessData}
                 />
               </div>
             </Modal>
