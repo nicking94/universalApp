@@ -2,8 +2,13 @@
 
 import ProtectedRoute from "@/app/components/ProtectedRoute";
 import { db } from "@/app/database/db";
-import { DailyCash, Product, Rubro } from "@/app/lib/types/types";
-
+import {
+  DailyCash,
+  DailyCashMovement,
+  MonthlyData,
+  Product,
+  Rubro,
+} from "@/app/lib/types/types";
 import {
   parseISO,
   isSameMonth,
@@ -15,7 +20,7 @@ import {
   getYear,
 } from "date-fns";
 import { es } from "date-fns/locale";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Chart as ChartJS,
   BarElement,
@@ -31,7 +36,7 @@ import { Bar, Pie, Line } from "react-chartjs-2";
 import { formatCurrency } from "@/app/lib/utils/currency";
 import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
 import { useRubro } from "@/app/context/RubroContext";
-import { getLocalDateString } from "@/app/lib/utils/getLocalDate";
+import { calculatePrice, calculateProfit } from "@/app/lib/utils/calculations";
 
 ChartJS.register(
   BarElement,
@@ -47,28 +52,340 @@ ChartJS.register(
 const Metrics = () => {
   const { rubro } = useRubro();
   const [products, setProducts] = useState<Product[]>([]);
-  const [monthlyRankingUnit, setMonthlyRankingUnit] = useState<
-    "unidad" | "kg" | "litro"
-  >("unidad");
-  const [yearlyRankingUnit, setYearlyRankingUnit] = useState<
-    "unidad" | "kg" | "litro"
-  >("unidad");
+  const [monthlyRankingUnit, setMonthlyRankingUnit] =
+    useState<Product["unit"]>("Unid.");
+  const [yearlyRankingUnit, setYearlyRankingUnit] =
+    useState<Product["unit"]>("Unid.");
   const [dailyCashes, setDailyCashes] = useState<DailyCash[]>([]);
-  const [currentDailyCash, setCurrentDailyCash] = useState<DailyCash | null>(
-    null
-  );
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [availableYears, setAvailableYears] = useState<number[]>([]);
 
+  const unidadLegible: Record<Product["unit"], string> = {
+    "Unid.": "unidad",
+    gr: "gramo",
+    Kg: "kilogramo",
+    ml: "mililitro",
+    L: "litro",
+    Bulto: "bulto",
+    Caja: "caja",
+    Cajón: "cajón",
+    mm: "milímetro",
+    cm: "centímetro",
+    m: "metro",
+    "m²": "metro cuadrado",
+    "m³": "metro cúbico",
+    pulg: "pulgada",
+    docena: "docena",
+    ciento: "ciento",
+    ton: "tonelada",
+    V: "voltio",
+    A: "amperio",
+    W: "vatio",
+  };
+
+  // Función para filtrar movimientos por rubro
+  const filterByRubro = (
+    movement: DailyCashMovement,
+    rubro: Rubro
+  ): boolean => {
+    if (rubro === "todos los rubros") return true;
+
+    // Para movimientos con items (ventas)
+    if (movement.items) {
+      return movement.items.some((item) => {
+        const product = products.find((p) => p.id === item.productId);
+        return product?.rubro === rubro;
+      });
+    }
+
+    // Para movimientos directos de productos
+    if (movement.productId) {
+      const product = products.find((p) => p.id === movement.productId);
+      return product?.rubro === rubro;
+    }
+
+    return false;
+  };
+
+  // Función para obtener resumen consistente
+  const getConsistentSummary = useMemo(
+    () => (period: "month" | "year") => {
+      const filteredCashes = dailyCashes.filter((cash) => {
+        const date = parseISO(cash.date);
+        if (period === "month") {
+          return isSameMonth(date, new Date(selectedYear, selectedMonth - 1));
+        }
+        return isSameYear(date, new Date(selectedYear, 0));
+      });
+
+      return filteredCashes.reduce(
+        (acc, cash) => {
+          const filteredMovements = cash.movements.filter((m) =>
+            filterByRubro(m, rubro)
+          );
+
+          const ingresos = filteredMovements
+            .filter((m) => m.type === "INGRESO")
+            .reduce((sum, m) => sum + m.amount, 0);
+
+          const ganancia = filteredMovements
+            .filter((m) => m.type === "INGRESO")
+            .reduce((sum, m) => {
+              const productsProfit = m.profit || 0;
+
+              return sum + productsProfit;
+            }, 0);
+
+          const egresos = filteredMovements
+            .filter((m) => m.type === "EGRESO")
+            .reduce((sum, m) => sum + m.amount, 0);
+
+          return {
+            ingresos: acc.ingresos + ingresos,
+            egresos: acc.egresos + egresos,
+            ganancia: acc.ganancia + ganancia,
+          };
+        },
+        { ingresos: 0, egresos: 0, ganancia: 0 }
+      );
+    },
+    [dailyCashes, selectedYear, selectedMonth, rubro, products]
+  );
+
+  const getChartData = useMemo(
+    () => (period: "month" | "year") => {
+      if (period === "month") {
+        const daysInMonth = eachDayOfInterval({
+          start: startOfMonth(new Date(selectedYear, selectedMonth - 1)),
+          end: endOfMonth(new Date(selectedYear, selectedMonth - 1)),
+        });
+
+        return daysInMonth.map((day) => {
+          const dateStr = format(day, "yyyy-MM-dd");
+          const dailyCash = dailyCashes.find((dc) => dc.date === dateStr);
+
+          if (!dailyCash)
+            return {
+              date: format(day, "dd"),
+              ingresos: 0,
+              egresos: 0,
+              ganancia: 0,
+            };
+
+          const filteredMovements = dailyCash.movements.filter((m) =>
+            filterByRubro(m, rubro)
+          );
+
+          const ingresos = filteredMovements
+            .filter((m) => m.type === "INGRESO")
+            .reduce((sum, m) => sum + m.amount, 0);
+
+          const egresos = filteredMovements
+            .filter((m) => m.type === "EGRESO")
+            .reduce((sum, m) => sum + m.amount, 0);
+
+          const ganancia = filteredMovements
+            .filter((m) => m.type === "INGRESO")
+            .reduce((sum, m) => {
+              const productsProfit = m.profit || 0;
+
+              return sum + productsProfit;
+            }, 0);
+
+          return {
+            date: format(day, "dd"),
+            ingresos,
+            egresos,
+            ganancia,
+          };
+        });
+      } else {
+        // For yearly data, explicitly type the return value
+        const monthlyData: MonthlyData[] = Array.from(
+          { length: 12 },
+          (_, i) => {
+            const monthStart = new Date(selectedYear, i, 1);
+            const monthEnd = new Date(selectedYear, i + 1, 0);
+
+            const monthCashes = dailyCashes.filter((cash) => {
+              const date = parseISO(cash.date);
+              return date >= monthStart && date <= monthEnd;
+            });
+
+            const summary = monthCashes.reduce(
+              (acc, cash) => {
+                const filteredMovements = cash.movements.filter((m) =>
+                  filterByRubro(m, rubro)
+                );
+
+                const ingresos = filteredMovements
+                  .filter((m) => m.type === "INGRESO")
+                  .reduce((sum, m) => sum + m.amount, 0);
+
+                const egresos = filteredMovements
+                  .filter((m) => m.type === "EGRESO")
+                  .reduce((sum, m) => sum + m.amount, 0);
+
+                const ganancia = filteredMovements
+                  .filter((m) => m.type === "INGRESO")
+                  .reduce((sum, m) => {
+                    const productsProfit = m.profit || 0;
+
+                    return sum + productsProfit;
+                  }, 0);
+
+                return {
+                  ingresos: acc.ingresos + ingresos,
+                  egresos: acc.egresos + egresos,
+                  ganancia: acc.ganancia + ganancia,
+                };
+              },
+              { ingresos: 0, egresos: 0, ganancia: 0 }
+            );
+
+            return {
+              month: format(new Date(selectedYear, i, 1), "MMM", {
+                locale: es,
+              }),
+              ...summary,
+            };
+          }
+        );
+
+        return monthlyData;
+      }
+    },
+    [dailyCashes, selectedYear, selectedMonth, rubro, products]
+  );
+
+  const getProductMovements = useMemo(
+    () => (period: "month" | "year", selectedUnit: Product["unit"]) => {
+      let filteredCashes = dailyCashes;
+
+      if (period === "month") {
+        filteredCashes = dailyCashes.filter((cash) => {
+          const date = parseISO(cash.date);
+          return isSameMonth(date, new Date(selectedYear, selectedMonth - 1));
+        });
+      } else if (period === "year") {
+        filteredCashes = dailyCashes.filter((cash) => {
+          const date = parseISO(cash.date);
+          return isSameYear(date, new Date(selectedYear, 0));
+        });
+      }
+
+      const productMap = new Map<
+        number,
+        {
+          name: string;
+          quantity: number;
+          amount: number;
+          profit: number;
+          unit: Product["unit"];
+          rubro: Rubro;
+        }
+      >();
+
+      filteredCashes.forEach((cash) => {
+        cash.movements.forEach((movement) => {
+          if (movement.type === "INGRESO" && movement.items) {
+            movement.items.forEach((item) => {
+              const product = products.find((p) => p.id === item.productId);
+              const itemUnit = item.unit || "Unid.";
+
+              if (
+                product &&
+                (rubro === "todos los rubros" || product.rubro === rubro) &&
+                itemUnit === selectedUnit // Solo productos vendidos en la unidad seleccionada
+              ) {
+                const existing = productMap.get(item.productId) || {
+                  name: item.productName,
+                  quantity: 0,
+                  amount: 0,
+                  profit: 0,
+                  unit: itemUnit,
+                  rubro: product.rubro,
+                };
+
+                const profitPerUnit = calculateProfit(
+                  product,
+                  item.quantity,
+                  itemUnit
+                );
+
+                productMap.set(item.productId, {
+                  name: existing.name,
+                  quantity: existing.quantity + item.quantity, // Usamos la cantidad original
+                  amount:
+                    existing.amount +
+                    calculatePrice(product, item.quantity, itemUnit),
+                  profit: existing.profit + profitPerUnit,
+                  unit: itemUnit, // Mantenemos la unidad original
+                  rubro: existing.rubro,
+                });
+              }
+            });
+          }
+        });
+      });
+
+      const allProducts = Array.from(productMap.values())
+        .map(({ name, quantity, amount, profit, unit, rubro }) => {
+          const productInfo = {
+            name,
+            size: products.find((p) => p.name === name)?.size,
+            color: products.find((p) => p.name === name)?.color,
+            rubro,
+          };
+
+          return {
+            name: getDisplayProductName(productInfo, rubro),
+            quantity,
+            amount,
+            profit,
+            unit,
+          };
+        })
+        .sort((a, b) => b.quantity - a.quantity);
+
+      const formatDisplayQuantity = (qty: number, unit: string) => {
+        if (
+          unit === "Unid." ||
+          unit === "Bulto" ||
+          unit === "Caja" ||
+          unit === "Cajón" ||
+          unit === "docena" ||
+          unit === "ciento"
+        ) {
+          return Math.round(qty).toString();
+        }
+
+        const rounded = Math.round(qty * 100) / 100;
+        return rounded % 1 === 0 ? rounded.toString() : rounded.toFixed(2);
+      };
+
+      return allProducts.slice(0, 5).map((product) => ({
+        ...product,
+        displayText: `${formatDisplayQuantity(
+          product.quantity,
+          product.unit
+        )} ${product.unit}`,
+      }));
+    },
+    [dailyCashes, products, rubro, selectedYear, selectedMonth]
+  );
+
   useEffect(() => {
     const fetchData = async () => {
-      const storedDailyCashes = await db.dailyCashes.toArray();
-      setDailyCashes(storedDailyCashes);
+      const [storedDailyCashes, storedProducts] = await Promise.all([
+        db.dailyCashes.toArray(),
+        db.products.toArray(),
+      ]);
 
-      const today = getLocalDateString();
-      const todayCash = storedDailyCashes.find((dc) => dc.date === today);
-      setCurrentDailyCash(todayCash || null);
+      setDailyCashes(storedDailyCashes);
+      setProducts(storedProducts);
+
       const years = new Set<number>();
       storedDailyCashes.forEach((cash) => {
         const date = parseISO(cash.date);
@@ -79,455 +396,50 @@ const Metrics = () => {
 
     fetchData();
   }, []);
-  useEffect(() => {
-    const fetchProducts = async () => {
-      const response = await db.products.toArray();
-      setProducts(response);
-    };
 
-    fetchProducts();
-  }, []);
   useEffect(() => {
     if (rubro === "indumentaria") {
-      setMonthlyRankingUnit("unidad");
-      setYearlyRankingUnit("unidad");
+      setMonthlyRankingUnit("Unid.");
+      setYearlyRankingUnit("Unid.");
     }
   }, [rubro]);
 
-  const unitOptions = [
-    { value: "unidad", label: "Unidad" },
-    { value: "kg", label: "Kilogramo" },
-    { value: "litro", label: "Litro" },
+  const unitOptions: { value: Product["unit"]; label: string }[] = [
+    { value: "Unid.", label: "Unidad" },
+    { value: "gr", label: "Gramos" },
+    { value: "Kg", label: "Kilogramos" },
+    { value: "ml", label: "Mililitros" },
+    { value: "L", label: "Litros" },
+    { value: "Bulto", label: "Bultos" },
+    { value: "Caja", label: "Cajas" },
+    { value: "Cajón", label: "Cajones" },
+    { value: "mm", label: "Milímetros" },
+    { value: "cm", label: "Centímetros" },
+    { value: "m", label: "Metros" },
+    { value: "m²", label: "Metros cuadrados" },
+    { value: "m³", label: "Metros cúbicos" },
+    { value: "pulg", label: "Pulgadas" },
+    { value: "docena", label: "Docenas" },
+    { value: "ciento", label: "Cientos" },
+    { value: "ton", label: "Toneladas" },
+    { value: "V", label: "Voltios" },
+    { value: "A", label: "Amperios" },
+    { value: "W", label: "Watts" },
   ];
-  const getProductMovements = (
-    period: "month" | "year",
-    unit: "unidad" | "kg" | "litro"
-  ) => {
-    const effectiveUnit = rubro === "indumentaria" ? "unidad" : unit;
-    let filteredCashes = dailyCashes;
 
-    if (period === "month") {
-      filteredCashes = dailyCashes.filter((cash) => {
-        const date = parseISO(cash.date);
-        return isSameMonth(date, new Date(selectedYear, selectedMonth - 1));
-      });
-    } else if (period === "year") {
-      filteredCashes = dailyCashes.filter((cash) => {
-        const date = parseISO(cash.date);
-        return isSameYear(date, new Date(selectedYear, 0));
-      });
-    } else if (period === "day" && currentDailyCash) {
-      filteredCashes = [currentDailyCash];
-    }
-
-    const productMap = new Map<
-      number,
-      {
-        name: string;
-        quantity: number;
-        amount: number;
-        profit: number;
-        unit: string;
-        rubro: Rubro;
-      }
-    >();
-    filteredCashes.forEach((cash) => {
-      cash.movements.forEach((movement) => {
-        if (movement.type === "INGRESO" && movement.items) {
-          movement.items.forEach((item) => {
-            const product = products.find((p) => p.id === item.productId);
-            if (
-              product &&
-              (rubro === "todos los rubros" || product.rubro === rubro)
-            ) {
-              const existing = productMap.get(item.productId) || {
-                name: item.productName,
-                quantity: 0,
-                amount: 0,
-                profit: 0,
-                unit: item.unit || "Unid.",
-                rubro: product.rubro,
-              };
-
-              let quantityToAdd = item.quantity || 0;
-              if (item.unit === "gr" || item.unit === "ml") {
-                quantityToAdd = quantityToAdd / 1000;
-              }
-
-              const profitPerUnit =
-                (item.price || 0) -
-                (movement.costPrice || 0) / (movement.quantity || 1);
-
-              productMap.set(item.productId, {
-                name: existing.name,
-                quantity: existing.quantity + quantityToAdd,
-                amount: existing.amount + item.price * item.quantity,
-                profit: existing.profit + profitPerUnit * item.quantity,
-                unit: existing.unit,
-                rubro: existing.rubro,
-              });
-            }
-          });
-        }
-      });
-    });
-
-    const allProducts = Array.from(productMap.values())
-      .map(({ name, quantity, amount, profit, unit, rubro }) => {
-        const productInfo = {
-          name,
-          size: products.find((p) => p.name === name)?.size,
-          color: products.find((p) => p.name === name)?.color,
-          rubro,
-        };
-
-        let displayQuantity = quantity;
-        let displayUnit = unit;
-
-        if (unit === "kg" && displayUnit === "gr") {
-          if (quantity >= 1000) {
-            displayQuantity = quantity / 1000;
-            displayUnit = "Kg";
-          }
-        } else if (unit === "litro" && displayUnit === "ml") {
-          if (quantity >= 1000) {
-            displayQuantity = quantity / 1000;
-            displayUnit = "L";
-          }
-        }
-
-        return {
-          name: getDisplayProductName(productInfo, rubro),
-          quantity,
-          displayQuantity,
-          displayUnit,
-          amount,
-          profit,
-          originalUnit: unit,
-        };
-      })
-      .sort((a, b) => b.quantity - a.quantity);
-
-    const filteredProducts = allProducts.filter((product) => {
-      if (effectiveUnit === "unidad") return product.originalUnit === "Unid.";
-      if (effectiveUnit === "kg")
-        return ["Kg", "gr"].includes(product.originalUnit);
-      if (effectiveUnit === "litro")
-        return ["L", "ml"].includes(product.originalUnit);
-      return true;
-    });
-
-    const formatDisplayQuantity = (qty: number, unit: string) => {
-      if (unit === "Unid.") return qty.toString();
-
-      if (unit === "gr" || unit === "ml") return qty.toString();
-
-      const rounded = Math.round(qty * 10) / 10;
-      return rounded % 1 === 0 ? rounded.toString() : rounded.toFixed(1);
-    };
-
-    return filteredProducts.slice(0, 5).map((product) => ({
-      ...product,
-      displayText: `${formatDisplayQuantity(
-        product.displayQuantity,
-        product.displayUnit
-      )} ${product.displayUnit}`,
-    }));
-  };
-
-  const getMonthlySummary = () => {
-    return dailyCashes
-      .filter((cash) => {
-        const date = parseISO(cash.date);
-        return isSameMonth(date, new Date(selectedYear, selectedMonth - 1));
-      })
-      .reduce(
-        (acc, cash) => {
-          const ingresos = cash.movements
-            .filter((m) => m.type === "INGRESO")
-            .reduce((sum, m) => {
-              if (rubro === "todos los rubros")
-                return sum + (Number(m.amount) || 0);
-              const itemsTotal =
-                m.items?.reduce((itemSum, item) => {
-                  const product = products.find((p) => p.id === item.productId);
-                  if (product && product.rubro === rubro) {
-                    return itemSum + item.price * item.quantity;
-                  }
-                  return itemSum;
-                }, 0) || 0;
-
-              return sum + itemsTotal;
-            }, 0);
-
-          const egresos = cash.movements
-            .filter((m) => m.type === "EGRESO")
-            .reduce((sum, m) => sum + Math.abs(Number(m.amount)) || 0, 0);
-
-          const ganancia = cash.movements
-            .filter((m) => m.type === "INGRESO")
-            .reduce((sum, m) => {
-              if (rubro === "todos los rubros") {
-                if (m.profit !== undefined) return sum + m.profit;
-                const costPrice = m.costPrice || 0;
-                const sellPrice = m.sellPrice || 0;
-                const quantity = m.quantity || 0;
-                return sum + (sellPrice - costPrice) * quantity;
-              }
-              const itemsProfit =
-                m.items?.reduce((itemSum, item) => {
-                  const product = products.find((p) => p.id === item.productId);
-                  if (product && product.rubro === rubro) {
-                    const costPrice = m.costPrice || 0;
-                    const sellPrice = item.price || 0;
-                    const quantity = item.quantity || 0;
-                    return (
-                      itemSum +
-                      (sellPrice - costPrice / (m.quantity || 1)) * quantity
-                    );
-                  }
-                  return itemSum;
-                }, 0) || 0;
-
-              return sum + itemsProfit;
-            }, 0);
-
-          return {
-            ingresos: acc.ingresos + ingresos,
-            egresos: acc.egresos + egresos,
-            ganancia: acc.ganancia + ganancia,
-          };
-        },
-        { ingresos: 0, egresos: 0, ganancia: 0 }
-      );
-  };
-  const getAnnualSummary = () => {
-    return dailyCashes
-      .filter((cash) => {
-        const date = parseISO(cash.date);
-        return isSameYear(date, new Date(selectedYear, 0));
-      })
-      .reduce(
-        (acc, cash) => {
-          const ingresos = cash.movements
-            .filter((m) => m.type === "INGRESO")
-            .reduce((sum, m) => {
-              if (rubro === "todos los rubros") return sum + m.amount;
-
-              const itemsTotal =
-                m.items?.reduce((itemSum, item) => {
-                  const product = products.find((p) => p.id === item.productId);
-                  if (product && product.rubro === rubro) {
-                    return itemSum + item.price * item.quantity;
-                  }
-                  return itemSum;
-                }, 0) || 0;
-
-              return sum + itemsTotal;
-            }, 0);
-
-          const egresos = cash.movements
-            .filter((m) => m.type === "EGRESO")
-            .reduce((sum, m) => sum + m.amount, 0);
-
-          const ganancia = cash.movements
-            .filter((m) => m.type === "INGRESO")
-            .reduce((sum, m) => {
-              if (rubro === "todos los rubros") {
-                if (m.profit !== undefined) return sum + m.profit;
-                const costPrice = m.costPrice || 0;
-                const sellPrice = m.sellPrice || 0;
-                const quantity = m.quantity || 0;
-                return sum + (sellPrice - costPrice) * quantity;
-              }
-
-              const itemsProfit =
-                m.items?.reduce((itemSum, item) => {
-                  const product = products.find((p) => p.id === item.productId);
-                  if (product && product.rubro === rubro) {
-                    const costPrice = m.costPrice || 0;
-                    const sellPrice = item.price || 0;
-                    const quantity = item.quantity || 0;
-                    return (
-                      itemSum +
-                      (sellPrice - costPrice / (m.quantity || 1)) * quantity
-                    );
-                  }
-                  return itemSum;
-                }, 0) || 0;
-
-              return sum + itemsProfit;
-            }, 0);
-
-          return {
-            ingresos: acc.ingresos + ingresos,
-            egresos: acc.egresos + egresos,
-            ganancia: acc.ganancia + ganancia,
-          };
-        },
-        { ingresos: 0, egresos: 0, ganancia: 0 }
-      );
-  };
-  const getDailyDataForMonth = () => {
-    const monthStart = startOfMonth(new Date(selectedYear, selectedMonth - 1));
-    const monthEnd = endOfMonth(new Date(selectedYear, selectedMonth - 1));
-    const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
-
-    return daysInMonth.map((day) => {
-      const dateStr = format(day, "yyyy-MM-dd");
-      const dailyCash = dailyCashes.find((dc) => dc.date === dateStr);
-
-      if (dailyCash) {
-        const ingresos = dailyCash.movements
-          .filter((m) => m.type === "INGRESO")
-          .reduce((sum, m) => {
-            if (rubro === "todos los rubros") return sum + m.amount;
-
-            // Filtrar por rubro si no es "todos"
-            const itemsTotal =
-              m.items?.reduce((itemSum, item) => {
-                const product = products.find((p) => p.id === item.productId);
-                if (product && product.rubro === rubro) {
-                  return itemSum + item.price * item.quantity;
-                }
-                return itemSum;
-              }, 0) || 0;
-
-            return sum + itemsTotal;
-          }, 0);
-
-        const egresos = dailyCash.movements
-          .filter((m) => m.type === "EGRESO")
-          .reduce((sum, m) => sum + Math.abs(Number(m.amount)) || 0, 0);
-
-        const ganancia = dailyCash.movements
-          .filter((m) => m.type === "INGRESO")
-          .reduce((sum, m) => {
-            if (rubro === "todos los rubros") {
-              if (m.profit !== undefined) return sum + m.profit;
-              const costPrice = m.costPrice || 0;
-              const sellPrice = m.sellPrice || 0;
-              const quantity = m.quantity || 0;
-              return sum + (sellPrice - costPrice) * quantity;
-            }
-
-            const itemsProfit =
-              m.items?.reduce((itemSum, item) => {
-                const product = products.find((p) => p.id === item.productId);
-                if (product && product.rubro === rubro) {
-                  const costPrice = m.costPrice || 0;
-                  const sellPrice = item.price || 0;
-                  const quantity = item.quantity || 0;
-                  return (
-                    itemSum +
-                    (sellPrice - costPrice / (m.quantity || 1)) * quantity
-                  );
-                }
-                return itemSum;
-              }, 0) || 0;
-
-            return sum + itemsProfit;
-          }, 0);
-
-        return { date: format(day, "dd"), ingresos, egresos, ganancia };
-      }
-
-      return { date: format(day, "dd"), ingresos: 0, egresos: 0, ganancia: 0 };
-    });
-  };
-
-  const getMonthlyDataForYear = () => {
-    return Array.from({ length: 12 }, (_, i) => {
-      const monthData = dailyCashes
-        .filter((cash) => {
-          const date = parseISO(cash.date);
-          return isSameMonth(date, new Date(selectedYear, i));
-        })
-        .reduce(
-          (acc, cash) => {
-            const ingresos = cash.movements
-              .filter((m) => m.type === "INGRESO")
-              .reduce((sum, m) => {
-                if (rubro === "todos los rubros") return sum + m.amount;
-
-                // Filtrar ingresos por rubro
-                const itemsTotal =
-                  m.items?.reduce((itemSum, item) => {
-                    const product = products.find(
-                      (p) => p.id === item.productId
-                    );
-                    if (product && product.rubro === rubro) {
-                      return itemSum + item.price * item.quantity;
-                    }
-                    return itemSum;
-                  }, 0) || 0;
-
-                return sum + itemsTotal;
-              }, 0);
-
-            const egresos = cash.movements
-              .filter((m) => m.type === "EGRESO")
-              .reduce((sum, m) => sum + Math.abs(Number(m.amount)) || 0, 0);
-
-            const ganancia = cash.movements
-              .filter((m) => m.type === "INGRESO")
-              .reduce((sum, m) => {
-                if (rubro === "todos los rubros") {
-                  if (m.sellPrice && m.costPrice && m.quantity) {
-                    return (
-                      sum +
-                      (Number(m.sellPrice) - Number(m.costPrice)) *
-                        Number(m.quantity)
-                    );
-                  }
-                  return sum;
-                }
-
-                // Filtrar ganancias por rubro
-                const itemsProfit =
-                  m.items?.reduce((itemSum, item) => {
-                    const product = products.find(
-                      (p) => p.id === item.productId
-                    );
-                    if (product && product.rubro === rubro) {
-                      const costPrice = m.costPrice || 0;
-                      const sellPrice = item.price || 0;
-                      const quantity = item.quantity || 0;
-                      return (
-                        itemSum +
-                        (sellPrice - costPrice / (m.quantity || 1)) * quantity
-                      );
-                    }
-                    return itemSum;
-                  }, 0) || 0;
-
-                return sum + itemsProfit;
-              }, 0);
-
-            return {
-              ingresos: acc.ingresos + ingresos,
-              egresos: acc.egresos + egresos,
-              ganancia: acc.ganancia + ganancia,
-            };
-          },
-          { ingresos: 0, egresos: 0, ganancia: 0 }
-        );
-
-      return {
-        month: format(new Date(selectedYear, i, 1), "MMM", { locale: es }),
-        ...monthData,
-      };
-    });
-  };
-  const monthlySummary = getMonthlySummary();
-  const annualSummary = getAnnualSummary();
-  const dailyMonthData = getDailyDataForMonth();
-  const monthlyYearData = getMonthlyDataForYear();
+  // Obtener datos para gráficos y resúmenes
+  const monthlySummary = getConsistentSummary("month");
+  const annualSummary = getConsistentSummary("year");
+  const dailyMonthData = getChartData("month");
+  const monthlyYearData = getChartData("year") as MonthlyData[];
   const topProductsMonthly = getProductMovements("month", monthlyRankingUnit);
   const topProductsYearly = getProductMovements("year", yearlyRankingUnit);
 
+  // Configuración de gráficos
   const monthlyBarChartData = {
-    labels: dailyMonthData.map((data) => data.date),
+    labels: dailyMonthData.map((data) =>
+      "date" in data ? data.date : data.month
+    ),
     datasets: [
       {
         label: "Ingresos",
@@ -547,7 +459,9 @@ const Metrics = () => {
   };
 
   const monthlyProfitLineChartData = {
-    labels: dailyMonthData.map((data) => data.date),
+    labels: dailyMonthData.map((data) =>
+      "date" in data ? data.date : data.month
+    ),
     datasets: [
       {
         label: "Ganancia Diaria",
@@ -703,14 +617,9 @@ const Metrics = () => {
 
             <div className="mt-4">
               <div className="flex bg-gradient-to-bl from-blue_m to-blue_b dark:bg-gray_m text-white items-center mb-2 px-2">
-                <h3 className="w-full p-2 font-medium text-md ">
-                  5 Productos por{" "}
-                  {monthlyRankingUnit === "unidad"
-                    ? "unidad"
-                    : monthlyRankingUnit === "kg"
-                    ? "kilogramo"
-                    : "litro"}{" "}
-                  más vendidos este mes
+                <h3 className="w-full p-2 font-medium text-md">
+                  5 Productos por {unidadLegible[monthlyRankingUnit]} más
+                  vendidos este año
                 </h3>
                 <select
                   value={
@@ -718,9 +627,7 @@ const Metrics = () => {
                   }
                   onChange={(e) =>
                     rubro !== "indumentaria" &&
-                    setMonthlyRankingUnit(
-                      e.target.value as "unidad" | "kg" | "litro"
-                    )
+                    setMonthlyRankingUnit(e.target.value as Product["unit"])
                   }
                   disabled={rubro === "indumentaria"}
                   className={`text-black dark:text-white bg-white dark:bg-gray_b border border-gray_l dark:border-gray_m rounded-sm px-2 py-1 text-sm ${
@@ -805,14 +712,9 @@ const Metrics = () => {
 
             <div className="mt-4">
               <div className="flex bg-gradient-to-bl from-blue_m to-blue_b dark:bg-gray_m text-white items-center mb-2 px-2">
-                <h3 className="w-full p-2 font-medium text-md ">
-                  5 Productos por{" "}
-                  {yearlyRankingUnit === "unidad"
-                    ? "unidad"
-                    : yearlyRankingUnit === "kg"
-                    ? "kilogramo"
-                    : "litro"}{" "}
-                  más vendidos este año
+                <h3 className="w-full p-2 font-medium text-md">
+                  5 Productos por {unidadLegible[yearlyRankingUnit]} más
+                  vendidos este año
                 </h3>
                 <select
                   value={
@@ -820,9 +722,7 @@ const Metrics = () => {
                   }
                   onChange={(e) =>
                     rubro !== "indumentaria" &&
-                    setYearlyRankingUnit(
-                      e.target.value as "unidad" | "kg" | "litro"
-                    )
+                    setYearlyRankingUnit(e.target.value as Product["unit"])
                   }
                   disabled={rubro === "indumentaria"}
                   className={`text-black dark:text-white bg-white dark:bg-gray_b border border-gray_l dark:border-gray_m rounded-sm px-2 py-1 text-sm ${

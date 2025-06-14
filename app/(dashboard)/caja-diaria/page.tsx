@@ -31,6 +31,7 @@ const CajaDiariaPage = () => {
   const [currentDailyCash, setCurrentDailyCash] = useState<DailyCash | null>(
     null
   );
+
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState("");
   const [type, setType] = useState<"success" | "error" | "info">("success");
@@ -423,24 +424,6 @@ const CajaDiariaPage = () => {
       summary[date].ganancia = summary[date].ingresos - summary[date].egresos;
     });
 
-    if (currentDailyCash) {
-      const today = getLocalDateString();
-      if (!summary[today]) {
-        summary[today] = {
-          date: today,
-          ingresos: 0,
-          egresos: 0,
-          ganancia: 0,
-          gananciaNeta: 0,
-          movements: currentDailyCash.movements,
-          closed: currentDailyCash.closed || false,
-          initialAmount: currentDailyCash.initialAmount,
-          closingAmount: currentDailyCash.closingAmount,
-          closingDifference: currentDailyCash.closingDifference,
-        };
-      }
-    }
-
     return Object.values(summary)
       .filter((item) => {
         const date = parseISO(item.date);
@@ -479,6 +462,9 @@ const CajaDiariaPage = () => {
         supplierName: selectedSupplier?.label,
         combinedPaymentMethods: paymentMethods,
         discount: 0,
+        profit: 0,
+        manualAmount: 0,
+        manualProfitPercentage: 0,
       };
 
       const updatedCash = {

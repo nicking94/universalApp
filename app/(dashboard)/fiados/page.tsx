@@ -15,7 +15,6 @@ import {
   Payment,
   PaymentMethod,
   PaymentSplit,
-  Product,
 } from "@/app/lib/types/types";
 import SearchBar from "@/app/components/SearchBar";
 import { Info, Plus, Trash, Wallet } from "lucide-react";
@@ -173,33 +172,6 @@ const FiadosPage = () => {
     return sale.total - totalPayments;
   };
 
-  const calculatePrice = (product: Product): number => {
-    const pricePerKg = product.price;
-    const quantity = product.quantity;
-    const unit = product.unit;
-    if (unit === "Unid.") {
-      return pricePerKg * quantity;
-    }
-    let quantityInKg: number;
-
-    switch (unit) {
-      case "gr":
-        quantityInKg = quantity / 1000;
-        break;
-      case "Kg":
-        quantityInKg = quantity;
-        break;
-      case "L":
-      case "ml":
-        quantityInKg = unit === "L" ? quantity : quantity / 1000;
-        break;
-      default:
-        return pricePerKg * quantity;
-    }
-
-    return parseFloat((pricePerKg * quantityInKg).toFixed(2));
-  };
-
   const addPaymentMethod = () => {
     setPaymentMethods((prev) => {
       if (prev.length >= paymentOptions.length) return prev;
@@ -251,54 +223,37 @@ const FiadosPage = () => {
       const movements: DailyCashMovement[] = [];
       const totalSaleAmount = sale.total;
 
-      if (sale.products && sale.products.length > 0) {
-        sale.products.forEach((product) => {
-          const productAmount = calculatePrice(product);
-          const productRatio = productAmount / totalSaleAmount;
+      // Calcular la ganancia total de todos los productos
+      const totalProfit = sale.products.reduce((sum, product) => {
+        const productProfit =
+          (product.price - (product.costPrice || 0)) * product.quantity;
+        return sum + productProfit;
+      }, 0);
 
-          sale.paymentMethods.forEach((payment) => {
-            const paymentProductAmount = productRatio * payment.amount;
-            const profit =
-              (product.price - (product.costPrice || 0)) *
-              (payment.amount / productAmount);
+      // Crear un solo movimiento por método de pago que incluya todos los productos
+      sale.paymentMethods.forEach((payment) => {
+        const paymentRatio = payment.amount / totalSaleAmount;
+        const paymentProfit = totalProfit * paymentRatio;
 
-            movements.push({
-              id: Date.now(),
-              amount: paymentProductAmount,
-              description: `Fiado de ${product.name}`,
-              type: "INGRESO",
-              date: new Date().toISOString(),
-              paymentMethod: payment.method,
-              productId: product.id,
-              productName: product.name,
-              quantity: product.quantity,
-              unit: product.unit,
-              profit: profit,
-              isCreditPayment: true,
-              originalSaleId: sale.id,
-            });
-          });
+        movements.push({
+          id: Date.now(),
+          amount: payment.amount,
+          description: `Fiado de ${sale.products.length} productos`,
+          type: "INGRESO",
+          date: new Date().toISOString(),
+          paymentMethod: payment.method,
+          items: sale.products.map((p) => ({
+            productId: p.id,
+            productName: p.name,
+            quantity: p.quantity,
+            unit: p.unit,
+            price: p.price,
+          })),
+          profit: paymentProfit,
+          isCreditPayment: true,
+          originalSaleId: sale.id,
         });
-      }
-
-      if (sale.manualAmount && sale.manualAmount > 0) {
-        const manualRatio = sale.manualAmount / totalSaleAmount;
-
-        sale.paymentMethods.forEach((payment) => {
-          const paymentManualAmount = manualRatio * payment.amount;
-
-          movements.push({
-            id: Date.now(),
-            amount: paymentManualAmount,
-            description: "Monto manual adicional",
-            type: "INGRESO",
-            date: new Date().toISOString(),
-            paymentMethod: payment.method,
-            isCreditPayment: true,
-            originalSaleId: sale.id,
-          });
-        });
-      }
+      });
 
       if (!dailyCash) {
         dailyCash = {

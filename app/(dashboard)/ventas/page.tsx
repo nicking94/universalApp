@@ -33,6 +33,7 @@ import PrintableTicket, {
   PrintableTicketHandle,
 } from "@/app/components/PrintableTicket";
 import { useBusinessData } from "@/app/context/BusinessDataContext";
+import { calculateTotalProfit } from "@/app/lib/utils/calculations";
 
 type SelectOption = {
   value: number;
@@ -84,101 +85,179 @@ const VentasPage = () => {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [shouldRedirectToCash, setShouldRedirectToCash] = useState(false);
+  const CONVERSION_FACTORS = {
+    // Masa
+    gr: { base: "Kg", factor: 0.001 },
+    Kg: { base: "Kg", factor: 1 },
+    ton: { base: "Kg", factor: 1000 },
+    // Volumen
+    ml: { base: "L", factor: 0.001 },
+    L: { base: "L", factor: 1 },
+    // Longitud
+    mm: { base: "m", factor: 0.001 },
+    cm: { base: "m", factor: 0.01 },
+    m: { base: "m", factor: 1 },
+    pulg: { base: "m", factor: 0.0254 }, // 1 pulgada = 0.0254 metros
+    // Unidades no convertibles
+    Unid: { base: "Unid", factor: 1 },
+    docena: { base: "Unid", factor: 12 },
+    ciento: { base: "Unid", factor: 100 },
+    Bulto: { base: "Bulto", factor: 1 },
+    Caja: { base: "Caja", factor: 1 },
+    Cajón: { base: "Cajón", factor: 1 },
+    m2: { base: "m²", factor: 1 },
+    m3: { base: "m³", factor: 1 },
+    V: { base: "V", factor: 1 },
+    A: { base: "A", factor: 1 },
+    W: { base: "W", factor: 1 },
+  } as const;
 
   const unitOptions: UnitOption[] = [
-    { value: "Unid.", label: "Unidad" },
-    { value: "Kg", label: "Kg" },
-    { value: "gr", label: "gr" },
-    { value: "L", label: "L" },
-    { value: "ml", label: "Ml" },
+    { value: "Unid.", label: "Unidad", convertible: false },
+    { value: "Kg", label: "Kilogramo", convertible: true },
+    { value: "gr", label: "Gramo", convertible: true },
+    { value: "L", label: "Litro", convertible: true },
+    { value: "ml", label: "Mililitro", convertible: true },
+    { value: "mm", label: "Milímetro", convertible: true },
+    { value: "cm", label: "Centímetro", convertible: true },
+    { value: "m", label: "Metro", convertible: true },
+    { value: "m²", label: "Metro cuadrado", convertible: false },
+    { value: "m³", label: "Metro cúbico", convertible: false },
+    { value: "pulg", label: "Pulgada", convertible: true },
+    { value: "docena", label: "Docena", convertible: false },
+    { value: "ciento", label: "Ciento", convertible: false },
+    { value: "ton", label: "Tonelada", convertible: true },
+    { value: "V", label: "Voltio", convertible: false },
+    { value: "A", label: "Amperio", convertible: false },
+    { value: "W", label: "Watt", convertible: false },
+    { value: "Bulto", label: "Bulto", convertible: false },
+    { value: "Caja", label: "Caja", convertible: false },
+    { value: "Cajón", label: "Cajón", convertible: false },
   ];
-  const calculatePrice = useCallback((product: Product): number => {
-    const pricePerUnit = product.price;
-    const quantity = product.quantity;
-    const unit = product.unit;
-    const discount = product.discount || 0;
+  const getCompatibleUnits = (productUnit: string): UnitOption[] => {
+    const productUnitInfo =
+      CONVERSION_FACTORS[productUnit as keyof typeof CONVERSION_FACTORS];
+    if (!productUnitInfo) return unitOptions.filter((u) => !u.convertible);
 
-    let quantityInBaseUnit: number;
+    return unitOptions.filter((option) => {
+      if (!option.convertible) return false;
+      const optionInfo =
+        CONVERSION_FACTORS[option.value as keyof typeof CONVERSION_FACTORS];
+      return optionInfo?.base === productUnitInfo.base;
+    });
+  };
 
-    switch (unit) {
-      case "gr":
-        quantityInBaseUnit = quantity / 1000;
-        break;
-      case "Kg":
-        quantityInBaseUnit = quantity;
-        break;
-      case "ml":
-        quantityInBaseUnit = quantity / 1000;
-        break;
-      case "L":
-        quantityInBaseUnit = quantity;
-        break;
-      case "Unid.":
-      default:
-        const priceWithoutDiscount = pricePerUnit * quantity;
+  const convertToBaseUnit = useCallback(
+    (quantity: number, fromUnit: string): number => {
+      const unitInfo =
+        CONVERSION_FACTORS[fromUnit as keyof typeof CONVERSION_FACTORS];
+      return unitInfo ? quantity * unitInfo.factor : quantity;
+    },
+    []
+  );
+
+  const convertFromBaseUnit = useCallback(
+    (quantity: number, toUnit: string): number => {
+      const unitInfo =
+        CONVERSION_FACTORS[toUnit as keyof typeof CONVERSION_FACTORS];
+      return unitInfo ? quantity / unitInfo.factor : quantity;
+    },
+    []
+  );
+
+  const convertUnit = useCallback(
+    (quantity: number, fromUnit: string, toUnit: string): number => {
+      if (fromUnit === toUnit) return quantity;
+      const baseQuantity = convertToBaseUnit(quantity, fromUnit);
+      return convertFromBaseUnit(baseQuantity, toUnit);
+    },
+    [convertToBaseUnit, convertFromBaseUnit]
+  );
+  const calculatePrice = useCallback(
+    (product: Product, quantity: number, unit: string) => {
+      try {
+        const quantityInProductUnit = convertUnit(quantity, unit, product.unit);
+        const priceWithoutDiscount = product.price * quantityInProductUnit;
+        const discount = product.discount || 0;
         const discountAmount = (priceWithoutDiscount * discount) / 100;
         return parseFloat((priceWithoutDiscount - discountAmount).toFixed(2));
-    }
-
-    const priceWithoutDiscount = pricePerUnit * quantityInBaseUnit;
-    const discountAmount = (priceWithoutDiscount * discount) / 100;
-    return parseFloat((priceWithoutDiscount - discountAmount).toFixed(2));
-  }, []);
+      } catch (error) {
+        console.error("Error calculating price:", error);
+        return 0;
+      }
+    },
+    [convertUnit]
+  );
 
   const calculateTotal = (
     products: Product[],
     manualAmount: number = 0
   ): number => {
     const productsTotal = products.reduce(
-      (sum, p) => sum + calculatePrice(p),
+      (sum, p) => sum + calculatePrice(p, p.quantity, p.unit),
       0
     );
 
     return parseFloat((productsTotal + manualAmount).toFixed(2));
   };
 
-  const calculateProfit = (product: Product): number => {
-    const profitPerUnit = product.price - product.costPrice;
-    const quantity = product.quantity;
-    const unit = product.unit;
-    const discount = product.discount || 0;
-
-    if (unit === "Unid.") {
-      const profitWithoutDiscount = profitPerUnit * quantity;
-      const discountAmount = (product.price * quantity * discount) / 100;
-      return profitWithoutDiscount - discountAmount;
-    }
-
-    let quantityInKg: number;
-
-    switch (unit) {
-      case "gr":
-        quantityInKg = quantity / 1000;
-        break;
-      case "Kg":
-        quantityInKg = quantity;
-        break;
-      case "L":
-      case "ml":
-        quantityInKg = unit === "L" ? quantity : quantity / 1000;
-        break;
-      default:
-        const profitWithoutDiscount = profitPerUnit * quantity;
-        const discountAmount = (product.price * quantity * discount) / 100;
-        return profitWithoutDiscount - discountAmount;
-    }
-
-    const profitWithoutDiscount = profitPerUnit * quantityInKg;
-    const discountAmount = (product.price * quantityInKg * discount) / 100;
-    return parseFloat((profitWithoutDiscount - discountAmount).toFixed(2));
-  };
-
   const calculateCombinedTotal = useCallback(
     (products: Product[]) => {
-      return products.reduce((sum, p) => sum + calculatePrice(p), 0);
+      return products.reduce(
+        (sum, p) => sum + calculatePrice(p, p.quantity, p.unit),
+        0
+      );
     },
     [calculatePrice]
   );
+  const checkStockAvailability = (
+    product: Product,
+    requestedQuantity: number,
+    requestedUnit: string
+  ): {
+    available: boolean;
+    availableQuantity: number;
+    availableUnit: string;
+  } => {
+    try {
+      // Convertir stock y cantidad solicitada a la unidad base para comparación
+      const stockInBase = convertToBaseUnit(
+        Number(product.stock),
+        product.unit
+      );
+      const requestedInBase = convertToBaseUnit(
+        requestedQuantity,
+        requestedUnit
+      );
+
+      if (stockInBase >= requestedInBase) {
+        return {
+          available: true,
+          availableQuantity: requestedQuantity,
+          availableUnit: requestedUnit,
+        };
+      } else {
+        // Calcular cuánto se puede ofrecer en la unidad solicitada
+        const availableInRequestedUnit = convertFromBaseUnit(
+          stockInBase,
+          requestedUnit
+        );
+
+        return {
+          available: false,
+          availableQuantity: parseFloat(availableInRequestedUnit.toFixed(3)),
+          availableUnit: requestedUnit,
+        };
+      }
+    } catch (error) {
+      console.error("Error checking stock:", error);
+      return {
+        available: false,
+        availableQuantity: 0,
+        availableUnit: requestedUnit,
+      };
+    }
+  };
   const checkCashStatus = async () => {
     const { needsRedirect } = await ensureCashIsOpen();
     return needsRedirect;
@@ -186,63 +265,39 @@ const VentasPage = () => {
   const updateStockAfterSale = (
     productId: number,
     soldQuantity: number,
-    unit: Product["unit"]
-  ) => {
+    unit: string
+  ): number => {
     const product = products.find((p) => p.id === productId);
-    if (!product) {
-      throw new Error(`Producto con ID ${productId} no encontrado`);
-    }
+    if (!product) throw new Error(`Producto con ID ${productId} no encontrado`);
 
-    const stockInGrams = convertToGrams(Number(product.stock), product.unit);
-    const soldQuantityInGrams = convertToGrams(soldQuantity, unit);
-
-    if (stockInGrams < soldQuantityInGrams) {
-      const availableStock = convertStockToUnit(stockInGrams, product.unit);
+    const stockCheck = checkStockAvailability(product, soldQuantity, unit);
+    if (!stockCheck.available) {
       throw new Error(
         `Stock insuficiente para ${product.name}. ` +
           `Solicitado: ${soldQuantity} ${unit}, ` +
-          `Disponible: ${availableStock.quantity.toFixed(2)} ${
-            availableStock.unit
+          `Disponible: ${stockCheck.availableQuantity.toFixed(2)} ${
+            stockCheck.availableUnit
           }`
       );
     }
 
-    const newStockInGrams = stockInGrams - soldQuantityInGrams;
-    const updatedStock = convertStockToUnit(newStockInGrams, product.unit);
+    // Convertir a unidades base para el cálculo
+    const soldInBase = convertToBaseUnit(soldQuantity, unit);
+    const currentStockInBase = convertToBaseUnit(
+      Number(product.stock),
+      product.unit
+    );
+    const newStockInBase = currentStockInBase - soldInBase;
 
-    return updatedStock.quantity;
+    // Convertir de vuelta a la unidad original del producto
+    const newStock = convertFromBaseUnit(newStockInBase, product.unit);
+
+    return parseFloat(newStock.toFixed(3));
   };
 
-  const convertToGrams = (quantity: number, unit: string): number => {
-    switch (unit) {
-      case "Kg":
-        return quantity * 1000;
-      case "L":
-        return quantity * 1000;
-      case "gr":
-        return quantity;
-      case "ml":
-        return quantity;
-      default:
-        return quantity;
-    }
-  };
-  const convertStockToUnit = (
-    stock: number,
-    unit: string
-  ): { quantity: number; unit: string } => {
-    switch (unit) {
-      case "gr":
-        return { quantity: stock, unit: "gr" };
-      case "Kg":
-        return { quantity: stock / 1000, unit: "Kg" };
-      case "ml":
-        return { quantity: stock, unit: "ml" };
-      case "L":
-        return { quantity: stock / 1000, unit: "L" };
-      default:
-        return { quantity: stock, unit: "Unid." };
-    }
+  const convertToUnit = (quantity: number, unit: string): number => {
+    const factor = CONVERSION_FACTORS[unit as keyof typeof CONVERSION_FACTORS];
+    return factor ? quantity * factor.factor : quantity;
   };
 
   const productOptions = useMemo(() => {
@@ -322,15 +377,14 @@ const VentasPage = () => {
       const movements: DailyCashMovement[] = [];
       const totalSaleAmount = sale.total;
 
-      const productsProfit = sale.products.reduce(
-        (sum, p) => sum + calculateProfit(p),
-        0
+      // Calcular ganancia total (productos + manual)
+      const totalProfit = calculateTotalProfit(
+        sale.products,
+        sale.manualAmount || 0,
+        sale.manualProfitPercentage || 0
       );
 
-      const manualProfit = sale.manualAmount
-        ? (sale.manualAmount * (sale.manualProfitPercentage || 0)) / 100
-        : 0;
-
+      // Distribuir la ganancia proporcionalmente entre los métodos de pago
       sale.paymentMethods.forEach((payment) => {
         const paymentRatio = payment.amount / totalSaleAmount;
 
@@ -338,7 +392,7 @@ const VentasPage = () => {
           id: Date.now() + Math.random(),
           amount: payment.amount,
           description: sale.manualAmount
-            ? `Venta + Monto manual (${formatCurrency(sale.manualAmount)})`
+            ? `Venta + Monto manual (${formatCurrency(sale.manualAmount || 0)})`
             : "Venta regular",
           type: "INGRESO",
           date: new Date().toISOString(),
@@ -349,12 +403,12 @@ const VentasPage = () => {
             quantity: p.quantity,
             unit: p.unit,
             price: p.price,
+            costPrice: p.costPrice,
           })),
-          profit: (productsProfit + manualProfit) * paymentRatio,
-          manualAmount: sale.manualAmount
-            ? sale.manualAmount * paymentRatio
-            : undefined,
+          manualAmount: sale.manualAmount,
           manualProfitPercentage: sale.manualProfitPercentage,
+          profit: totalProfit * paymentRatio,
+          profitPercentage: (totalProfit / totalSaleAmount) * 100,
         };
 
         movements.push(movement);
@@ -406,7 +460,7 @@ const VentasPage = () => {
           quantity: existingProduct.quantity + 1,
         };
         const newTotal = updatedProducts.reduce(
-          (sum, p) => sum + calculatePrice(p),
+          (sum, p) => sum + calculatePrice(p, p.quantity, p.unit),
           0
         );
 
@@ -428,7 +482,7 @@ const VentasPage = () => {
 
         const updatedProducts = [...prevState.products, newProduct];
         const newTotal = updatedProducts.reduce(
-          (sum, p) => sum + calculatePrice(p),
+          (sum, p) => sum + calculatePrice(p, p.quantity, p.unit),
           0
         );
 
@@ -753,7 +807,7 @@ const VentasPage = () => {
         date: new Date().toISOString(),
         barcode: newSale.barcode,
         manualAmount: newSale.manualAmount,
-        manualProfitPercentage: newSale.manualProfitPercentage,
+        manualProfitPercentage: newSale.manualProfitPercentage || 0,
         credit: isCredit,
         customerName: isCredit
           ? customerName.toUpperCase().trim()
@@ -936,11 +990,11 @@ const VentasPage = () => {
             option.product || products.find((p) => p.id === option.value);
           if (!product) return null;
 
-          const stockInBaseUnit = convertToGrams(
+          const stockInBaseUnit = convertToUnit(
             Number(product.stock),
             product.unit
           );
-          const requestedInBaseUnit = convertToGrams(1, product.unit);
+          const requestedInBaseUnit = convertToUnit(1, product.unit);
 
           if (stockInBaseUnit < requestedInBaseUnit) {
             showNotification(
@@ -964,6 +1018,8 @@ const VentasPage = () => {
               unit: product.unit,
               stock: Number(product.stock),
               price: Number(product.price),
+              basePrice:
+                Number(product.price) / convertToBaseUnit(1, product.unit), // Precio por unidad base
               costPrice: Number(product.costPrice),
             }
           );
@@ -979,7 +1035,6 @@ const VentasPage = () => {
       };
     });
   };
-
   const handleQuantityChange = (
     productId: number,
     quantity: number,
@@ -988,8 +1043,8 @@ const VentasPage = () => {
     setNewSale((prevState) => {
       const product = products.find((p) => p.id === productId);
       if (!product) return prevState;
-      const stockInGrams = convertToGrams(Number(product.stock), product.unit);
-      const requestedInGrams = convertToGrams(quantity, unit);
+      const stockInGrams = convertToUnit(Number(product.stock), product.unit);
+      const requestedInGrams = convertToUnit(quantity, unit);
       if (requestedInGrams > stockInGrams) {
         showNotification(
           `No hay suficiente stock para ${product.name}. Stock disponible: ${product.stock} ${product.unit}`,
@@ -1029,25 +1084,28 @@ const VentasPage = () => {
     setNewSale((prevState) => {
       const updatedProducts = prevState.products.map((p) => {
         if (p.id === productId) {
+          const compatibleUnits = getCompatibleUnits(p.unit);
+          const isCompatible = compatibleUnits.some(
+            (u) => u.value === selectedOption.value
+          );
+
+          if (!isCompatible) return p;
+
           const newUnit = selectedOption.value as Product["unit"];
-          let newQuantity = currentQuantity;
-          if (!isNaN(currentQuantity)) {
-            if (p.unit === "Kg" && newUnit === "gr") {
-              newQuantity = currentQuantity * 1000;
-            } else if (p.unit === "gr" && newUnit === "Kg") {
-              newQuantity = currentQuantity / 1000;
-            } else if (p.unit === "L" && newUnit === "ml") {
-              newQuantity = currentQuantity * 1000;
-            } else if (p.unit === "ml" && newUnit === "L") {
-              newQuantity = currentQuantity / 1000;
-            }
-            newQuantity = parseFloat(newQuantity.toFixed(3));
-          }
+
+          // Si no tenemos basePrice, lo calculamos (para productos existentes)
+          const basePrice =
+            p.basePrice ?? p.price / convertToBaseUnit(1, p.unit);
+
+          // Calculamos el nuevo precio basado en el precio base y la nueva unidad
+          const newPrice = basePrice * convertToBaseUnit(1, newUnit);
 
           return {
             ...p,
             unit: newUnit,
-            quantity: newQuantity,
+            quantity: currentQuantity,
+            price: parseFloat(newPrice.toFixed(2)),
+            basePrice: basePrice, // Mantenemos el precio base original
           };
         }
         return p;
@@ -1458,12 +1516,20 @@ const VentasPage = () => {
                                 {getDisplayProductName(product, rubro)}
                               </td>
                               <td className="w-40 max-w-40 px-4 py-2">
-                                {["Kg", "gr", "L", "ml"].includes(
-                                  product.unit
-                                ) ? (
+                                {[
+                                  "Kg",
+                                  "gr",
+                                  "L",
+                                  "ml",
+                                  "mm",
+                                  "cm",
+                                  "m",
+                                  "pulg",
+                                  "ton",
+                                ].includes(product.unit) ? (
                                   <Select
                                     placeholder="Unidad"
-                                    options={unitOptions}
+                                    options={getCompatibleUnits(product.unit)} // Filtramos las unidades compatibles
                                     value={unitOptions.find(
                                       (option) => option.value === product.unit
                                     )}
@@ -1555,12 +1621,16 @@ const VentasPage = () => {
                               </td>
                               <td className="w-30 max-w-30 px-4 py-2 text-center ">
                                 {formatCurrency(
-                                  calculatePrice({
-                                    ...product,
-                                    price: product.price || 0,
-                                    quantity: product.quantity || 0,
-                                    unit: product.unit || "Unid.",
-                                  })
+                                  calculatePrice(
+                                    {
+                                      ...product,
+                                      price: product.price || 0,
+                                      quantity: product.quantity || 0,
+                                      unit: product.unit || "Unid.",
+                                    },
+                                    product.quantity || 0,
+                                    product.unit || "Unid."
+                                  )
                                 )}
                               </td>
                               <td className=" px-4 py-2 text-center">

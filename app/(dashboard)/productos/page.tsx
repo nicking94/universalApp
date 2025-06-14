@@ -119,14 +119,26 @@ const ProductsPage = () => {
   >({});
 
   const unitOptions: UnitOption[] = [
-    { value: "Unid.", label: "Unidad" },
-    { value: "Kg", label: "Kg" },
-    { value: "gr", label: "gr" },
-    { value: "L", label: "L" },
-    { value: "ml", label: "Ml" },
-    { value: "Bulto", label: "Bulto" },
-    { value: "Caja", label: "Caja" },
-    { value: "Cajón", label: "Cajón" },
+    { value: "Unid.", label: "Unidad", convertible: false },
+    { value: "Kg", label: "Kilogramo", convertible: true },
+    { value: "gr", label: "Gramo", convertible: true },
+    { value: "L", label: "Litro", convertible: true },
+    { value: "ml", label: "Mililitro", convertible: true },
+    { value: "mm", label: "Milímetro", convertible: true },
+    { value: "cm", label: "Centímetro", convertible: true },
+    { value: "m", label: "Metro", convertible: true },
+    { value: "m²", label: "Metro cuadrado", convertible: true },
+    { value: "m³", label: "Metro cúbico", convertible: true },
+    { value: "pulg", label: "Pulgada", convertible: true },
+    { value: "docena", label: "Docena", convertible: false },
+    { value: "ciento", label: "Ciento", convertible: false },
+    { value: "ton", label: "Tonelada", convertible: true },
+    { value: "V", label: "Voltio", convertible: false },
+    { value: "A", label: "Amperio", convertible: false },
+    { value: "W", label: "Watt", convertible: false },
+    { value: "Bulto", label: "Bulto", convertible: false },
+    { value: "Caja", label: "Caja", convertible: false },
+    { value: "Cajón", label: "Cajón", convertible: false },
   ];
 
   const selectedUnit =
@@ -632,19 +644,15 @@ const ProductsPage = () => {
                     )}
                   </button>
                 </th>
-                <th className="text-sm 2xl:text-lg px-4 py-2 ">
-                  Precio de costo
-                </th>
-                <th className="text-sm 2xl:text-lg px-4 py-2 ">
-                  Precio de venta
-                </th>
+                <th className="text-sm 2xl:text-lg px-4 py-2 ">Precio costo</th>
+                <th className="text-sm 2xl:text-lg px-4 py-2 ">Precio venta</th>
                 {rubro !== "indumentaria" && (
                   <th className="text-sm 2xl:text-lg px-4 py-2 ">
                     Vencimiento
                   </th>
                 )}
                 <th className="text-sm 2xl:text-lg px-4 py-2">Proveedor</th>
-                <th className="w-40 max-w-[5rem] 2xl:max-w-[10rem] text-sm 2xl:text-lg px-4 py-2">
+                <th className="w-30 max-w-[4rem] 2xl:max-w-[10rem] text-sm 2xl:text-lg px-4 py-2">
                   Acciones
                 </th>
               </tr>
@@ -911,6 +919,7 @@ const ProductsPage = () => {
                     </label>
                     <Select
                       options={commercialCategories}
+                      noOptionsMessage={() => "No se encontraron categorías"}
                       value={
                         commercialCategories.find(
                           (opt) => opt.value === newProduct.category
@@ -932,6 +941,7 @@ const ProductsPage = () => {
                     </label>
                     <Select
                       options={unitOptions}
+                      noOptionsMessage={() => "No se encontraron unidades"}
                       value={selectedUnit}
                       onChange={(selectedOption) => {
                         setNewProduct({
@@ -940,7 +950,6 @@ const ProductsPage = () => {
                         });
                       }}
                       className="text-black"
-                      isSearchable={false}
                     />
                   </div>
                 </div>

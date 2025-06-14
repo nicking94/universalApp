@@ -116,7 +116,27 @@ export type Product = {
   price: number;
   expiration?: string;
   quantity: number;
-  unit: "Unid." | "gr" | "Kg" | "ml" | "L" | "Bulto" | "Caja" | "Cajón";
+  unit:
+    | "Unid."
+    | "gr"
+    | "Kg"
+    | "ml"
+    | "L"
+    | "Bulto"
+    | "Caja"
+    | "Cajón"
+    | "mm"
+    | "cm"
+    | "m"
+    | "m²"
+    | "m³"
+    | "pulg"
+    | "docena"
+    | "ciento"
+    | "ton"
+    | "V"
+    | "A"
+    | "W";
   barcode?: string;
   description?: string;
   category?: string;
@@ -125,6 +145,7 @@ export type Product = {
   size?: string;
   rubro: Rubro;
   discount?: number;
+  basePrice?: number;
 };
 export type ProductDisplayInfo = {
   name: string;
@@ -136,6 +157,7 @@ export type ProductDisplayInfo = {
 export type UnitOption = {
   value: Product["unit"];
   label: string;
+  convertible?: boolean;
 };
 
 export type ProductCardProps = {
@@ -172,7 +194,7 @@ export type SaleItem = {
   productId: number;
   productName: string;
   quantity: number;
-  unit: string;
+  unit: Product["unit"];
   price: number;
   size?: string;
   color?: string;
@@ -226,7 +248,27 @@ export type DailyCashMovement = {
   sellPrice?: number;
   quantity?: number;
   profit?: number;
-  unit?: "Unid." | "gr" | "Kg" | "ml" | "L" | "Bulto" | "Caja" | "Cajón";
+  unit?:
+    | "Unid."
+    | "gr"
+    | "Kg"
+    | "ml"
+    | "L"
+    | "Bulto"
+    | "Caja"
+    | "Cajón"
+    | "mm"
+    | "cm"
+    | "m"
+    | "m²"
+    | "m³"
+    | "pulg"
+    | "docena"
+    | "ciento"
+    | "ton"
+    | "V"
+    | "A"
+    | "W";
   isCreditPayment?: boolean;
   originalSaleId?: number;
   supplierId?: number;
@@ -235,6 +277,9 @@ export type DailyCashMovement = {
   items?: SaleItem[];
   size?: string;
   color?: string;
+  manualProfit?: number;
+  productsProfit?: number;
+  profitPercentage?: number;
 };
 
 export type DailyCash = {
@@ -403,4 +448,17 @@ export type UserPreferences = {
   userId?: number;
   acceptedTerms: boolean;
   acceptedTermsDate?: string;
+};
+export type DailyData = {
+  date: string;
+  ingresos: number;
+  egresos: number;
+  ganancia: number;
+};
+
+export type MonthlyData = {
+  month: string;
+  ingresos: number;
+  egresos: number;
+  ganancia: number;
 };
