@@ -147,12 +147,14 @@ export type Product = {
   rubro: Rubro;
   discount?: number;
   basePrice?: number;
+  lot?: string;
 };
 export type ProductDisplayInfo = {
   name: string;
   size?: string;
   color?: string;
   rubro?: Rubro;
+  lot?: string;
 };
 
 export type UnitOption = {

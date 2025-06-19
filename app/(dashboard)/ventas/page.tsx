@@ -1198,6 +1198,7 @@ const VentasPage = () => {
           </div>
           <div className="w-full  flex justify-end">
             <Button
+              title="Nueva Venta"
               text="Nueva Venta [F1]"
               colorText="text-white"
               colorTextHover="text-white"
@@ -1359,6 +1360,7 @@ const VentasPage = () => {
               buttons={
                 <div className="flex justify-end gap-4">
                   <Button
+                    title="Imprimir ticket"
                     text="Imprimir"
                     icon={<Printer size={20} />}
                     colorText="text-white"
@@ -1366,10 +1368,10 @@ const VentasPage = () => {
                     px="px-1"
                     py="py-1"
                     onClick={handlePrintTicket}
-                    title="Imprimir ticket"
                     disabled={selectedSale?.credit}
                   />
                   <Button
+                    title="Cerrar"
                     text="Cerrar"
                     colorText="text-gray_b dark:text-white"
                     colorTextHover="hover:dark:text-white"
@@ -1406,6 +1408,7 @@ const VentasPage = () => {
           buttons={
             <div className="flex justify-end space-x-4 ">
               <Button
+                title="Cobrar"
                 text={"Cobrar"}
                 colorText="text-white"
                 colorTextHover="text-white"
@@ -1413,6 +1416,7 @@ const VentasPage = () => {
                 hotkey="enter"
               />
               <Button
+                title="Cancelar"
                 text="Cancelar"
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:dark:text-white"
@@ -1641,6 +1645,7 @@ const VentasPage = () => {
                               </td>
                               <td className=" p-2 text-center">
                                 <button
+                                  title="Eliminar producto"
                                   onClick={() =>
                                     handleRemoveProduct(product.id)
                                   }
@@ -1791,6 +1796,7 @@ const VentasPage = () => {
 
                             {newSale.paymentMethods.length > 1 && (
                               <button
+                                title="Eliminar"
                                 type="button"
                                 onClick={() => removePaymentMethod(index)}
                                 className="cursor-pointer text-red_m hover:text-red_b"
@@ -1802,6 +1808,7 @@ const VentasPage = () => {
                         ))}
                         {!isCredit && newSale.paymentMethods.length < 3 && (
                           <button
+                            title="Agregar"
                             type="button"
                             onClick={addPaymentMethod}
                             className="cursor-pointer text-sm text-blue_b dark:text-blue_l hover:text-blue_m flex items-center transition-all duration-300"

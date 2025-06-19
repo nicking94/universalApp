@@ -35,7 +35,7 @@ class MyDatabase extends Dexie {
 
   constructor() {
     super("MyDatabase");
-    this.version(13)
+    this.version(14)
       .stores({
         theme: "id",
         products: "++id, name, barcode, stock",
@@ -55,6 +55,12 @@ class MyDatabase extends Dexie {
         businessData: "++id",
       })
       .upgrade(async (trans) => {
+        await trans
+          .table("products")
+          .toCollection()
+          .modify((product) => {
+            product.lot = "";
+          });
         const adminUser = await trans
           .table("users")
           .where("username")

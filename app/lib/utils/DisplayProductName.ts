@@ -4,18 +4,27 @@ const getDisplayProductName = (
   productOrName: ProductDisplayInfo | string,
   rubro?: Rubro,
   showSizeAndColor: boolean = true
-) => {
-  let displayName =
-    typeof productOrName === "string" ? productOrName : productOrName.name;
-  const size =
-    typeof productOrName !== "string" ? productOrName.size : undefined;
-  const color =
-    typeof productOrName !== "string" ? productOrName.color : undefined;
+): string => {
+  // Extract basic information
+  const isProductObject = typeof productOrName !== "string";
+  const productName = isProductObject ? productOrName.name : productOrName;
+  const lot = isProductObject ? productOrName.lot : undefined;
+  let displayName = lot ? `[L-${lot}] ${productName}` : productName;
 
-  if ((showSizeAndColor || rubro === "todos los rubros") && (size || color)) {
-    const sizePart = size ? ` (Talle: ${size})` : "";
-    const colorPart = color ? ` | Color: ${color.toUpperCase()}` : "";
-    displayName = `${displayName}${sizePart}${colorPart}`;
+  const shouldDisplayDetails =
+    showSizeAndColor || rubro?.toLowerCase() === "todos los rubros";
+
+  if (!shouldDisplayDetails || !isProductObject) {
+    return displayName;
+  }
+
+  const { size, color } = productOrName;
+  const details: string[] = [];
+
+  if (size) details.push(`Talle: ${size}`);
+  if (color) details.push(`Color: ${color.toUpperCase()}`);
+  if (details.length > 0) {
+    displayName = `${displayName} (${details.join(" | ")})`;
   }
 
   return displayName;

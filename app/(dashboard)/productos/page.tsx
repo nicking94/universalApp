@@ -19,6 +19,7 @@ import {
   AlertTriangle,
   SortAsc,
   SortDesc,
+  Barcode,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { db } from "@/app/database/db";
@@ -36,6 +37,7 @@ import InputCash from "@/app/components/InputCash";
 import { useRubro } from "@/app/context/RubroContext";
 import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
 import { usePagination } from "@/app/context/PaginationContext";
+import BarcodeGenerator from "@/app/components/BarcodeGenerator";
 
 const clothingCategories: ClothingCategoryOption[] = [
   // Superior (orden: básicos -> ocasionales)
@@ -172,6 +174,7 @@ const ProductsPage = () => {
     color: "",
     size: "",
     rubro: rubro,
+    lot: "",
   });
   const [filters, setFilters] = useState<ProductFilters>({});
 
@@ -191,6 +194,9 @@ const ProductsPage = () => {
   const [productSuppliers, setProductSuppliers] = useState<
     Record<number, string>
   >({});
+  const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
+  const [selectedProductForBarcode, setSelectedProductForBarcode] =
+    useState<Product | null>(null);
 
   const unitOptions: UnitOption[] = [
     { value: "Unid.", label: "Unidad", convertible: false },
@@ -316,6 +322,17 @@ const ProductsPage = () => {
   const handleSearch = (query: string) => {
     setSearchQuery(query.toLowerCase());
   };
+  const handleGenerateBarcode = (product: Product) => {
+    setSelectedProductForBarcode(product);
+    setIsBarcodeModalOpen(true);
+  };
+  const generateAutoBarcode = () => {
+    const randomBarcode = `UNI${Math.floor(100000 + Math.random() * 900000)}`;
+    setNewProduct({
+      ...newProduct,
+      barcode: randomBarcode,
+    });
+  };
 
   const handleOpenPriceModal = () => {
     setIsPriceModalOpen(true);
@@ -357,6 +374,7 @@ const ProductsPage = () => {
       originalProduct.unit !== updatedProduct.unit ||
       originalProduct.barcode !== updatedProduct.barcode ||
       originalProduct.category !== updatedProduct.category ||
+      originalProduct.lot !== updatedProduct.lot ||
       (rubro === "indumentaria" &&
         (originalProduct.category !== updatedProduct.category ||
           originalProduct.color !== updatedProduct.color ||
@@ -477,6 +495,7 @@ const ProductsPage = () => {
       color: "",
       size: "",
       rubro: rubro,
+      lot: "",
     });
     setEditingProduct(null);
   };
@@ -794,7 +813,6 @@ const ProductsPage = () => {
                           <td className="p-2 border border-gray_xl capitalize">
                             {product.category || "-"}
                           </td>
-
                           {rubro === "indumentaria" && (
                             <>
                               <td className="p-2 border border-gray_xl">
@@ -808,7 +826,6 @@ const ProductsPage = () => {
                               </td>
                             </>
                           )}
-
                           <td
                             className={`${
                               !isNaN(Number(product.stock)) &&
@@ -858,16 +875,29 @@ const ProductsPage = () => {
                           <td className="p-2 border border-gray_xl">
                             {productSuppliers[product.id] || "Sin asignar"}
                           </td>
-                          <td className="p-2 flex justify-center gap-2 ">
+
+                          <td className="p-2 flex justify-center gap-2">
+                            <Button
+                              icon={<Barcode size={20} />}
+                              colorText={isExpired ? "text-gray_b" : ""}
+                              colorTextHover="hover:text-white"
+                              colorBg="bg-transparent"
+                              px="px-1"
+                              py="py-1"
+                              minwidth="min-w-0"
+                              onClick={() => handleGenerateBarcode(product)}
+                              title="Código de Barras"
+                            />
                             <Button
                               icon={<Edit size={20} />}
-                              colorText={` ${isExpired ? "text-gray_b" : ""}`}
+                              colorText={isExpired ? "text-gray_b" : ""}
                               colorTextHover="hover:text-white"
                               colorBg="bg-transparent"
                               px="px-1"
                               py="py-1"
                               minwidth="min-w-0"
                               onClick={() => handleEditProduct(product)}
+                              title="Editar Producto"
                             />
                             <Button
                               icon={<Trash size={20} />}
@@ -879,6 +909,7 @@ const ProductsPage = () => {
                               py="py-1"
                               minwidth="min-w-0"
                               onClick={() => handleDeleteProduct(product)}
+                              title="Eliminar Producto"
                             />
                           </td>
                         </tr>
@@ -942,41 +973,63 @@ const ProductsPage = () => {
                 <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
                   Código de Barras
                 </label>
-                <BarcodeScanner
-                  value={newProduct.barcode || ""}
-                  onChange={(value) => {
-                    setNewProduct({ ...newProduct, barcode: value });
-                  }}
-                  onScanComplete={(code) => {
-                    const existingProduct = products.find(
-                      (p) => p.barcode === code
-                    );
-                    if (existingProduct) {
-                      setNewProduct({
-                        ...existingProduct,
-                        id: editingProduct ? existingProduct.id : Date.now(),
-                        barcode: existingProduct.barcode,
-                      });
-                      setEditingProduct(existingProduct);
-                      showNotification("Producto encontrado", "success");
-                    } else if (editingProduct) {
-                      setNewProduct({
-                        ...newProduct,
-                        barcode: code,
-                      });
-                    }
-                  }}
+                <div className="flex items-center gap-2">
+                  <BarcodeScanner
+                    value={newProduct.barcode || ""}
+                    onChange={(value) => {
+                      setNewProduct({ ...newProduct, barcode: value });
+                    }}
+                    onScanComplete={(code) => {
+                      const existingProduct = products.find(
+                        (p) => p.barcode === code
+                      );
+                      if (existingProduct) {
+                        setNewProduct({
+                          ...existingProduct,
+                          id: editingProduct ? existingProduct.id : Date.now(),
+                          barcode: existingProduct.barcode,
+                        });
+                        setEditingProduct(existingProduct);
+                        showNotification("Producto encontrado", "success");
+                      } else if (editingProduct) {
+                        setNewProduct({
+                          ...newProduct,
+                          barcode: code,
+                        });
+                      }
+                    }}
+                  />
+                  <Button
+                    minwidth="min-w-[9rem]"
+                    text="Generar código"
+                    colorText="text-white"
+                    colorTextHover="text-white"
+                    colorBg="bg-blue_m"
+                    colorBgHover="hover:bg-blue_b"
+                    onClick={generateAutoBarcode}
+                  />
+                </div>
+              </div>
+              <div className="w-full flex items-center space-x-2">
+                <div className="max-w-[7rem]">
+                  <Input
+                    label="Lote (opcional)"
+                    type="text"
+                    name="lot"
+                    placeholder="Nro. de lote"
+                    value={newProduct.lot || ""}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <Input
+                  label="Nombre del producto"
+                  type="text"
+                  name="name"
+                  placeholder="Nombre del producto..."
+                  value={newProduct.name}
+                  onChange={handleInputChange}
                 />
               </div>
-
-              <Input
-                label="Nombre del producto"
-                type="text"
-                name="name"
-                placeholder="Nombre del producto..."
-                value={newProduct.name}
-                onChange={handleInputChange}
-              />
             </div>
             {(rubro === "comercio" || rubro === "todos los rubros") && (
               <>
@@ -1259,6 +1312,26 @@ const ProductsPage = () => {
             )}
           </div>
         </Modal>
+        {isBarcodeModalOpen && selectedProductForBarcode && (
+          <BarcodeGenerator
+            product={selectedProductForBarcode}
+            onClose={() => setIsBarcodeModalOpen(false)}
+            onBarcodeChange={(newBarcode) => {
+              setProducts((prev) =>
+                prev.map((p) =>
+                  p.id === selectedProductForBarcode.id
+                    ? { ...p, barcode: newBarcode }
+                    : p
+                )
+              );
+
+              // Actualiza en la base de datos
+              db.products.update(selectedProductForBarcode.id, {
+                barcode: newBarcode,
+              });
+            }}
+          />
+        )}
 
         <Notification
           isOpen={isNotificationOpen}

@@ -20,7 +20,7 @@ export type PrintableTicketHandle = {
 
 const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
   ({ sale, rubro, businessData, onPrint, autoPrint = false }, ref) => {
-    const ticketRef = useRef<PrintableTicketHandle>(null);
+    const ticketRef = useRef<HTMLDivElement>(null);
     const fecha = format(parseISO(sale.date), "dd/MM/yyyy HH:mm", {
       locale: es,
     });
@@ -116,9 +116,10 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
           return;
         }
 
-        const escPosCommands = generateEscPosCommands();
-
         try {
+          // Primero intentamos imprimir con ESC/POS si es posible
+          const escPosCommands = generateEscPosCommands();
+
           if ("serial" in navigator) {
             try {
               const port = await (navigator as Navigator).serial!.requestPort();
@@ -128,37 +129,71 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
               try {
                 await writer.write(new TextEncoder().encode(escPosCommands));
                 await writer.close();
+                return;
               } catch (writeError) {
                 console.error(
                   "Error al escribir en el puerto serial:",
                   writeError
                 );
-                throw writeError;
               } finally {
                 writer.releaseLock();
               }
 
               await port.close();
-              return;
             } catch (serialError) {
               console.error("Error con puerto serial:", serialError);
             }
           }
-        } catch (error) {
-          console.error("Error general al imprimir:", error);
 
+          // Si no hay impresora serial, imprimimos el HTML
+          if (!ticketRef.current) return;
+
+          const printWindow = window.open("", "_blank");
+          if (printWindow) {
+            printWindow.document.write(`
+              <html>
+                <head>
+                  <title>Ticket de Venta</title>
+                  <style>
+                    body { margin: 0; padding: 0; font-family: 'Courier New', monospace; }
+                    .ticket { width: 80mm; margin: 0 auto; padding: 10px; font-size: 12px; }
+                    .header { text-align: center; margin-bottom: 10px; }
+                    .footer { text-align: center; margin-top: 10px; }
+                    .product-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+                    .total-row { font-weight: bold; margin-top: 10px; }
+                  </style>
+                </head>
+                <body>
+                  ${ticketRef.current.innerHTML}
+                  <script>
+                    window.onload = function() {
+                      setTimeout(function() {
+                        window.print();
+                        window.close();
+                      }, 100);
+                    }
+                  </script>
+                </body>
+              </html>
+            `);
+            printWindow.document.close();
+          }
+        } catch (error) {
+          console.error("Error al imprimir:", error);
           throw error;
         }
       },
     }));
 
     useEffect(() => {
-      if (autoPrint && ticketRef.current) {
-        ticketRef.current.print().catch((error) => {
-          console.error("Error en impresión automática:", error);
-        });
+      if (autoPrint && ref) {
+        (ref as React.RefObject<PrintableTicketHandle>).current
+          ?.print()
+          .catch((error) => {
+            console.error("Error en impresión automática:", error);
+          });
       }
-    }, [autoPrint]);
+    }, [autoPrint, ref]);
 
     return (
       <div
