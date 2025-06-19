@@ -5,7 +5,7 @@ import { ButtonProps } from "../lib/types/types";
 
 const Button: React.FC<ButtonProps> = ({
   width = "w-auto",
-  minwidth = "min-w-[11rem]",
+  minwidth = "min-w-[8rem] 2xl:min-w-[11.5rem]",
   height = "h-[2rem] 2xl:h-auto",
   px = "px-3",
   py = "py-2",

@@ -118,26 +118,26 @@ export type Product = {
   expiration?: string;
   quantity: number;
   unit:
-    | "Unid."
-    | "gr"
-    | "Kg"
-    | "ml"
-    | "L"
-    | "Bulto"
-    | "Caja"
-    | "Cajón"
-    | "mm"
-    | "cm"
-    | "m"
-    | "m²"
-    | "m³"
-    | "pulg"
-    | "docena"
-    | "ciento"
-    | "ton"
-    | "V"
-    | "A"
-    | "W";
+    | "Unid." // Artículos unitarios (el más usado en retail)
+    | "Kg" // Alimentos a granel
+    | "gr" // Productos pequeños (especias, etc.)
+    | "L" // Líquidos (aceite, bebidas)
+    | "ml" // Líquidos pequeños (perfumes, medicinas)
+    | "docena" // Huevos, frutas
+    | "Caja" // Paquetes estándar
+    | "Bulto" // Materiales de construcción
+    | "Cajón" // Frutas, bebidas
+    | "m" // Telas, cables
+    | "cm" // Textiles, manualidades
+    | "mm" // Materiales técnicos
+    | "m²" // Pisos, pintura
+    | "pulg" // Pantallas, tuberías
+    | "ciento" // Flores, algunos alimentos
+    | "ton" // Industria, construcción
+    | "m³" // Materiales a granel
+    | "V" // Electrónica (voltios)
+    | "W" // Energía (watts)
+    | "A";
   barcode?: string;
   description?: string;
   category?: string;

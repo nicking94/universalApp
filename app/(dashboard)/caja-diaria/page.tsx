@@ -924,27 +924,6 @@ const CajaDiariaPage = () => {
                         {format(parseISO(currentDailyCash.date), "dd/MM/yyyy")}
                       </p>
                     </div>
-                    <div>
-                      {currentDailyCash.closed ? (
-                        <Button
-                          icon={<Plus />}
-                          text="Reabrir Caja"
-                          colorText="text-white"
-                          colorTextHover="text-white"
-                          onClick={() => setIsOpenCashModal(true)}
-                        />
-                      ) : (
-                        <Button
-                          icon={<X />}
-                          text="Cerrar Caja"
-                          colorText="text-white"
-                          colorTextHover="text-white"
-                          colorBg="bg-red_m"
-                          colorBgHover="hover:bg-red_m"
-                          onClick={() => setIsCloseCashModal(true)}
-                        />
-                      )}
-                    </div>
                   </div>
                   <div className="grid grid-cols-2 text-gray_m font-semibold mb-4">
                     <p>
@@ -1011,18 +990,10 @@ const CajaDiariaPage = () => {
                 </div>
               </div>
             ) : (
-              <div className="bg-gradient-to-bl from-blue_m to-blue_b p-3 rounded-lg mb-4 flex justify-between items-center space-x-10">
-                <p className="text-md text-white">
+              <div className=" py-3 pl-3 rounded-lg mb-4 flex justify-between items-center space-x-10">
+                <p className="text-md text-gray_l dark:text-white">
                   No hay caja abierta para hoy
                 </p>
-                <Button
-                  text="Abrir Caja"
-                  colorText="text-gray_b"
-                  colorTextHover="hover:text-white"
-                  colorBg="bg-blue_xl"
-                  colorBgHover="hover:bg-green_m"
-                  onClick={() => setIsOpenCashModal(true)}
-                />
               </div>
             )}
 
@@ -1045,16 +1016,48 @@ const CajaDiariaPage = () => {
                   className="w-28 text-black"
                 />
               </div>
-              <Button
-                icon={<Plus className="w-4 h-4" />}
-                text="Nuevo Movimiento"
-                colorText="text-white"
-                colorTextHover="text-white"
-                onClick={async () => {
-                  const isCashOpen = await checkCashStatus();
-                  if (isCashOpen) setIsOpenModal(true);
-                }}
-              />
+              <div className="flex gap-2">
+                <Button
+                  icon={<Plus className="w-4 h-4" />}
+                  text="Nuevo Movimiento"
+                  colorText="text-white"
+                  colorTextHover="text-white"
+                  onClick={async () => {
+                    const isCashOpen = await checkCashStatus();
+                    if (isCashOpen) setIsOpenModal(true);
+                  }}
+                />
+                {currentDailyCash ? (
+                  <div>
+                    {currentDailyCash.closed ? (
+                      <Button
+                        icon={<Plus size={20} />}
+                        text="Reabrir Caja"
+                        colorText="text-white"
+                        colorTextHover="text-white"
+                        onClick={() => setIsOpenCashModal(true)}
+                      />
+                    ) : (
+                      <Button
+                        icon={<X size={20} />}
+                        text="Cerrar Caja"
+                        colorText="text-white"
+                        colorTextHover="text-white"
+                        colorBg="bg-red_m"
+                        colorBgHover="hover:bg-red_m"
+                        onClick={() => setIsCloseCashModal(true)}
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <Button
+                    text="Abrir Caja"
+                    colorText="text-white"
+                    colorTextHover="text-white"
+                    onClick={() => setIsOpenCashModal(true)}
+                  />
+                )}
+              </div>
             </div>
             <div
               className={` flex flex-col justify-between ${

@@ -62,26 +62,33 @@ const Metrics = () => {
   const [availableYears, setAvailableYears] = useState<number[]>([]);
 
   const unidadLegible: Record<Product["unit"], string> = {
+    // Unidades más comunes en retail y comercio general
     "Unid.": "unidad",
-    gr: "gramo",
     Kg: "kilogramo",
-    ml: "mililitro",
     L: "litro",
-    Bulto: "bulto",
-    Caja: "caja",
-    Cajón: "cajón",
-    mm: "milímetro",
-    cm: "centímetro",
+    gr: "gramo",
+    ml: "mililitro",
+    docena: "docena",
     m: "metro",
+
+    // Empaques y agrupaciones comerciales
+    Caja: "caja",
+    Bulto: "bulto",
+    Cajón: "cajón",
+    ciento: "ciento",
+
+    // Unidades de medida menos frecuentes pero aún relevantes
+    cm: "centímetro",
     "m²": "metro cuadrado",
     "m³": "metro cúbico",
+    mm: "milímetro",
     pulg: "pulgada",
-    docena: "docena",
-    ciento: "ciento",
     ton: "tonelada",
+
+    // Unidades especializadas (eléctricas, etc.)
     V: "voltio",
-    A: "amperio",
     W: "vatio",
+    A: "amperio",
   };
   const filterByRubro = (
     movement: DailyCashMovement,
@@ -409,26 +416,33 @@ const Metrics = () => {
   }, [rubro]);
 
   const unitOptions: { value: Product["unit"]; label: string }[] = [
-    { value: "Unid.", label: "Unidad" },
-    { value: "gr", label: "Gramos" },
-    { value: "Kg", label: "Kilogramos" },
-    { value: "ml", label: "Mililitros" },
-    { value: "L", label: "Litros" },
-    { value: "Bulto", label: "Bultos" },
-    { value: "Caja", label: "Cajas" },
-    { value: "Cajón", label: "Cajones" },
-    { value: "mm", label: "Milímetros" },
-    { value: "cm", label: "Centímetros" },
-    { value: "m", label: "Metros" },
-    { value: "m²", label: "Metros cuadrados" },
-    { value: "m³", label: "Metros cúbicos" },
-    { value: "pulg", label: "Pulgadas" },
-    { value: "docena", label: "Docenas" },
-    { value: "ciento", label: "Cientos" },
-    { value: "ton", label: "Toneladas" },
-    { value: "V", label: "Voltios" },
-    { value: "A", label: "Amperios" },
-    { value: "W", label: "Watts" },
+    // Unidades más comunes en retail
+    { value: "Unid.", label: "Unidad" }, // Artículos unitarios (el más usado)
+    { value: "Kg", label: "Kilogramos" }, // Alimentos a granel
+    { value: "gr", label: "Gramos" }, // Productos pequeños (especias, etc.)
+    { value: "L", label: "Litros" }, // Líquidos (aceite, bebidas)
+    { value: "ml", label: "Mililitros" }, // Líquidos pequeños (perfumes, medicinas)
+    { value: "docena", label: "Docenas" }, // Huevos, frutas
+
+    // Empaques/agrupaciones comerciales
+    { value: "Caja", label: "Cajas" }, // Paquetes estándar
+    { value: "Bulto", label: "Bultos" }, // Materiales de construcción
+    { value: "Cajón", label: "Cajones" }, // Frutas, bebidas
+    { value: "ciento", label: "Cientos" }, // Flores, algunos alimentos
+
+    // Unidades de medida
+    { value: "m", label: "Metros" }, // Telas, cables
+    { value: "cm", label: "Centímetros" }, // Textiles, manualidades
+    { value: "m²", label: "Metros cuadrados" }, // Pisos, pintura
+    { value: "mm", label: "Milímetros" }, // Materiales técnicos
+    { value: "pulg", label: "Pulgadas" }, // Pantallas, tuberías
+    { value: "m³", label: "Metros cúbicos" }, // Materiales a granel
+
+    // Unidades especializadas
+    { value: "ton", label: "Toneladas" }, // Industria, construcción
+    { value: "V", label: "Voltios" }, // Electrónica
+    { value: "W", label: "Watts" }, // Energía/iluminación
+    { value: "A", label: "Amperios" }, // Uso técnico
   ];
 
   const monthlySummary = getConsistentSummary("month");

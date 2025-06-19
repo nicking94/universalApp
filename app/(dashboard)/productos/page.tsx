@@ -38,29 +38,29 @@ import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
 import { usePagination } from "@/app/context/PaginationContext";
 
 const clothingCategories: ClothingCategoryOption[] = [
-  // Superior
-  { value: "remera", label: "Remera" },
+  // Superior (orden: básicos -> ocasionales)
+  { value: "remera", label: "Remera" }, // MÁS FRECUENTE
   { value: "camiseta", label: "Camiseta" },
   { value: "camisa", label: "Camisa" },
   { value: "blusa", label: "Blusa" },
+  { value: "buzo", label: "Buzo" }, // Movido de "Abrigos" por ser básico
+  { value: "sweater", label: "Sweater" }, // Movido de "Abrigos"
   { value: "musculosa", label: "Musculosa" },
   { value: "top", label: "Top" },
   { value: "body", label: "Body" },
 
-  // Abrigos
-  { value: "campera", label: "Campera" },
-  { value: "saco", label: "Saco" },
-  { value: "chaleco", label: "Chaleco" },
-  { value: "buzo", label: "Buzo" },
-  { value: "sweater", label: "Sweater" },
-
-  // Inferior
+  // Inferior (orden: básicos -> ocasionales)
   { value: "pantalon", label: "Pantalón" },
   { value: "jean", label: "Jean" },
   { value: "short", label: "Short" },
-  { value: "pollera", label: "Pollera" },
   { value: "calza", label: "Calza" },
+  { value: "pollera", label: "Pollera" },
   { value: "bermuda", label: "Bermuda" },
+
+  // Abrigos (orden: temporada fría -> ocasionales)
+  { value: "campera", label: "Campera" },
+  { value: "saco", label: "Saco" },
+  { value: "chaleco", label: "Chaleco" },
 
   // Vestidos
   { value: "vestido", label: "Vestido" },
@@ -71,16 +71,18 @@ const clothingCategories: ClothingCategoryOption[] = [
   { value: "pijama", label: "Pijama" },
   { value: "lenceria", label: "Lencería" },
 
+  // Deportivo/Nicho (agrupado por uso)
+  { value: "deportivo", label: "Indumentaria Deportiva" },
+  { value: "traje_baño", label: "Traje de Baño" },
+
   // Accesorios
-  { value: "accesorio", label: "Accesorio" },
   { value: "bolso", label: "Bolso" },
   { value: "gorra", label: "Gorra" },
   { value: "bufanda", label: "Bufanda" },
+  { value: "accesorio", label: "Accesorio" }, // GENÉRICO (menos frecuente)
 
   // Otros
-  { value: "traje_baño", label: "Traje de Baño" },
-  { value: "deportivo", label: "Indumentaria Deportiva" },
-  { value: "otro", label: "Otro" },
+  { value: "otro", label: "Otro" }, // MENOS FRECUENTE
 ];
 
 const clothingSizes: ClothingSizeOption[] = [
@@ -110,44 +112,44 @@ const clothingSizes: ClothingSizeOption[] = [
 ];
 
 const commercialCategories: CommercialCategoryOption[] = [
-  // Alimentos secos
-  { value: "almacen", label: "Almacén" },
-  { value: "dulces", label: "Dulces/Golosinas" },
-  { value: "snacks", label: "Snacks" },
-  { value: "panaderia", label: "Panadería" },
-  { value: "reposteria", label: "Repostería" },
-
-  // Frescos
+  // Básicos diarios (alta rotación)
+  { value: "almacen", label: "Almacén" }, // Arroz, fideos, harina, etc.
+  { value: "lacteos", label: "Lácteos" }, // Leche, yogur, manteca
+  { value: "panaderia", label: "Panadería" }, // Pan, facturas
   { value: "frutas", label: "Frutas" },
   { value: "verduras", label: "Verduras" },
-  { value: "lacteos", label: "Lácteos" },
-  { value: "fiambres", label: "Fiambres" },
-  { value: "quesos", label: "Quesos" },
-  { value: "carnes", label: "Carnes" },
-  { value: "pescados", label: "Pescados" },
+  { value: "carnes", label: "Carnes" }, // Pollo, carne vacuna
+  { value: "fiambres", label: "Fiambres" }, // Jamón, queso, salame
+  { value: "quesos", label: "Quesos" }, // Quesos varios
 
-  // Bebidas
-  { value: "bebidas", label: "Bebidas" },
-  { value: "vinos", label: "Vinos" },
-  { value: "licores", label: "Licores" },
+  // Bebidas (alta frecuencia)
+  { value: "bebidas", label: "Bebidas" }, // Gaseosas, aguas, jugos
+  { value: "dulces", label: "Dulces/Golosinas" }, // Chocolate, caramelos
+  { value: "snacks", label: "Snacks" }, // Papas, chizitos
 
-  // Congelados
-  { value: "congelados", label: "Congelados" },
-  { value: "helados", label: "Helados" },
+  // Congelados (uso regular)
+  { value: "congelados", label: "Congelados" }, // Papas, pizzas, vegetales
+  { value: "helados", label: "Helados" }, // Temporada alta
 
-  // Higiene y limpieza
-  { value: "limpieza", label: "Limpieza" },
-  { value: "perfumeria", label: "Perfumería" },
-  { value: "cuidado_personal", label: "Cuidado Personal" },
+  // Higiene y limpieza (rotación media)
+  { value: "limpieza", label: "Limpieza" }, // Lavandina, detergente
+  { value: "cuidado_personal", label: "Cuidado Personal" }, // Shampoo, jabón
+  { value: "perfumeria", label: "Perfumería" }, // Desodorantes, cremas
 
-  // Varios
-  { value: "bazar", label: "Bazar" },
-  { value: "electro", label: "Electro" },
-  { value: "jugueteria", label: "Juguetería" },
-  { value: "libreria", label: "Librería" },
+  // Especializados (menor frecuencia)
+  { value: "pescados", label: "Pescados" }, // Depende de zona/consumo
+  { value: "reposteria", label: "Repostería" }, // Ingredientes específicos
+  { value: "vinos", label: "Vinos" }, // Consumo ocasional
+  { value: "licores", label: "Licores" }, // Eventos especiales
+
+  // No alimenticios (baja rotación)
+  { value: "bazar", label: "Bazar" }, // Vajilla, utensilios
+  { value: "electro", label: "Electro" }, // Pequeños electrodomésticos
+  { value: "libreria", label: "Librería" }, // Útiles escolares/oficina
+  { value: "jugueteria", label: "Juguetería" }, // Temporal (ej. navidad)
 
   // Otros
-  { value: "otros", label: "Otros" },
+  { value: "otros", label: "Otros" }, // MENOS FRECUENTE
 ];
 
 const ProductsPage = () => {

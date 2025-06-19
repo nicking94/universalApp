@@ -84,53 +84,71 @@ const VentasPage = () => {
   const [customerPhone, setCustomerPhone] = useState("");
   const [shouldRedirectToCash, setShouldRedirectToCash] = useState(false);
   const CONVERSION_FACTORS = {
-    // Masa
-    gr: { base: "Kg", factor: 0.001 },
-    Kg: { base: "Kg", factor: 1 },
-    ton: { base: "Kg", factor: 1000 },
-    // Volumen
-    ml: { base: "L", factor: 0.001 },
-    L: { base: "L", factor: 1 },
-    // Longitud
-    mm: { base: "m", factor: 0.001 },
-    cm: { base: "m", factor: 0.01 },
-    m: { base: "m", factor: 1 },
+    // Masa (de menor a mayor)
+    gr: { base: "Kg", factor: 0.001 }, // 1000 gramos = 1 kilogramo
+    Kg: { base: "Kg", factor: 1 }, // Base de masa
+    ton: { base: "Kg", factor: 1000 }, // 1 tonelada = 1000 kilogramos
+
+    // Volumen (de menor a mayor)
+    ml: { base: "L", factor: 0.001 }, // 1000 mililitros = 1 litro
+    L: { base: "L", factor: 1 }, // Base de volumen
+
+    // Longitud (de menor a mayor)
+    mm: { base: "m", factor: 0.001 }, // 1000 milímetros = 1 metro
+    cm: { base: "m", factor: 0.01 }, // 100 centímetros = 1 metro
     pulg: { base: "m", factor: 0.0254 }, // 1 pulgada = 0.0254 metros
-    // Unidades no convertibles
-    Unid: { base: "Unid", factor: 1 },
-    docena: { base: "Unid", factor: 12 },
-    ciento: { base: "Unid", factor: 100 },
+    m: { base: "m", factor: 1 }, // Base de longitud
+
+    // Unidades contables
+    Unid: { base: "Unid", factor: 1 }, // Base para unidades
+    docena: { base: "Unid", factor: 12 }, // 1 docena = 12 unidades
+    ciento: { base: "Unid", factor: 100 }, // 1 ciento = 100 unidades
+
+    // Empaques (no convertibles)
     Bulto: { base: "Bulto", factor: 1 },
     Caja: { base: "Caja", factor: 1 },
     Cajón: { base: "Cajón", factor: 1 },
-    m2: { base: "m²", factor: 1 },
-    m3: { base: "m³", factor: 1 },
-    V: { base: "V", factor: 1 },
-    A: { base: "A", factor: 1 },
-    W: { base: "W", factor: 1 },
+
+    // Área/Volumen (no convertibles)
+    m2: { base: "m²", factor: 1 }, // Metros cuadrados
+    m3: { base: "m³", factor: 1 }, // Metros cúbicos
+
+    // Unidades eléctricas (no convertibles)
+    V: { base: "V", factor: 1 }, // Voltios
+    A: { base: "A", factor: 1 }, // Amperios
+    W: { base: "W", factor: 1 }, // Watts
   } as const;
 
   const unitOptions: UnitOption[] = [
-    { value: "Unid.", label: "Unidad", convertible: false },
-    { value: "Kg", label: "Kilogramo", convertible: true },
-    { value: "gr", label: "Gramo", convertible: true },
-    { value: "L", label: "Litro", convertible: true },
-    { value: "ml", label: "Mililitro", convertible: true },
-    { value: "mm", label: "Milímetro", convertible: true },
-    { value: "cm", label: "Centímetro", convertible: true },
-    { value: "m", label: "Metro", convertible: true },
-    { value: "m²", label: "Metro cuadrado", convertible: false },
-    { value: "m³", label: "Metro cúbico", convertible: false },
-    { value: "pulg", label: "Pulgada", convertible: true },
-    { value: "docena", label: "Docena", convertible: false },
-    { value: "ciento", label: "Ciento", convertible: false },
-    { value: "ton", label: "Tonelada", convertible: true },
-    { value: "V", label: "Voltio", convertible: false },
-    { value: "A", label: "Amperio", convertible: false },
-    { value: "W", label: "Watt", convertible: false },
-    { value: "Bulto", label: "Bulto", convertible: false },
-    { value: "Caja", label: "Caja", convertible: false },
-    { value: "Cajón", label: "Cajón", convertible: false },
+    // Unidades más frecuentes (uso diario en retail)
+    { value: "Unid.", label: "Unidad", convertible: false }, // Artículos unitarios
+    { value: "Kg", label: "Kilogramo", convertible: true }, // Alimentos, productos a granel
+    { value: "gr", label: "Gramo", convertible: true }, // Productos pequeños
+    { value: "L", label: "Litro", convertible: true }, // Líquidos
+    { value: "ml", label: "Mililitro", convertible: true }, // Líquidos pequeños
+
+    // Unidades de medida comunes
+    { value: "m", label: "Metro", convertible: true }, // Telas, materiales
+    { value: "cm", label: "Centímetro", convertible: true }, // Manualidades, construcción
+    { value: "docena", label: "Docena", convertible: false }, // Huevos, frutas
+
+    // Empaques y agrupaciones comerciales
+    { value: "Caja", label: "Caja", convertible: false }, // Paquetes estándar
+    { value: "Bulto", label: "Bulto", convertible: false }, // Materiales de construcción
+    { value: "Cajón", label: "Cajón", convertible: false }, // Bebidas, frutas
+
+    // Unidades menos frecuentes
+    { value: "mm", label: "Milímetro", convertible: true }, // Uso técnico
+    { value: "pulg", label: "Pulgada", convertible: true }, // Pantallas, tuberías
+    { value: "m²", label: "Metro cuadrado", convertible: false }, // Pisos, pintura
+    { value: "m³", label: "Metro cúbico", convertible: false }, // Materiales a granel
+    { value: "ciento", label: "Ciento", convertible: false }, // Flores, algunos alimentos
+    { value: "ton", label: "Tonelada", convertible: true }, // Industria, construcción
+
+    // Unidades especializadas (últimas por frecuencia)
+    { value: "V", label: "Voltio", convertible: false }, // Electrónica
+    { value: "W", label: "Watt", convertible: false }, // Energía/iluminación
+    { value: "A", label: "Amperio", convertible: false }, // Uso técnico
   ];
   const getCompatibleUnits = (productUnit: string): UnitOption[] => {
     const productUnitInfo =
