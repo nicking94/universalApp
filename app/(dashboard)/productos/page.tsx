@@ -35,23 +35,57 @@ import { formatCurrency } from "@/app/lib/utils/currency";
 import InputCash from "@/app/components/InputCash";
 import { useRubro } from "@/app/context/RubroContext";
 import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
+import { usePagination } from "@/app/context/PaginationContext";
 
 const clothingCategories: ClothingCategoryOption[] = [
+  // Superior
   { value: "remera", label: "Remera" },
-  { value: "pantalon", label: "Pantalón" },
+  { value: "camiseta", label: "Camiseta" },
   { value: "camisa", label: "Camisa" },
+  { value: "blusa", label: "Blusa" },
+  { value: "musculosa", label: "Musculosa" },
+  { value: "top", label: "Top" },
+  { value: "body", label: "Body" },
+
+  // Abrigos
   { value: "campera", label: "Campera" },
+  { value: "saco", label: "Saco" },
+  { value: "chaleco", label: "Chaleco" },
   { value: "buzo", label: "Buzo" },
+  { value: "sweater", label: "Sweater" },
+
+  // Inferior
+  { value: "pantalon", label: "Pantalón" },
+  { value: "jean", label: "Jean" },
   { value: "short", label: "Short" },
-  { value: "vestido", label: "Vestido" },
   { value: "pollera", label: "Pollera" },
   { value: "calza", label: "Calza" },
-  { value: "ropa interior", label: "Ropa Interior" },
+  { value: "bermuda", label: "Bermuda" },
+
+  // Vestidos
+  { value: "vestido", label: "Vestido" },
+  { value: "enterizo", label: "Enterizo" },
+
+  // Interior
+  { value: "ropa_interior", label: "Ropa Interior" },
+  { value: "pijama", label: "Pijama" },
+  { value: "lenceria", label: "Lencería" },
+
+  // Accesorios
   { value: "accesorio", label: "Accesorio" },
+  { value: "bolso", label: "Bolso" },
+  { value: "gorra", label: "Gorra" },
+  { value: "bufanda", label: "Bufanda" },
+
+  // Otros
+  { value: "traje_baño", label: "Traje de Baño" },
+  { value: "deportivo", label: "Indumentaria Deportiva" },
   { value: "otro", label: "Otro" },
 ];
 
 const clothingSizes: ClothingSizeOption[] = [
+  // Talles estándar
+  { value: "XXS", label: "XXS" },
   { value: "XS", label: "XS" },
   { value: "S", label: "S" },
   { value: "M", label: "M" },
@@ -59,21 +93,60 @@ const clothingSizes: ClothingSizeOption[] = [
   { value: "XL", label: "XL" },
   { value: "XXL", label: "XXL" },
   { value: "XXXL", label: "XXXL" },
+
+  // Talles numéricos
+  { value: "34", label: "34" },
+  { value: "36", label: "36" },
+  { value: "38", label: "38" },
+  { value: "40", label: "40" },
+  { value: "42", label: "42" },
+  { value: "44", label: "44" },
+  { value: "46", label: "46" },
+
+  // Talles especiales
   { value: "unico", label: "Único" },
+  { value: "kids", label: "Kids" },
+  { value: "prematuro", label: "Prematuro" },
 ];
+
 const commercialCategories: CommercialCategoryOption[] = [
+  // Alimentos secos
+  { value: "almacen", label: "Almacén" },
+  { value: "dulces", label: "Dulces/Golosinas" },
+  { value: "snacks", label: "Snacks" },
+  { value: "panaderia", label: "Panadería" },
+  { value: "reposteria", label: "Repostería" },
+
+  // Frescos
   { value: "frutas", label: "Frutas" },
   { value: "verduras", label: "Verduras" },
   { value: "lacteos", label: "Lácteos" },
   { value: "fiambres", label: "Fiambres" },
-  { value: "bebidas", label: "Bebidas" },
-  { value: "limpieza", label: "Limpieza" },
-  { value: "panaderia", label: "Panadería" },
+  { value: "quesos", label: "Quesos" },
   { value: "carnes", label: "Carnes" },
+  { value: "pescados", label: "Pescados" },
+
+  // Bebidas
+  { value: "bebidas", label: "Bebidas" },
+  { value: "vinos", label: "Vinos" },
+  { value: "licores", label: "Licores" },
+
+  // Congelados
   { value: "congelados", label: "Congelados" },
-  { value: "almacen", label: "Almacén" },
+  { value: "helados", label: "Helados" },
+
+  // Higiene y limpieza
+  { value: "limpieza", label: "Limpieza" },
   { value: "perfumeria", label: "Perfumería" },
+  { value: "cuidado_personal", label: "Cuidado Personal" },
+
+  // Varios
   { value: "bazar", label: "Bazar" },
+  { value: "electro", label: "Electro" },
+  { value: "jugueteria", label: "Juguetería" },
+  { value: "libreria", label: "Librería" },
+
+  // Otros
   { value: "otros", label: "Otros" },
 ];
 
@@ -112,8 +185,7 @@ const ProductsPage = () => {
   const [isPriceModalOpen, setIsPriceModalOpen] = useState(false);
   const [scannedProduct, setScannedProduct] = useState<Product | null>(null);
   const [barcodeInput, setBarcodeInput] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [productsPerPage, setProductsPerPage] = useState(5);
+  const { currentPage, itemsPerPage } = usePagination();
   const [productSuppliers, setProductSuppliers] = useState<
     Record<number, string>
   >({});
@@ -508,17 +580,11 @@ const ProductsPage = () => {
     setSearchQuery("");
   }, [rubro]);
 
-  const indexOfLastProduct = currentPage * productsPerPage;
-  const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
-
-  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+  const indexOfLastProduct = currentPage * itemsPerPage;
+  const indexOfFirstProduct = indexOfLastProduct - itemsPerPage;
 
   const pageNumbers = [];
-  for (
-    let i = 1;
-    i <= Math.ceil(sortedProducts.length / productsPerPage);
-    i++
-  ) {
+  for (let i = 1; i <= Math.ceil(sortedProducts.length / itemsPerPage); i++) {
     pageNumbers.push(i);
   }
 
@@ -540,6 +606,7 @@ const ProductsPage = () => {
                     groupType: group.type as keyof ProductFilters,
                   })),
                 }))}
+                noOptionsMessage={() => "No se encontraron opciones"}
                 value={(() => {
                   const selectedValues: FilterOption[] = [];
                   getFilterOptionsByRubro().forEach((group) => {
@@ -614,229 +681,228 @@ const ProductsPage = () => {
           </div>
         </div>
 
-        <div className="flex flex-col justify-between h-[calc(100vh-200px)] ">
-          <table className="table-auto w-full text-center border-collapse overflow-y-auto shadow-sm shadow-gray_l">
-            <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b">
-              <tr>
-                <th className="px-4 py-2 text-start text-sm 2xl:text-lg ">
-                  Producto
-                </th>
-                <th className="text-sm 2xl:text-lg px-4 py-2">Categoría</th>
-                {rubro === "indumentaria" && (
-                  <th className="text-sm 2xl:text-lg px-4 py-2">Talle</th>
-                )}
-                {rubro === "indumentaria" && (
-                  <th className="text-sm 2xl:text-lg px-4 py-2">Color</th>
-                )}
-                {rubro === "indumentaria" && (
-                  <th className="text-sm 2xl:text-lg px-4 py-2">Marca</th>
-                )}
-                <th
-                  onClick={toggleSortOrder}
-                  className="text-sm 2xl:text-lg cursor-pointer flex justify-center items-center px-4 py-2"
-                >
-                  Stock
-                  <button className="ml-2 cursor-pointer">
-                    {sortOrder === "asc" ? (
-                      <SortAsc size={18} />
-                    ) : (
-                      <SortDesc size={18} />
-                    )}
-                  </button>
-                </th>
-                <th className="text-sm 2xl:text-lg px-4 py-2 ">Precio costo</th>
-                <th className="text-sm 2xl:text-lg px-4 py-2 ">Precio venta</th>
-                {rubro !== "indumentaria" && (
-                  <th className="text-sm 2xl:text-lg px-4 py-2 ">
-                    Vencimiento
+        <div className="flex flex-col justify-between h-[calc(100vh-200px)]  ">
+          <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
+            <table className=" table-auto w-full text-center border-collapse overflow-y-auto shadow-sm shadow-gray_l">
+              <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b">
+                <tr>
+                  <th className="p-2 text-start text-sm 2xl:text-lg ">
+                    Producto
                   </th>
-                )}
-                <th className="text-sm 2xl:text-lg px-4 py-2">Proveedor</th>
-                <th className="w-30 max-w-[4rem] 2xl:max-w-[10rem] text-sm 2xl:text-lg px-4 py-2">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody className={`bg-white text-gray_b divide-y divide-gray_xl `}>
-              {sortedProducts.length > 0 ? (
-                sortedProducts
-                  .slice(indexOfFirstProduct, indexOfLastProduct)
-                  .map((product, index) => {
-                    const expirationDate = product.expiration
-                      ? startOfDay(parseISO(product.expiration))
-                      : null;
-                    const today = startOfDay(new Date());
-
-                    let daysUntilExpiration = null;
-                    if (expirationDate) {
-                      daysUntilExpiration = differenceInDays(
-                        expirationDate,
-                        today
-                      );
-                    }
-
-                    const expiredToday = daysUntilExpiration === 0;
-                    const isExpired =
-                      daysUntilExpiration !== null && daysUntilExpiration < 0;
-                    const isExpiringSoon =
-                      daysUntilExpiration !== null &&
-                      daysUntilExpiration > 0 &&
-                      daysUntilExpiration <= 7;
-
-                    return (
-                      <tr
-                        key={index}
-                        className={`text-xs 2xl:text-[.9rem] border border-gray_xl ${
-                          isExpired
-                            ? "border-l-2 border-l-red_m text-gray_b bg-white animate-pulse"
-                            : expiredToday
-                            ? "border-l-2 border-l-red_m text-white bg-red_m"
-                            : isExpiringSoon
-                            ? "border-l-2 border-l-red_m text-gray_b bg-red_l "
-                            : "text-gray_b bg-white"
-                        }`}
-                      >
-                        <td className="font-semibold px-4 py-2 text-start capitalize border border-gray_xl">
-                          <div className="flex items-center gap-2 h-full">
-                            {expiredToday && (
-                              <AlertTriangle
-                                className="text-yellow-300 dark:text-yellow-500"
-                                size={18}
-                              />
-                            )}
-                            {isExpiringSoon && (
-                              <AlertTriangle
-                                className="text-yellow-800"
-                                size={18}
-                              />
-                            )}
-                            {isExpired && (
-                              <AlertTriangle
-                                className="text-red_m dark:text-yellow-500"
-                                size={18}
-                              />
-                            )}
-                            <span className="leading-tight">
-                              {getDisplayProductName(product, rubro, false)}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-2 border border-gray_xl capitalize">
-                          {product.category || "-"}
-                        </td>
-
-                        {rubro === "indumentaria" && (
-                          <>
-                            <td className="px-4 py-2 border border-gray_xl">
-                              {product.size || "-"}
-                            </td>
-                            <td className="px-4 py-2 border border-gray_xl capitalize">
-                              {product.color || "-"}
-                            </td>
-                            <td className="px-4 py-2 border border-gray_xl capitalize">
-                              {product.brand || "-"}
-                            </td>
-                          </>
-                        )}
-
-                        <td
-                          className={`${
-                            !isNaN(Number(product.stock)) &&
-                            Number(product.stock) > 0
-                              ? ""
-                              : "text-red_b"
-                          }px-4 py-2 border border-gray_xl`}
-                        >
-                          {!isNaN(Number(product.stock)) &&
-                          Number(product.stock) > 0
-                            ? `${product.stock} ${product.unit}`
-                            : "Agotado"}
-                        </td>
-                        <td className=" px-4 py-2 border border-gray_xl">
-                          {formatCurrency(product.costPrice)}
-                        </td>
-                        <td className="px-4 py-2 border border-gray_xl">
-                          {formatCurrency(product.price)}
-                        </td>
-                        {rubro !== "indumentaria" && (
-                          <td className="px-4 py-2 border border-gray_xl font-semibold">
-                            {product.expiration &&
-                            isValid(parseISO(product.expiration))
-                              ? format(
-                                  parseISO(product.expiration),
-                                  "dd/MM/yyyy",
-                                  { locale: es }
-                                )
-                              : "Sin fecha"}
-                            {isExpiringSoon && (
-                              <span className=" ml-2 text-red_m">
-                                (Por vencer)
-                              </span>
-                            )}
-                            {expirationDate && expiredToday && (
-                              <span className="animate-pulse ml-2 text-white">
-                                (Vence Hoy)
-                              </span>
-                            )}
-                            {expirationDate && isExpired && (
-                              <span className="ml-2 text-red_b">(Vencido)</span>
-                            )}
-                          </td>
-                        )}
-                        <td className="px-4 py-2 border border-gray_xl">
-                          {productSuppliers[product.id] || "Sin asignar"}
-                        </td>
-                        <td className="px-4 py-2 flex justify-center gap-2 ">
-                          <Button
-                            icon={<Edit size={20} />}
-                            colorText={` ${isExpired ? "text-gray_b" : ""}`}
-                            colorTextHover="hover:text-white"
-                            colorBg="bg-transparent"
-                            px="px-1"
-                            py="py-1"
-                            minwidth="min-w-0"
-                            onClick={() => handleEditProduct(product)}
-                          />
-                          <Button
-                            icon={<Trash size={20} />}
-                            colorText="text-gray_b"
-                            colorTextHover="hover:text-white"
-                            colorBg="bg-transparent"
-                            colorBgHover="hover:bg-red_m"
-                            px="px-1"
-                            py="py-1"
-                            minwidth="min-w-0"
-                            onClick={() => handleDeleteProduct(product)}
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })
-              ) : (
-                <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
-                  <td
-                    colSpan={rubro === "indumentaria" ? 10 : 8}
-                    className="py-4 text-center"
+                  <th className="text-sm 2xl:text-lg p-2">Categoría</th>
+                  {rubro === "indumentaria" && (
+                    <th className="text-sm 2xl:text-lg p-2">Talle</th>
+                  )}
+                  {rubro === "indumentaria" && (
+                    <th className="text-sm 2xl:text-lg p-2">Color</th>
+                  )}
+                  {rubro === "indumentaria" && (
+                    <th className="text-sm 2xl:text-lg p-2">Marca</th>
+                  )}
+                  <th
+                    onClick={toggleSortOrder}
+                    className="text-sm 2xl:text-lg cursor-pointer flex justify-center items-center p-2"
                   >
-                    <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
-                      <PackageX size={64} className="mb-4 text-gray_m" />
-                      <p className="text-gray_m">Todavía no hay productos.</p>
-                    </div>
-                  </td>
+                    Stock
+                    <button className="ml-2 cursor-pointer">
+                      {sortOrder === "asc" ? (
+                        <SortAsc size={18} />
+                      ) : (
+                        <SortDesc size={18} />
+                      )}
+                    </button>
+                  </th>
+                  <th className="text-sm 2xl:text-lg p-2 ">Precio costo</th>
+                  <th className="text-sm 2xl:text-lg p-2 ">Precio venta</th>
+                  {rubro !== "indumentaria" && (
+                    <th className="text-sm 2xl:text-lg p-2 ">Vencimiento</th>
+                  )}
+                  <th className="text-sm 2xl:text-lg  p-2">Proveedor</th>
+                  <th className="w-30 max-w-[4rem] 2xl:max-w-[10rem] text-sm 2xl:text-lg p-2">
+                    Acciones
+                  </th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody
+                className={`bg-white text-gray_b divide-y divide-gray_xl `}
+              >
+                {sortedProducts.length > 0 ? (
+                  sortedProducts
+                    .slice(indexOfFirstProduct, indexOfLastProduct)
+                    .map((product, index) => {
+                      const expirationDate = product.expiration
+                        ? startOfDay(parseISO(product.expiration))
+                        : null;
+                      const today = startOfDay(new Date());
+
+                      let daysUntilExpiration = null;
+                      if (expirationDate) {
+                        daysUntilExpiration = differenceInDays(
+                          expirationDate,
+                          today
+                        );
+                      }
+
+                      const expiredToday = daysUntilExpiration === 0;
+                      const isExpired =
+                        daysUntilExpiration !== null && daysUntilExpiration < 0;
+                      const isExpiringSoon =
+                        daysUntilExpiration !== null &&
+                        daysUntilExpiration > 0 &&
+                        daysUntilExpiration <= 7;
+
+                      return (
+                        <tr
+                          key={index}
+                          className={`text-xs 2xl:text-[.9rem] border border-gray_xl ${
+                            isExpired
+                              ? "border-l-2 border-l-red_m text-gray_b bg-white animate-pulse"
+                              : expiredToday
+                              ? "border-l-2 border-l-red_m text-white bg-red_m"
+                              : isExpiringSoon
+                              ? "border-l-2 border-l-red_m text-gray_b bg-red_l "
+                              : "text-gray_b bg-white"
+                          }`}
+                        >
+                          <td className="font-semibold p-2 text-start capitalize border border-gray_xl">
+                            <div className="flex items-center gap-2 h-full">
+                              {expiredToday && (
+                                <AlertTriangle
+                                  className="text-yellow-300 dark:text-yellow-500"
+                                  size={18}
+                                />
+                              )}
+                              {isExpiringSoon && (
+                                <AlertTriangle
+                                  className="text-yellow-800"
+                                  size={18}
+                                />
+                              )}
+                              {isExpired && (
+                                <AlertTriangle
+                                  className="text-red_m dark:text-yellow-500"
+                                  size={18}
+                                />
+                              )}
+                              <span className="leading-tight">
+                                {getDisplayProductName(product, rubro, false)}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="p-2 border border-gray_xl capitalize">
+                            {product.category || "-"}
+                          </td>
+
+                          {rubro === "indumentaria" && (
+                            <>
+                              <td className="p-2 border border-gray_xl">
+                                {product.size || "-"}
+                              </td>
+                              <td className="p-2 border border-gray_xl capitalize">
+                                {product.color || "-"}
+                              </td>
+                              <td className="p-2 border border-gray_xl capitalize">
+                                {product.brand || "-"}
+                              </td>
+                            </>
+                          )}
+
+                          <td
+                            className={`${
+                              !isNaN(Number(product.stock)) &&
+                              Number(product.stock) > 0
+                                ? ""
+                                : "text-red_b"
+                            }p-2 border border-gray_xl`}
+                          >
+                            {!isNaN(Number(product.stock)) &&
+                            Number(product.stock) > 0
+                              ? `${product.stock} ${product.unit}`
+                              : "Agotado"}
+                          </td>
+                          <td className=" p-2 border border-gray_xl">
+                            {formatCurrency(product.costPrice)}
+                          </td>
+                          <td className="p-2 border border-gray_xl">
+                            {formatCurrency(product.price)}
+                          </td>
+                          {rubro !== "indumentaria" && (
+                            <td className="p-2 border border-gray_xl font-semibold">
+                              {product.expiration &&
+                              isValid(parseISO(product.expiration))
+                                ? format(
+                                    parseISO(product.expiration),
+                                    "dd/MM/yyyy",
+                                    { locale: es }
+                                  )
+                                : "Sin fecha"}
+                              {isExpiringSoon && (
+                                <span className=" ml-2 text-red_m">
+                                  (Por vencer)
+                                </span>
+                              )}
+                              {expirationDate && expiredToday && (
+                                <span className="animate-pulse ml-2 text-white">
+                                  (Vence Hoy)
+                                </span>
+                              )}
+                              {expirationDate && isExpired && (
+                                <span className="ml-2 text-red_b">
+                                  (Vencido)
+                                </span>
+                              )}
+                            </td>
+                          )}
+                          <td className="p-2 border border-gray_xl">
+                            {productSuppliers[product.id] || "Sin asignar"}
+                          </td>
+                          <td className="p-2 flex justify-center gap-2 ">
+                            <Button
+                              icon={<Edit size={20} />}
+                              colorText={` ${isExpired ? "text-gray_b" : ""}`}
+                              colorTextHover="hover:text-white"
+                              colorBg="bg-transparent"
+                              px="px-1"
+                              py="py-1"
+                              minwidth="min-w-0"
+                              onClick={() => handleEditProduct(product)}
+                            />
+                            <Button
+                              icon={<Trash size={20} />}
+                              colorText="text-gray_b"
+                              colorTextHover="hover:text-white"
+                              colorBg="bg-transparent"
+                              colorBgHover="hover:bg-red_m"
+                              px="px-1"
+                              py="py-1"
+                              minwidth="min-w-0"
+                              onClick={() => handleDeleteProduct(product)}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })
+                ) : (
+                  <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
+                    <td
+                      colSpan={rubro === "indumentaria" ? 10 : 8}
+                      className="py-4 text-center"
+                    >
+                      <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
+                        <PackageX size={64} className="mb-4 text-gray_m" />
+                        <p className="text-gray_m">Todavía no hay productos.</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
           {sortedProducts.length > 0 && (
             <Pagination
-              currentPage={currentPage}
+              text="Productos por página"
+              text2="Total de productos"
               totalItems={sortedProducts.length}
-              itemsPerPage={productsPerPage}
-              onPageChange={paginate}
-              onItemsPerPageChange={(newItemsPerPage) => {
-                setProductsPerPage(newItemsPerPage);
-                setCurrentPage(1);
-              }}
             />
           )}
         </div>
@@ -919,7 +985,7 @@ const ProductsPage = () => {
                     </label>
                     <Select
                       options={commercialCategories}
-                      noOptionsMessage={() => "No se encontraron categorías"}
+                      noOptionsMessage={() => "No se encontraron opciones"}
                       value={
                         commercialCategories.find(
                           (opt) => opt.value === newProduct.category
@@ -941,7 +1007,7 @@ const ProductsPage = () => {
                     </label>
                     <Select
                       options={unitOptions}
-                      noOptionsMessage={() => "No se encontraron unidades"}
+                      noOptionsMessage={() => "No se encontraron opciones"}
                       value={selectedUnit}
                       onChange={(selectedOption) => {
                         setNewProduct({
@@ -964,6 +1030,7 @@ const ProductsPage = () => {
                     </label>
                     <Select
                       options={clothingCategories}
+                      noOptionsMessage={() => "No se encontraron opciones"}
                       value={
                         clothingCategories.find(
                           (opt) => opt.value === newProduct.category
@@ -985,6 +1052,7 @@ const ProductsPage = () => {
                     </label>
                     <Select
                       options={clothingSizes}
+                      noOptionsMessage={() => "No se encontraron opciones"}
                       value={
                         clothingSizes.find(
                           (opt) => opt.value === newProduct.size
@@ -1088,14 +1156,14 @@ const ProductsPage = () => {
                 text="Si"
                 colorText="text-white dark:text-white"
                 colorTextHover="hover:dark:text-white"
-                colorBg="bg-red_m border-b-1 dark:bg-gray_m"
-                colorBgHover="hover:bg-red_b hover:dark:bg-blue_l"
+                colorBg="bg-red_m border-b-1 dark:bg-blue_b"
+                colorBgHover="hover:bg-red_b hover:dark:bg-blue_m"
                 onClick={handleConfirmDelete}
               />
               <Button
                 text="No"
-                colorText="text-gray_b"
-                colorTextHover="text-gray_b"
+                colorText="text-gray_b dark:text-white"
+                colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
                 colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
                 onClick={() => setIsConfirmModalOpen(false)}

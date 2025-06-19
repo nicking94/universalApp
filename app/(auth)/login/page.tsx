@@ -23,7 +23,6 @@ const LoginPage = () => {
         const preferences = await db.userPreferences.get(1);
         if (preferences) {
           setAcceptedTerms(preferences.acceptedTerms);
-          // Solo mostrar el checkbox si nunca se han aceptado los términos
           setShowTermsCheckbox(!preferences.acceptedTerms);
         }
       } catch (error) {
@@ -112,7 +111,6 @@ const LoginPage = () => {
   };
 
   const handleLogin = async (data: AuthData) => {
-    // Solo validar términos si es la primera vez
     if (showTermsCheckbox && !acceptedTerms) {
       setNotificationMessage("Debes aceptar los términos y condiciones");
       setNotificationType("error");
@@ -120,8 +118,6 @@ const LoginPage = () => {
       setTimeout(() => setIsOpenNotification(false), 2500);
       return;
     }
-
-    // Guardar preferencias solo si es la primera vez
     if (showTermsCheckbox) {
       await db.userPreferences.put({
         id: 1,

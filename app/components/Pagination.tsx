@@ -3,44 +3,89 @@
 import React, { useMemo, useCallback } from "react";
 import { PaginationProps } from "../lib/types/types";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { db } from "../database/db";
+import { usePagination } from "../context/PaginationContext";
 
-const Pagination: React.FC<PaginationProps> = ({
+const Pagination: React.FC<
+  Omit<
+    PaginationProps,
+    "onPageChange" | "onItemsPerPageChange" | "currentPage" | "itemsPerPage"
+  > & {
+    text?: string;
+    text2?: string;
+    totalItems: number;
+  }
+> = ({
   text = "Productos por página",
   text2 = "Total de productos",
-  currentPage,
   totalItems,
-  itemsPerPage,
-  onPageChange,
-  onItemsPerPageChange,
 }) => {
+  const { userId } = useAuth();
+  const {
+    currentPage,
+    itemsPerPage,
+    setCurrentPage,
+    setItemsPerPage,
+    isLoading,
+  } = usePagination();
+
   const totalPages = useMemo(
     () => Math.ceil(totalItems / itemsPerPage),
     [totalItems, itemsPerPage]
   );
 
   const handlePrevious = useCallback(() => {
-    onPageChange(Math.max(1, currentPage - 1));
-  }, [currentPage, onPageChange]);
+    setCurrentPage(Math.max(1, currentPage - 1));
+  }, [currentPage, setCurrentPage]);
 
   const handleNext = useCallback(() => {
-    onPageChange(Math.min(totalPages, currentPage + 1));
-  }, [currentPage, totalPages, onPageChange]);
+    setCurrentPage(Math.min(totalPages, currentPage + 1));
+  }, [currentPage, totalPages, setCurrentPage]);
 
   const handleItemsPerPageChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      onItemsPerPageChange(Number(e.target.value));
+    async (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const newItemsPerPage = Number(e.target.value);
+      setItemsPerPage(newItemsPerPage);
+      setCurrentPage(1); // Reset to first page when changing items per page
+
+      if (userId) {
+        try {
+          const existingPrefs = await db.userPreferences
+            .where("userId")
+            .equals(userId)
+            .first();
+
+          if (existingPrefs) {
+            await db.userPreferences.update(existingPrefs.id!, {
+              itemsPerPage: newItemsPerPage,
+            });
+          } else {
+            await db.userPreferences.add({
+              userId,
+              acceptedTerms: false,
+              itemsPerPage: newItemsPerPage,
+            });
+          }
+        } catch (error) {
+          console.error("Error al guardar la preferencia:", error);
+        }
+      }
     },
-    [onItemsPerPageChange]
+    [setItemsPerPage, userId, setCurrentPage]
   );
 
   const handlePageChange = useCallback(
     (page: number) => {
       if (page !== currentPage) {
-        onPageChange(page);
+        setCurrentPage(page);
       }
     },
-    [currentPage, onPageChange]
+    [currentPage, setCurrentPage]
   );
+  if (isLoading) {
+    return <div>Cargando preferencias...</div>;
+  }
 
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between ">

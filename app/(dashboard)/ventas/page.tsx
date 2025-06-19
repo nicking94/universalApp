@@ -34,6 +34,7 @@ import PrintableTicket, {
 } from "@/app/components/PrintableTicket";
 import { useBusinessData } from "@/app/context/BusinessDataContext";
 import { calculateTotalProfit } from "@/app/lib/utils/calculations";
+import { usePagination } from "@/app/context/PaginationContext";
 
 type SelectOption = {
   value: number;
@@ -60,13 +61,10 @@ const VentasPage = () => {
 
   const router = useRouter();
   const ticketRef = useRef<PrintableTicketHandle>(null);
-  const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
-  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState("");
   const [type, setType] = useState<"success" | "error" | "info">("success");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [salesPerPage, setSalesPerPage] = useState(5);
+  const { currentPage, itemsPerPage } = usePagination();
   const [selectedMonth, setSelectedMonth] = useState<string>(
     (new Date().getMonth() + 1).toString().padStart(2, "0")
   );
@@ -512,8 +510,6 @@ const VentasPage = () => {
     setNewSale((prev) => {
       const productsTotal = calculateCombinedTotal(prev.products);
       const newTotal = productsTotal + value;
-
-      // Actualizar el monto del método de pago si solo hay uno
       const updatedMethods = [...prev.paymentMethods];
       if (updatedMethods.length === 1) {
         updatedMethods[0].amount = newTotal;
@@ -636,7 +632,6 @@ const VentasPage = () => {
           ],
         };
       } else {
-        // Para el tercer método en adelante, agregamos con monto 0
         return {
           ...prev,
           paymentMethods: [
@@ -877,15 +872,6 @@ const VentasPage = () => {
     setSelectedSale(null);
   };
 
-  const handleDeleteSale = async () => {
-    if (saleToDelete) {
-      await db.sales.delete(saleToDelete.id);
-      setSales(sales.filter((sale) => sale.id !== saleToDelete.id));
-      showNotification("Venta eliminada correctamente", "success");
-      setIsConfirmModalOpen(false);
-      setSaleToDelete(null);
-    }
-  };
   useEffect(() => {
     if (newSale.paymentMethods.length === 1) {
       setNewSale((prev) => ({
@@ -1136,12 +1122,12 @@ const VentasPage = () => {
     });
   };
 
-  const indexOfLastSale = currentPage * salesPerPage;
-  const indexOfFirstSale = indexOfLastSale - salesPerPage;
+  const indexOfLastSale = currentPage * itemsPerPage;
+  const indexOfFirstSale = indexOfLastSale - itemsPerPage;
   const currentSales = filteredSales.slice(indexOfFirstSale, indexOfLastSale);
 
   const pageNumbers = [];
-  for (let i = 1; i <= Math.ceil(filteredSales.length / salesPerPage); i++) {
+  for (let i = 1; i <= Math.ceil(filteredSales.length / itemsPerPage); i++) {
     pageNumbers.push(i);
   }
   useEffect(() => {
@@ -1158,6 +1144,7 @@ const VentasPage = () => {
         <div className="flex justify-between mb-2">
           <div className="flex w-full max-w-[20rem] gap-2">
             <Select
+              noOptionsMessage={() => "No se encontraron opciones"}
               value={monthOptions.find(
                 (option) => option.value === selectedMonth
               )}
@@ -1172,6 +1159,8 @@ const VentasPage = () => {
               }}
             />
             <Select
+              options={yearOptions}
+              noOptionsMessage={() => "No se encontraron opciones"}
               value={
                 yearOptions.find((option) => option.value === selectedYear) || {
                   value: selectedYear,
@@ -1180,7 +1169,6 @@ const VentasPage = () => {
               }
               onChange={handleYearChange}
               onInputChange={handleYearInputChange}
-              options={yearOptions}
               isClearable
               className="w-full h-[2rem] 2xl:h-auto text-black"
               classNamePrefix="react-select"
@@ -1202,145 +1190,149 @@ const VentasPage = () => {
         </div>
 
         <div className="flex flex-col justify-between h-[calc(100vh-200px)]">
-          <table className="table-auto w-full text-center border-collapse overflow-y-auto shadow-sm shadow-gray_l">
-            <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b">
-              <tr>
-                <th className="text-sm 2xl:text-lg px-4 py-2 text-start ">
-                  Productos
-                </th>
-                {rubro === "indumentaria" && (
-                  <th className="text-sm 2xl:text-lg px-4 py-2">Talle</th>
-                )}
+          <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
+            <table className="table-auto w-full text-center border-collapse overflow-y-auto shadow-sm shadow-gray_l">
+              <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b">
+                <tr>
+                  <th className="text-sm 2xl:text-lg p-2 text-start ">
+                    Productos
+                  </th>
+                  {rubro === "indumentaria" && (
+                    <th className="text-sm 2xl:text-lg p-2">Talle</th>
+                  )}
 
-                {rubro === "indumentaria" && (
-                  <th className="text-sm 2xl:text-lg px-4 py-2">Color</th>
-                )}
+                  {rubro === "indumentaria" && (
+                    <th className="text-sm 2xl:text-lg p-2">Color</th>
+                  )}
 
-                <th className=" text-sm 2xl:text-lg px-4 py-2 ">Fecha</th>
-                <th className="text-sm 2xl:text-lg px-4 py-2 ">
-                  Forma De Pago
-                </th>
-                <th className="text-sm 2xl:text-lg px-4 py-2">Total</th>
-                <th className="w-40 max-w-[5rem] 2xl:max-w-[10rem] text-sm 2xl:text-lg px-4 py-2">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody className={`bg-white text-gray_b divide-y divide-gray_xl `}>
-              {currentSales.length > 0 ? (
-                currentSales.map((sale) => {
-                  const products = sale.products || [];
-                  const paymentMethods = sale.paymentMethods || [];
-                  const saleDate = sale.date ? parseISO(sale.date) : new Date();
-                  const total = sale.total || 0;
-
-                  return (
-                    <tr
-                      key={sale.id || Date.now()}
-                      className=" text-xs 2xl:text-[.9rem] bg-white text-gray_b border border-gray_xl"
-                    >
-                      <td
-                        className="font-semibold px-2 text-start capitalize border border-gray_xl truncate max-w-[200px]"
-                        title={products
-                          .map((p) => getDisplayProductName(p, rubro))
-                          .join(", ")}
-                      >
-                        {products
-                          .map((p) => getDisplayProductName(p, rubro))
-                          .join(", ").length > 60
-                          ? products
-                              .map((p) => getDisplayProductName(p, rubro))
-                              .join(", ")
-                              .slice(0, 30) + "..."
-                          : products
-                              .map((p) => getDisplayProductName(p, rubro))
-                              .join(" | ")}
-                      </td>
-                      {rubro === "indumentaria" && (
-                        <td className="px-4 py-2 border border-gray_xl">
-                          {products.map((p) => p.size || "-").join(", ")}
-                        </td>
-                      )}
-
-                      {rubro === "indumentaria" && (
-                        <td className="px-4 py-2 border border-gray_xl">
-                          {products.map((p) => p.color || "-").join(", ")}
-                        </td>
-                      )}
-                      <td className="px-4 py-2 border border-gray_xl">
-                        {format(saleDate, "dd/MM/yyyy", { locale: es })}
-                      </td>
-
-                      <td className="w-55 px-4 py-2 border border-gray_xl">
-                        {sale.credit ? (
-                          <span className="text-orange-500 font-semibold">
-                            VENTA FIADA
-                          </span>
-                        ) : (
-                          paymentMethods.map((payment, i) => (
-                            <div
-                              key={i}
-                              className="text-xs flex justify-between"
-                            >
-                              <span>
-                                {payment?.method || "Método no especificado"}:{" "}
-                              </span>
-                              <span>
-                                {formatCurrency(payment?.amount || 0)}
-                              </span>
-                            </div>
-                          ))
-                        )}
-                      </td>
-                      <td className=" px-4 py-2 border border-gray_xl font-semibold">
-                        {sale.credit ? (
-                          <span className="text-orange-500">
-                            FIADO - $
-                            {total.toLocaleString("es-AR", {
-                              minimumFractionDigits: 2,
-                            })}
-                          </span>
-                        ) : (
-                          `$${total.toLocaleString("es-AR", {
-                            minimumFractionDigits: 2,
-                          })}`
-                        )}
-                      </td>
-
-                      <td className="px-4 py-2 border border-gray_xl">
-                        <div className="flex justify-center items-center gap-2 h-full">
-                          <Button
-                            title="Imprimir ticket"
-                            icon={<Printer size={20} />}
-                            colorText="text-gray_b"
-                            colorTextHover="hover:text-white"
-                            colorBg="bg-transparent"
-                            colorBgHover="hover:bg-blue-500"
-                            px="px-1"
-                            py="py-1"
-                            minwidth="min-w-0"
-                            onClick={() => handleOpenInfoModal(sale)}
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
-                  <td
-                    colSpan={rubro === "indumentaria" ? 7 : 6}
-                    className="py-4 text-center"
-                  >
-                    <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
-                      <ShoppingCart size={64} className="mb-4 text-gray_m" />
-                      <p className="text-gray_m">Todavía no hay ventas.</p>
-                    </div>
-                  </td>
+                  <th className=" text-sm 2xl:text-lg p-2 ">Fecha</th>
+                  <th className="text-sm 2xl:text-lg p-2 ">Forma De Pago</th>
+                  <th className="text-sm 2xl:text-lg p-2">Total</th>
+                  <th className="w-40 max-w-[5rem] 2xl:max-w-[10rem] text-sm 2xl:text-lg p-2">
+                    Acciones
+                  </th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody
+                className={`bg-white text-gray_b divide-y divide-gray_xl `}
+              >
+                {currentSales.length > 0 ? (
+                  currentSales.map((sale) => {
+                    const products = sale.products || [];
+                    const paymentMethods = sale.paymentMethods || [];
+                    const saleDate = sale.date
+                      ? parseISO(sale.date)
+                      : new Date();
+                    const total = sale.total || 0;
+
+                    return (
+                      <tr
+                        key={sale.id || Date.now()}
+                        className=" text-xs 2xl:text-[.9rem] bg-white text-gray_b border border-gray_xl"
+                      >
+                        <td
+                          className="font-semibold px-2 text-start capitalize border border-gray_xl truncate max-w-[200px]"
+                          title={products
+                            .map((p) => getDisplayProductName(p, rubro))
+                            .join(", ")}
+                        >
+                          {products
+                            .map((p) => getDisplayProductName(p, rubro))
+                            .join(", ").length > 60
+                            ? products
+                                .map((p) => getDisplayProductName(p, rubro))
+                                .join(", ")
+                                .slice(0, 30) + "..."
+                            : products
+                                .map((p) => getDisplayProductName(p, rubro))
+                                .join(" | ")}
+                        </td>
+                        {rubro === "indumentaria" && (
+                          <td className="p-2 border border-gray_xl">
+                            {products.map((p) => p.size || "-").join(", ")}
+                          </td>
+                        )}
+
+                        {rubro === "indumentaria" && (
+                          <td className="p-2 border border-gray_xl">
+                            {products.map((p) => p.color || "-").join(", ")}
+                          </td>
+                        )}
+                        <td className="p-2 border border-gray_xl">
+                          {format(saleDate, "dd/MM/yyyy", { locale: es })}
+                        </td>
+
+                        <td className="w-55 p-2 border border-gray_xl">
+                          {sale.credit ? (
+                            <span className="text-orange-500 font-semibold">
+                              VENTA FIADA
+                            </span>
+                          ) : (
+                            paymentMethods.map((payment, i) => (
+                              <div
+                                key={i}
+                                className="text-xs flex justify-between"
+                              >
+                                <span>
+                                  {payment?.method || "Método no especificado"}:{" "}
+                                </span>
+                                <span>
+                                  {formatCurrency(payment?.amount || 0)}
+                                </span>
+                              </div>
+                            ))
+                          )}
+                        </td>
+                        <td className=" p-2 border border-gray_xl font-semibold">
+                          {sale.credit ? (
+                            <span className="text-orange-500">
+                              FIADO - $
+                              {total.toLocaleString("es-AR", {
+                                minimumFractionDigits: 2,
+                              })}
+                            </span>
+                          ) : (
+                            `$${total.toLocaleString("es-AR", {
+                              minimumFractionDigits: 2,
+                            })}`
+                          )}
+                        </td>
+
+                        <td className="p-2 border border-gray_xl">
+                          <div className="flex justify-center items-center gap-2 h-full">
+                            <Button
+                              title="Imprimir ticket"
+                              icon={<Printer size={20} />}
+                              colorText="text-gray_b"
+                              colorTextHover="hover:text-white"
+                              colorBg="bg-transparent"
+                              colorBgHover="hover:bg-blue-500"
+                              px="px-1"
+                              py="py-1"
+                              minwidth="min-w-0"
+                              onClick={() => handleOpenInfoModal(sale)}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
+                    <td
+                      colSpan={rubro === "indumentaria" ? 7 : 6}
+                      className="py-4 text-center"
+                    >
+                      <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
+                        <ShoppingCart size={64} className="mb-4 text-gray_m" />
+                        <p className="text-gray_m">Todavía no hay ventas.</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
           {selectedSale && (
             <Modal
               isOpen={isInfoModalOpen}
@@ -1370,7 +1362,7 @@ const VentasPage = () => {
                 </div>
               }
             >
-              <div className="shadow overflow-y-auto bg-white">
+              <div className=" overflow-y-auto bg-white dark:bg-gray_b">
                 <PrintableTicket
                   ref={ticketRef}
                   sale={selectedSale}
@@ -1384,14 +1376,7 @@ const VentasPage = () => {
             <Pagination
               text="Ventas por página"
               text2="Total de ventas"
-              currentPage={currentPage}
               totalItems={filteredSales.length}
-              itemsPerPage={salesPerPage}
-              onPageChange={setCurrentPage}
-              onItemsPerPageChange={(newItemsPerPage) => {
-                setSalesPerPage(newItemsPerPage);
-                setCurrentPage(1);
-              }}
             />
           )}
         </div>
@@ -1422,7 +1407,7 @@ const VentasPage = () => {
           }
         >
           <div className="overflow-y-auto">
-            <div className="flex flex-col min-h-[50vh] max-h-[50vh] 2xl:max-h-[27rem] justify-between overflow-y-auto">
+            <div className="flex flex-col min-h-[50vh] 2xl:min-h-[60vh] max-h-[50vh] 2xl:max-h-[60vh]  overflow-y-auto">
               <form
                 onSubmit={handleConfirmAddSale}
                 className="flex flex-col gap-2"
@@ -1458,7 +1443,7 @@ const VentasPage = () => {
                     </label>
                     <Select
                       placeholder="Seleccionar productos..."
-                      noOptionsMessage={() => "No se encontraron productos"}
+                      noOptionsMessage={() => "No se encontraron opciones"}
                       isMulti
                       options={productOptions}
                       value={newSale.products.map((p) => ({
@@ -1490,17 +1475,17 @@ const VentasPage = () => {
                   </div>
                 </div>
                 {newSale.products.length > 0 && (
-                  <div className="h-[9.5rem] max-h-[9.5rem]  overflow-y-auto ">
+                  <div className=" max-h-[16rem] overflow-y-auto ">
                     <table className="table-auto w-full shadow">
                       <thead className=" bg-gradient-to-bl from-blue_m to-blue_b text-white text-sm 2xl:text-lg">
                         <tr className="text-sm">
-                          <th className="px-4 py-2">Producto</th>
-                          <th className="px-4 py-2 text-center">Unidad</th>
-                          <th className="px-4 py-2 text-center">Cantidad</th>
+                          <th className="p-2">Producto</th>
+                          <th className="p-2 text-center">Unidad</th>
+                          <th className="p-2 text-center">Cantidad</th>
                           <th className="w-22">% descuento</th>
-                          <th className="px-4 py-2 text-center">Total</th>
+                          <th className="p-2 text-center">Total</th>
 
-                          <th className="w-30 max-w-[8rem] px-4 py-2 text-center">
+                          <th className="w-30 max-w-[8rem] p-2 text-center">
                             Acciones
                           </th>
                         </tr>
@@ -1512,10 +1497,10 @@ const VentasPage = () => {
                               className="text-sm border-b border-gray-xl"
                               key={product.id}
                             >
-                              <td className=" px-4 py-2">
+                              <td className=" p-2">
                                 {getDisplayProductName(product, rubro)}
                               </td>
-                              <td className="w-40 max-w-40 px-4 py-2">
+                              <td className="w-40 max-w-40 p-2">
                                 {[
                                   "Kg",
                                   "gr",
@@ -1529,7 +1514,10 @@ const VentasPage = () => {
                                 ].includes(product.unit) ? (
                                   <Select
                                     placeholder="Unidad"
-                                    options={getCompatibleUnits(product.unit)} // Filtramos las unidades compatibles
+                                    options={getCompatibleUnits(product.unit)}
+                                    noOptionsMessage={() =>
+                                      "No se encontraron opciones"
+                                    }
                                     value={unitOptions.find(
                                       (option) => option.value === product.unit
                                     )}
@@ -1555,7 +1543,7 @@ const VentasPage = () => {
                                   </div>
                                 )}
                               </td>
-                              <td className="w-20 max-w-20 px-4 py-2  ">
+                              <td className="w-20 max-w-20 p-2  ">
                                 <Input
                                   textPosition="text-center"
                                   type="number"
@@ -1589,7 +1577,7 @@ const VentasPage = () => {
                                   }}
                                 />
                               </td>{" "}
-                              <td className="w-20 max-w-20 px-4 py-2">
+                              <td className="w-20 max-w-20 p-2">
                                 <Input
                                   textPosition="text-center"
                                   type="number"
@@ -1619,7 +1607,7 @@ const VentasPage = () => {
                                   step="1"
                                 />
                               </td>
-                              <td className="w-30 max-w-30 px-4 py-2 text-center ">
+                              <td className="w-30 max-w-30 p-2 text-center ">
                                 {formatCurrency(
                                   calculatePrice(
                                     {
@@ -1633,7 +1621,7 @@ const VentasPage = () => {
                                   )
                                 )}
                               </td>
-                              <td className=" px-4 py-2 text-center">
+                              <td className=" p-2 text-center">
                                 <button
                                   onClick={() =>
                                     handleRemoveProduct(product.id)
@@ -1662,7 +1650,7 @@ const VentasPage = () => {
                         </p>
                       </div>
                     ) : (
-                      <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-2">
                         <InputCash
                           label="Monto manual (opcional)"
                           value={newSale.manualAmount || 0}
@@ -1726,6 +1714,10 @@ const VentasPage = () => {
                             className="flex items-center gap-2 mb-2"
                           >
                             <Select
+                              options={paymentOptions}
+                              noOptionsMessage={() =>
+                                "No se encontraron opciones"
+                              }
                               value={paymentOptions.find(
                                 (option) => option.value === payment.method
                               )}
@@ -1737,8 +1729,6 @@ const VentasPage = () => {
                                   selected.value
                                 )
                               }
-                              options={paymentOptions}
-                              noOptionsMessage={() => "No hay opciones"}
                               className="w-60 max-w-60 text-gray_b"
                               menuPosition="fixed"
                               styles={{
@@ -1750,7 +1740,7 @@ const VentasPage = () => {
                               isDisabled={isCredit}
                             />
 
-                            <div className="relative">
+                            <div className="relative w-full">
                               <InputCash
                                 value={payment.amount}
                                 onChange={(value) =>
@@ -1824,6 +1814,7 @@ const VentasPage = () => {
                     </label>
                     <Select
                       options={customerOptions}
+                      noOptionsMessage={() => "No se encontraron opciones"}
                       value={selectedCustomer}
                       onChange={(selected) => {
                         setSelectedCustomer(selected);
@@ -1839,7 +1830,6 @@ const VentasPage = () => {
                       isClearable
                       className="text-black"
                       classNamePrefix="react-select"
-                      noOptionsMessage={() => "No hay opciones"}
                       menuPosition="fixed"
                       styles={{
                         menuPortal: (base) => ({ ...base, zIndex: 9999 }),
@@ -1881,34 +1871,6 @@ const VentasPage = () => {
               </p>
             </div>
           </div>
-        </Modal>
-
-        <Modal
-          isOpen={isConfirmModalOpen}
-          title="Eliminar Venta"
-          onClose={() => setIsConfirmModalOpen(false)}
-          buttons={
-            <div className="flex justify-end space-x-4">
-              <Button
-                text="Si"
-                colorText="text-white"
-                colorTextHover="text-white"
-                onClick={handleDeleteSale}
-                hotkey="enter"
-              />
-              <Button
-                text="No"
-                colorText="text-gray_b dark:text-white"
-                colorTextHover="hover:dark:text-white"
-                colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
-                onClick={() => setIsConfirmModalOpen(false)}
-                hotkey="esc"
-              />
-            </div>
-          }
-        >
-          <p>¿Está seguro de que desea eliminar esta venta?</p>
         </Modal>
 
         <Notification

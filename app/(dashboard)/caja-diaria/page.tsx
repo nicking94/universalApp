@@ -24,6 +24,7 @@ import InputCash from "@/app/components/InputCash";
 import { useRubro } from "@/app/context/RubroContext";
 import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
 import { getLocalDateString } from "@/app/lib/utils/getLocalDate";
+import { usePagination } from "@/app/context/PaginationContext";
 
 const CajaDiariaPage = () => {
   const { rubro } = useRubro();
@@ -72,8 +73,7 @@ const CajaDiariaPage = () => {
   const [paymentMethods, setPaymentMethods] = useState<PaymentSplit[]>([
     { method: "EFECTIVO", amount: 0 },
   ]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(5);
+  const { currentPage, itemsPerPage } = usePagination();
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
@@ -465,6 +465,7 @@ const CajaDiariaPage = () => {
         profit: 0,
         manualAmount: 0,
         manualProfitPercentage: 0,
+        rubro: movementType === "EGRESO" ? rubro : undefined,
       };
 
       const updatedCash = {
@@ -714,6 +715,7 @@ const CajaDiariaPage = () => {
                 { value: "INGRESO", label: "Ingreso" },
                 { value: "EGRESO", label: "Egreso" },
               ]}
+              noOptionsMessage={() => "No se encontraron opciones"}
               value={
                 filterType === "TODOS"
                   ? { value: "TODOS", label: "Todos" }
@@ -735,6 +737,7 @@ const CajaDiariaPage = () => {
             </label>
             <Select
               options={[{ value: "TODOS", label: "Todos" }, ...paymentOptions]}
+              noOptionsMessage={() => "No se encontraron opciones"}
               value={
                 filterPaymentMethod === "TODOS"
                   ? { value: "TODOS", label: "Todos" }
@@ -753,20 +756,20 @@ const CajaDiariaPage = () => {
           <table className="min-w-full divide-y divide-gray_l">
             <thead className="bg-gradient-to-bl from-blue_m to-blue_b text-white">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium tracking-wider">
+                <th className="p-2 text-left text-xs font-medium tracking-wider">
                   Tipo
                 </th>
 
-                <th className="px-4 py-2 text-left text-xs font-medium tracking-wider">
+                <th className="p-2 text-left text-xs font-medium tracking-wider">
                   Producto
                 </th>
-                <th className="px-4 py-2 text-left text-xs font-medium  tracking-wider">
+                <th className="p-2 text-left text-xs font-medium  tracking-wider">
                   Descripción
                 </th>
-                <th className="px-4 py-2 text-left text-xs font-medium  tracking-wider">
+                <th className="p-2 text-left text-xs font-medium  tracking-wider">
                   Métodos de Pago
                 </th>
-                <th className="px-4 py-2 text-center text-xs font-medium tracking-wider">
+                <th className="p-2 text-center text-xs font-medium tracking-wider">
                   Total
                 </th>
               </tr>
@@ -790,7 +793,7 @@ const CajaDiariaPage = () => {
                       </span>
                     </td>
 
-                    <td className="px-4 py-2 text-sm text-gray_m min-w-[23rem]">
+                    <td className="p-2 text-sm text-gray_m min-w-[23rem]">
                       {Array.isArray(movement.items) &&
                       movement.items.length > 0 ? (
                         <div className="flex flex-col">
@@ -836,10 +839,10 @@ const CajaDiariaPage = () => {
                         "-"
                       )}
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray_m">
+                    <td className="p-2 text-sm text-gray_m">
                       {movement.description}
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray_m">
+                    <td className="p-2 text-sm text-gray_m">
                       {movement.combinedPaymentMethods ? (
                         <div className="flex flex-col">
                           {movement.combinedPaymentMethods.map((method, i) => (
@@ -855,7 +858,7 @@ const CajaDiariaPage = () => {
                       )}
                     </td>
 
-                    <td className="px-4 py-2 text-sm text-center font-medium text-green_b">
+                    <td className="p-2 text-sm text-center font-medium text-green_b">
                       {formatCurrency(movement.amount)}
                     </td>
                   </tr>
@@ -1027,6 +1030,7 @@ const CajaDiariaPage = () => {
               <div className="flex gap-2">
                 <Select
                   options={monthOptions}
+                  noOptionsMessage={() => "No se encontraron opciones"}
                   value={monthOptions.find((m) => m.value === selectedMonth)}
                   onChange={(option) =>
                     option && setSelectedMonth(option.value)
@@ -1035,6 +1039,7 @@ const CajaDiariaPage = () => {
                 />
                 <Select
                   options={yearOptions}
+                  noOptionsMessage={() => "No se encontraron opciones"}
                   value={yearOptions.find((y) => y.value === selectedYear)}
                   onChange={(option) => option && setSelectedYear(option.value)}
                   className="w-28 text-black"
@@ -1053,103 +1058,99 @@ const CajaDiariaPage = () => {
             </div>
             <div
               className={` flex flex-col justify-between ${
-                currentItems.length > 0 ? "h-[calc(53vh-80px)]" : ""
+                currentItems.length > 0 ? "h-[calc(51vh-80px)]" : ""
               } `}
             >
-              <table className=" table-auto w-full text-center border-collapse overflow-y-auto shadow-sm shadow-gray_l">
-                <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b">
-                  <tr>
-                    <th className="text-sm 2xl:text-lg px-4 py-2 text-start">
-                      Fecha
-                    </th>
-                    <th className="text-sm 2xl:text-lg px-4 py-2">Ingresos</th>
-                    <th className="text-sm 2xl:text-lg px-4 py-2">Egresos</th>
-                    <th className="text-sm 2xl:text-lg px-4 py-2">Ganancia</th>
-                    <th className="text-sm 2xl:text-lg px-4 py-2">
-                      Estado de caja
-                    </th>{" "}
-                    <th className="w-40 max-w-[10rem] text-sm 2xl:text-lg px-4 py-2">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody
-                  className={`bg-white text-gray_b divide-y divide-gray_xl `}
-                >
-                  {currentItems.length > 0 ? (
-                    currentItems.map((day, index) => (
-                      <tr
-                        key={index}
-                        className="text-xs 2xl:text-[.9rem] bg-white text-gray_b border border-gray_xl"
-                      >
-                        <td className="font-semibold px-4 py-2  border-x border-gray_xltext-start">
-                          {format(parseISO(day.date), "dd/MM/yyyy")}
-                        </td>
-                        <td className="font-semibold text-green_b px-4 py-2  border-x border-gray_xl">
-                          {formatCurrency(day.ingresos)}
-                        </td>
-                        <td className="font-semibold text-red_b px-4 py-2  border-x border-gray_xl">
-                          {formatCurrency(day.egresos)}
-                        </td>
-                        <td className="font-semibold text-purple-600 px-4 py-2">
-                          {formatCurrency(day.gananciaNeta || 0)}
-                        </td>
-                        <td className="px-4 py-2 border-x border-gray_xl ">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs ${
-                              day.closed
-                                ? "bg-red_m text-white"
-                                : "bg-green_m text-white"
-                            }`}
-                          >
-                            {day.closed ? "Cerrada" : "Abierta"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2 flex justify-center items-center gap-2 border-x border-gray_xl">
-                          <Button
-                            icon={<Info size={20} />}
-                            colorText="text-gray_b"
-                            colorTextHover="hover:text-white"
-                            colorBg="bg-transparent"
-                            px="px-1"
-                            py="py-1"
-                            minwidth="min-w-0"
-                            onClick={() => {
-                              openDetailModal(day.movements);
-                            }}
-                          />
+              <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
+                <table className=" table-auto w-full text-center border-collapse overflow-y-auto shadow-sm shadow-gray_l">
+                  <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b">
+                    <tr>
+                      <th className="text-sm 2xl:text-lg p-2 text-start">
+                        Fecha
+                      </th>
+                      <th className="text-sm 2xl:text-lg p-2">Ingresos</th>
+                      <th className="text-sm 2xl:text-lg p-2">Egresos</th>
+                      <th className="text-sm 2xl:text-lg p-2">Ganancia</th>
+                      <th className="text-sm 2xl:text-lg p-2">
+                        Estado de caja
+                      </th>{" "}
+                      <th className="w-40 max-w-[10rem] text-sm 2xl:text-lg p-2">
+                        Acciones
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody
+                    className={`bg-white text-gray_b divide-y divide-gray_xl `}
+                  >
+                    {currentItems.length > 0 ? (
+                      currentItems.map((day, index) => (
+                        <tr
+                          key={index}
+                          className="text-xs 2xl:text-[.9rem] bg-white text-gray_b border border-gray_xl"
+                        >
+                          <td className="font-semibold p-2  border-x border-gray_xltext-start">
+                            {format(parseISO(day.date), "dd/MM/yyyy")}
+                          </td>
+                          <td className="font-semibold text-green_b p-2  border-x border-gray_xl">
+                            {formatCurrency(day.ingresos)}
+                          </td>
+                          <td className="font-semibold text-red_b p-2  border-x border-gray_xl">
+                            {formatCurrency(day.egresos)}
+                          </td>
+                          <td className="font-semibold text-purple-600 p-2">
+                            {formatCurrency(day.gananciaNeta || 0)}
+                          </td>
+                          <td className="p-2 border-x border-gray_xl ">
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs ${
+                                day.closed
+                                  ? "bg-red_m text-white"
+                                  : "bg-green_m text-white"
+                              }`}
+                            >
+                              {day.closed ? "Cerrada" : "Abierta"}
+                            </span>
+                          </td>
+                          <td className="p-2 flex justify-center items-center gap-2 border-x border-gray_xl">
+                            <Button
+                              icon={<Info size={20} />}
+                              colorText="text-gray_b"
+                              colorTextHover="hover:text-white"
+                              colorBg="bg-transparent"
+                              px="px-1"
+                              py="py-1"
+                              minwidth="min-w-0"
+                              onClick={() => {
+                                openDetailModal(day.movements);
+                              }}
+                            />
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr className="h-[55vh] 2xl:h-[calc(54vh-80px)]">
+                        <td colSpan={6} className="py-4 text-center">
+                          <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
+                            <Info size={64} className="mb-4 text-gray_m" />
+                            <p className="text-gray_m">
+                              No hay registros para el período seleccionado.
+                            </p>
+                          </div>
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr className="h-[55vh] 2xl:h-[calc(54vh-80px)]">
-                      <td colSpan={6} className="py-4 text-center">
-                        <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
-                          <Info size={64} className="mb-4 text-gray_m" />
-                          <p className="text-gray_m">
-                            No hay registros para el período seleccionado.
-                          </p>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-
-          <Pagination
-            text="Días por página"
-            text2="Total de días"
-            currentPage={currentPage}
-            totalItems={dailySummaries.length}
-            itemsPerPage={itemsPerPage}
-            onPageChange={setCurrentPage}
-            onItemsPerPageChange={(newItemsPerPage) => {
-              setItemsPerPage(newItemsPerPage);
-              setCurrentPage(1);
-            }}
-          />
+          {dailySummaries.length > 0 && (
+            <Pagination
+              text="Días por página"
+              text2="Total de días"
+              totalItems={dailySummaries.length}
+            />
+          )}
         </div>
         <Modal
           isOpen={isOpenModal}
@@ -1168,6 +1169,7 @@ const CajaDiariaPage = () => {
                 </label>
                 <Select
                   options={movementTypes}
+                  noOptionsMessage={() => "No se encontraron opciones"}
                   value={movementTypes.find((m) => m.value === movementType)}
                   onChange={(option) =>
                     option && setMovementType(option.value as MovementType)
@@ -1185,6 +1187,7 @@ const CajaDiariaPage = () => {
                       value: s.id,
                       label: s.companyName,
                     }))}
+                    noOptionsMessage={() => "No se encontraron opciones"}
                     value={selectedSupplier}
                     onChange={(option) => setSelectedSupplier(option)}
                     isClearable
@@ -1207,6 +1210,7 @@ const CajaDiariaPage = () => {
                   }`}
                 >
                   <Select
+                    noOptionsMessage={() => "No se encontraron opciones"}
                     value={paymentOptions.find(
                       (option) => option.value === method.method
                     )}

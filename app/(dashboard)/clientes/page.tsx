@@ -11,6 +11,7 @@ import Pagination from "@/app/components/Pagination";
 import { Edit, Plus, Trash, Users } from "lucide-react";
 import SearchBar from "@/app/components/SearchBar";
 import { useRubro } from "@/app/context/RubroContext";
+import { usePagination } from "@/app/context/PaginationContext";
 
 const ClientesPage = () => {
   const { rubro } = useRubro();
@@ -34,8 +35,7 @@ const ClientesPage = () => {
   const [notificationType, setNotificationType] = useState<
     "success" | "error" | "info"
   >("success");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [customersPerPage, setCustomersPerPage] = useState(5);
+  const { currentPage, itemsPerPage, setCurrentPage } = usePagination();
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
@@ -60,8 +60,8 @@ const ClientesPage = () => {
     fetchCustomers();
   }, [rubro, searchQuery]);
 
-  const indexOfLastCustomer = currentPage * customersPerPage;
-  const indexOfFirstCustomer = indexOfLastCustomer - customersPerPage;
+  const indexOfLastCustomer = currentPage * itemsPerPage;
+  const indexOfFirstCustomer = indexOfLastCustomer - itemsPerPage;
   const currentCustomers = filteredCustomers.slice(
     indexOfFirstCustomer,
     indexOfLastCustomer
@@ -256,87 +256,86 @@ const ClientesPage = () => {
         </div>
 
         <div className="flex flex-col justify-between h-[calc(100vh-200px)]">
-          <table className="table-auto w-full text-center border-collapse shadow-sm shadow-gray_l">
-            <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-sm 2xl:text-lg">
-              <tr>
-                <th className="px-4 py-2 text-start">Nombre</th>
-                <th className="px-4 py-2">Teléfono</th>
-                <th className="px-4 py-2">Fecha de Registro</th>
-                <th className="px-4 py-2 w-40 max-w-[10rem]">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className={`bg-white text-gray_b divide-y divide-gray_xl `}>
-              {currentCustomers.length > 0 ? (
-                currentCustomers.map((customer) => (
-                  <tr key={customer.id}>
-                    <td className="font-semibold px-4 py-2 border border-gray_xl text-start">
-                      {customer.name}
-                    </td>
-                    <td className="px-4 py-2 border border-gray_xl">
-                      {customer.phone || "Sin teléfono"}
-                    </td>
-                    <td className="px-4 py-2 border border-gray_xl">
-                      {new Date(customer.createdAt).toLocaleDateString("es-AR")}
-                    </td>
-                    <td className="px-4 py-2 border border-gray_xl">
-                      <div className="flex justify-center items-center gap-2 h-full">
-                        <Button
-                          icon={<Edit size={20} />}
-                          colorText="text-gray_b"
-                          colorTextHover="hover:text-white"
-                          colorBg="bg-transparent"
-                          colorBgHover="hover:bg-blue-500"
-                          px="px-1"
-                          py="py-1"
-                          minwidth="min-w-0"
-                          onClick={() => handleEditClick(customer)}
-                          disabled={customer.name === "CLIENTE OCASIONAL"}
-                        />
-                        <Button
-                          icon={<Trash size={20} />}
-                          colorText="text-gray_b"
-                          colorTextHover="hover:text-white"
-                          colorBg="bg-transparent"
-                          colorBgHover="hover:bg-red_m"
-                          px="px-1"
-                          py="py-1"
-                          minwidth="min-w-0"
-                          onClick={() => handleDeleteClick(customer)}
-                          disabled={customer.name === "CLIENTE OCASIONAL"}
-                        />
+          <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
+            <table className="table-auto w-full text-center border-collapse shadow-sm shadow-gray_l">
+              <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-sm 2xl:text-lg">
+                <tr>
+                  <th className="p-2 text-start">Nombre</th>
+                  <th className="p-2">Teléfono</th>
+                  <th className="p-2">Fecha de Registro</th>
+                  <th className="p-2 w-40 max-w-[10rem]">Acciones</th>
+                </tr>
+              </thead>
+              <tbody
+                className={`bg-white text-gray_b divide-y divide-gray_xl `}
+              >
+                {currentCustomers.length > 0 ? (
+                  currentCustomers.map((customer) => (
+                    <tr key={customer.id}>
+                      <td className="font-semibold p-2 border border-gray_xl text-start">
+                        {customer.name}
+                      </td>
+                      <td className="p-2 border border-gray_xl">
+                        {customer.phone || "Sin teléfono"}
+                      </td>
+                      <td className="p-2 border border-gray_xl">
+                        {new Date(customer.createdAt).toLocaleDateString(
+                          "es-AR"
+                        )}
+                      </td>
+                      <td className="p-2 border border-gray_xl">
+                        <div className="flex justify-center items-center gap-2 h-full">
+                          <Button
+                            icon={<Edit size={20} />}
+                            colorText="text-gray_b"
+                            colorTextHover="hover:text-white"
+                            colorBg="bg-transparent"
+                            colorBgHover="hover:bg-blue-500"
+                            px="px-1"
+                            py="py-1"
+                            minwidth="min-w-0"
+                            onClick={() => handleEditClick(customer)}
+                            disabled={customer.name === "CLIENTE OCASIONAL"}
+                          />
+                          <Button
+                            icon={<Trash size={20} />}
+                            colorText="text-gray_b"
+                            colorTextHover="hover:text-white"
+                            colorBg="bg-transparent"
+                            colorBgHover="hover:bg-red_m"
+                            px="px-1"
+                            py="py-1"
+                            minwidth="min-w-0"
+                            onClick={() => handleDeleteClick(customer)}
+                            disabled={customer.name === "CLIENTE OCASIONAL"}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
+                    <td colSpan={4} className="py-4 text-center">
+                      <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
+                        <Users size={64} className="mb-4 text-gray_m" />
+                        <p className="text-gray_m">
+                          {searchQuery
+                            ? "No se encontraron clientes"
+                            : "No hay clientes registrados"}
+                        </p>
                       </div>
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
-                  <td colSpan={4} className="py-4 text-center">
-                    <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
-                      <Users size={64} className="mb-4 text-gray_m" />
-                      <p className="text-gray_m">
-                        {searchQuery
-                          ? "No se encontraron clientes"
-                          : "No hay clientes registrados"}
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
 
           {filteredCustomers.length > 0 && (
             <Pagination
               text="Clientes por página"
               text2="Total de clientes"
-              currentPage={currentPage}
               totalItems={filteredCustomers.length}
-              itemsPerPage={customersPerPage}
-              onPageChange={setCurrentPage}
-              onItemsPerPageChange={(newItemsPerPage) => {
-                setCustomersPerPage(newItemsPerPage);
-                setCurrentPage(1);
-              }}
             />
           )}
         </div>

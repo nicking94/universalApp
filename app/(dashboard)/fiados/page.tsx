@@ -23,11 +23,11 @@ import InputCash from "@/app/components/InputCash";
 import { useRubro } from "@/app/context/RubroContext";
 import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
 import { getLocalDateString } from "@/app/lib/utils/getLocalDate";
+import { usePagination } from "@/app/context/PaginationContext";
 
 const FiadosPage = () => {
   const { rubro } = useRubro();
-  const [currentPage, setCurrentPage] = useState(1);
-  const [creditsPerPage, setCreditsPerPage] = useState(5);
+  const { currentPage, itemsPerPage } = usePagination();
   const [creditSales, setCreditSales] = useState<CreditSale[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentSplit[]>([
@@ -98,8 +98,8 @@ const FiadosPage = () => {
 
   const uniqueCustomers = Object.keys(salesByCustomer);
   const totalCustomers = uniqueCustomers.length;
-  const indexOfLastCredit = currentPage * creditsPerPage;
-  const indexOfFirstCredit = indexOfLastCredit - creditsPerPage;
+  const indexOfLastCredit = currentPage * itemsPerPage;
+  const indexOfFirstCredit = indexOfLastCredit - itemsPerPage;
   const currentCustomers = sortedCustomerNames.slice(
     indexOfFirstCredit,
     indexOfLastCredit
@@ -519,105 +519,104 @@ const FiadosPage = () => {
         </div>
 
         <div className="flex flex-col justify-between h-[calc(100vh-200px)] ">
-          <table className="table-auto w-full text-center border-collapse shadow-sm shadow-gray_l">
-            <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-sm 2xl:text-lg">
-              <tr>
-                <th className="px-4 py-2 text-start">Cliente</th>
-                <th className="px-4 py-2">Fecha</th>
-                <th className="px-4 py-2">Deuda</th>
-                <th className="w-40 max-w-[10rem] px-4 py-2">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className={`bg-white text-gray_b divide-y divide-gray_xl `}>
-              {totalCustomers > 0 ? (
-                currentCustomers.map((customerName) => {
-                  const sales = salesByCustomer[customerName];
-                  const customerBalance =
-                    calculateCustomerBalance(customerName);
-                  const sortedSales = [...sales].sort(
-                    (a, b) =>
-                      new Date(a.date).getTime() - new Date(b.date).getTime()
-                  );
-                  const oldestSale = sortedSales[0];
-
-                  return (
-                    <tr key={customerName}>
-                      <td className="font-semibold px-4 py-2 border border-gray_xl text-start">
-                        {customerName}
-                      </td>
-                      <td className="px-4 py-2 border border-gray_xl">
-                        {format(new Date(oldestSale.date), "dd/MM/yyyy", {
-                          locale: es,
-                        })}
-                      </td>
-                      <td
-                        className={`font-semibold px-4 py-2 border border-gray_xl ${
-                          customerBalance <= 0 ? "text-green_b" : "text-red_b"
-                        }`}
-                      >
-                        {customerBalance.toLocaleString("es-AR", {
-                          style: "currency",
-                          currency: "ARS",
-                        })}
-                      </td>
-                      <td className="px-4 py-2 border border-gray_xl">
-                        <div className="flex justify-center items-center h-full gap-2">
-                          <Button
-                            icon={<Info size={20} />}
-                            iconPosition="left"
-                            colorText="text-gray_b"
-                            colorTextHover="hover:text-white"
-                            colorBg="bg-transparent"
-                            px="px-2"
-                            py="py-1"
-                            minwidth="min-w-0"
-                            onClick={() => handleOpenInfoModal(oldestSale)}
-                          />
-
-                          <Button
-                            icon={<Trash size={20} />}
-                            iconPosition="left"
-                            colorText="text-gray_b"
-                            colorTextHover="hover:text-white"
-                            colorBg="bg-transparent"
-                            colorBgHover="hover:bg-red_m"
-                            px="px-2"
-                            py="py-1"
-                            minwidth="min-w-0"
-                            onClick={() => {
-                              setCustomerToDelete(customerName);
-                              setIsDeleteModalOpen(true);
-                            }}
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
-                  <td colSpan={4} className="py-4 text-center">
-                    <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
-                      <Wallet size={64} className="mb-4 text-gray_m" />
-                      <p className="text-gray_m">No hay fiados registrados.</p>
-                    </div>
-                  </td>
+          <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
+            <table className="table-auto w-full text-center border-collapse shadow-sm shadow-gray_l">
+              <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-sm 2xl:text-lg">
+                <tr>
+                  <th className="p-2 text-start">Cliente</th>
+                  <th className="p-2">Fecha</th>
+                  <th className="p-2">Deuda</th>
+                  <th className="w-40 max-w-[10rem] p-2">Acciones</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody
+                className={`bg-white text-gray_b divide-y divide-gray_xl `}
+              >
+                {totalCustomers > 0 ? (
+                  currentCustomers.map((customerName) => {
+                    const sales = salesByCustomer[customerName];
+                    const customerBalance =
+                      calculateCustomerBalance(customerName);
+                    const sortedSales = [...sales].sort(
+                      (a, b) =>
+                        new Date(a.date).getTime() - new Date(b.date).getTime()
+                    );
+                    const oldestSale = sortedSales[0];
+
+                    return (
+                      <tr key={customerName}>
+                        <td className="font-semibold p-2 border border-gray_xl text-start">
+                          {customerName}
+                        </td>
+                        <td className="p-2 border border-gray_xl">
+                          {format(new Date(oldestSale.date), "dd/MM/yyyy", {
+                            locale: es,
+                          })}
+                        </td>
+                        <td
+                          className={`font-semibold p-2 border border-gray_xl ${
+                            customerBalance <= 0 ? "text-green_b" : "text-red_b"
+                          }`}
+                        >
+                          {customerBalance.toLocaleString("es-AR", {
+                            style: "currency",
+                            currency: "ARS",
+                          })}
+                        </td>
+                        <td className="p-2 border border-gray_xl">
+                          <div className="flex justify-center items-center h-full gap-2">
+                            <Button
+                              icon={<Info size={20} />}
+                              iconPosition="left"
+                              colorText="text-gray_b"
+                              colorTextHover="hover:text-white"
+                              colorBg="bg-transparent"
+                              px="px-2"
+                              py="py-1"
+                              minwidth="min-w-0"
+                              onClick={() => handleOpenInfoModal(oldestSale)}
+                            />
+
+                            <Button
+                              icon={<Trash size={20} />}
+                              iconPosition="left"
+                              colorText="text-gray_b"
+                              colorTextHover="hover:text-white"
+                              colorBg="bg-transparent"
+                              colorBgHover="hover:bg-red_m"
+                              px="px-2"
+                              py="py-1"
+                              minwidth="min-w-0"
+                              onClick={() => {
+                                setCustomerToDelete(customerName);
+                                setIsDeleteModalOpen(true);
+                              }}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
+                    <td colSpan={4} className="py-4 text-center">
+                      <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
+                        <Wallet size={64} className="mb-4 text-gray_m" />
+                        <p className="text-gray_m">
+                          No hay fiados registrados.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
           {totalCustomers > 0 && (
             <Pagination
               text="Fiados por página"
               text2="Total de fiados"
-              currentPage={currentPage}
               totalItems={totalCustomers}
-              itemsPerPage={creditsPerPage}
-              onPageChange={setCurrentPage}
-              onItemsPerPageChange={(newItemsPerPage) => {
-                setCreditsPerPage(newItemsPerPage);
-                setCurrentPage(1);
-              }}
             />
           )}
         </div>
@@ -979,6 +978,7 @@ const FiadosPage = () => {
               {paymentMethods.map((method, index) => (
                 <div key={index} className="flex items-center gap-2">
                   <Select
+                    noOptionsMessage={() => "No se encontraron opciones"}
                     value={paymentOptions.find(
                       (option) => option.value === method.method
                     )}
@@ -1055,8 +1055,10 @@ const FiadosPage = () => {
             <>
               <Button
                 text="Si"
-                colorText="text-white"
-                colorTextHover="text-white"
+                colorText="text-white dark:text-white"
+                colorTextHover="hover:dark:text-white"
+                colorBg="bg-red_m border-b-1 dark:bg-blue_b"
+                colorBgHover="hover:bg-red_b hover:dark:bg-blue_m"
                 onClick={handleDeleteCustomerCredits}
               />
               <Button

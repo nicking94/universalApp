@@ -14,6 +14,7 @@ import { Plus, Trash, Edit, Truck, Package } from "lucide-react";
 import Pagination from "@/app/components/Pagination";
 import CustomDatePicker from "@/app/components/CustomDatePicker";
 import { useRubro } from "@/app/context/RubroContext";
+import { usePagination } from "@/app/context/PaginationContext";
 
 const ProveedoresPage = () => {
   const { rubro } = useRubro();
@@ -30,8 +31,7 @@ const ProveedoresPage = () => {
   const [notificationType, setNotificationType] = useState<
     "success" | "error" | "info"
   >("success");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(5);
+  const { currentPage, itemsPerPage } = usePagination();
   const [companyName, setCompanyName] = useState("");
   const [contacts, setContacts] = useState<SupplierContact[]>([
     { name: "", phone: "" },
@@ -393,139 +393,138 @@ const ProveedoresPage = () => {
         </div>
 
         <div className="flex flex-col justify-between h-[calc(100vh-200px)]">
-          <table className="w-full text-center border-collapse shadow-sm shadow-gray_l">
-            <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-sm 2xl:text-lg">
-              <tr>
-                <th className="px-4 py-2 text-left">Empresa</th>
-                <th className="px-4 py-2">Proveedores</th>
-                <th className="px-4 py-2">Última Visita</th>
-                <th className="px-4 py-2">Próxima Visita</th>
-                <th className="px-4 py-2">Productos</th>
-                <th className="w-40 max-w-[10rem] px-4 py-2">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className={`bg-white text-gray_b divide-y divide-gray_xl`}>
-              {currentItems.length > 0 ? (
-                currentItems.map((supplier) => (
-                  <tr key={supplier.id}>
-                    <td className="capitalize px-4 py-2 text-left  border border-gray_xl font-semibold">
-                      {supplier.companyName}
-                    </td>
-                    <td className="px-4 py-2  border border-gray_xl">
-                      <div className="flex justify-center items-center space-x-4  ">
-                        {supplier.contacts.length > 0 && (
-                          <div className="text-sm">
-                            <p>{supplier.contacts[0].name}</p>
-                          </div>
-                        )}
-                        {supplier.contacts.length > 1 && (
-                          <div className="group relative inline-block">
-                            <span className="text-xs text-gray_l cursor-pointer">
-                              +{supplier.contacts.length - 1} más
-                            </span>
-                            <div className="absolute hidden group-hover:block z-10 w-64 p-2 bg-white border border-gray_l rounded shadow-lg text-sm">
-                              {supplier.contacts
-                                .slice(1)
-                                .map((contact, index) => (
-                                  <div key={index} className="py-1">
-                                    <p>{contact.name}</p>
-                                  </div>
-                                ))}
+          <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
+            <table className="w-full text-center border-collapse shadow-sm shadow-gray_l">
+              <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-sm 2xl:text-lg">
+                <tr>
+                  <th className="p-2 text-left">Empresa</th>
+                  <th className="p-2">Proveedores</th>
+                  <th className="p-2">Última Visita</th>
+                  <th className="p-2">Próxima Visita</th>
+                  <th className="p-2">Productos</th>
+                  <th className="w-40 max-w-[10rem] p-2">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className={`bg-white text-gray_b divide-y divide-gray_xl`}>
+                {currentItems.length > 0 ? (
+                  currentItems.map((supplier) => (
+                    <tr key={supplier.id}>
+                      <td className="capitalize p-2 text-left  border border-gray_xl font-semibold">
+                        {supplier.companyName}
+                      </td>
+                      <td className="p-2  border border-gray_xl">
+                        <div className="flex justify-center items-center space-x-4  ">
+                          {supplier.contacts.length > 0 && (
+                            <div className="text-sm">
+                              <p>{supplier.contacts[0].name}</p>
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-2 border border-gray_xl ">
-                      {supplier.lastVisit ? (
-                        format(parseISO(supplier.lastVisit), "dd/MM/yyyy", {
-                          locale: es,
-                        })
-                      ) : (
-                        <span className="text-gray_m">No registrada</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 border border-gray_xl">
-                      {supplier.nextVisit ? (
-                        <span>
-                          {format(parseISO(supplier.nextVisit), "dd/MM/yyyy", {
+                          )}
+                          {supplier.contacts.length > 1 && (
+                            <div className="group relative inline-block">
+                              <span className="text-xs text-gray_l cursor-pointer">
+                                +{supplier.contacts.length - 1} más
+                              </span>
+                              <div className="absolute hidden group-hover:block z-10 w-64 p-2 bg-white border border-gray_l rounded shadow-lg text-sm">
+                                {supplier.contacts
+                                  .slice(1)
+                                  .map((contact, index) => (
+                                    <div key={index} className="py-1">
+                                      <p>{contact.name}</p>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-2 border border-gray_xl ">
+                        {supplier.lastVisit ? (
+                          format(parseISO(supplier.lastVisit), "dd/MM/yyyy", {
                             locale: es,
-                          })}
-                        </span>
-                      ) : (
-                        <span className="text-gray_m">No programada</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 border border-gray_xl">
-                      {supplierProductCounts[supplier.id] || 0} productos
-                    </td>
-                    <td className="px-4 py-2 space-x-4 border border-gray_xl">
-                      <div className="flex justify-center gap-2">
-                        <Button
-                          icon={<Package size={20} />}
-                          colorText="text-gray_b"
-                          colorTextHover="hover:text-white"
-                          colorBg="bg-transparent"
-                          colorBgHover="hover:bg-blue_m"
-                          px="px-1"
-                          py="py-1"
-                          minwidth="min-w-0"
-                          onClick={() => openProductAssignmentModal(supplier)}
-                        />
-                        <Button
-                          icon={<Edit size={20} />}
-                          colorText="text-gray_b"
-                          colorTextHover="hover:text-white"
-                          colorBg="bg-transparent"
-                          px="px-1"
-                          py="py-1"
-                          minwidth="min-w-0"
-                          onClick={() => handleEdit(supplier)}
-                        />
-                        <Button
-                          icon={<Trash size={20} />}
-                          colorText="text-gray_b"
-                          colorTextHover="hover:text-white"
-                          colorBg="bg-transparent"
-                          colorBgHover="hover:bg-red_m"
-                          px="px-1"
-                          py="py-1"
-                          minwidth="min-w-0"
-                          onClick={() => openDeleteModal(supplier)}
-                        />
+                          })
+                        ) : (
+                          <span className="text-gray_m">No registrada</span>
+                        )}
+                      </td>
+                      <td className="p-2 border border-gray_xl">
+                        {supplier.nextVisit ? (
+                          <span>
+                            {format(
+                              parseISO(supplier.nextVisit),
+                              "dd/MM/yyyy",
+                              {
+                                locale: es,
+                              }
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-gray_m">No programada</span>
+                        )}
+                      </td>
+                      <td className="p-2 border border-gray_xl">
+                        {supplierProductCounts[supplier.id] || 0} productos
+                      </td>
+                      <td className="p-2 space-x-4 border border-gray_xl">
+                        <div className="flex justify-center gap-2">
+                          <Button
+                            icon={<Package size={20} />}
+                            colorText="text-gray_b"
+                            colorTextHover="hover:text-white"
+                            colorBg="bg-transparent"
+                            colorBgHover="hover:bg-blue_m"
+                            px="px-1"
+                            py="py-1"
+                            minwidth="min-w-0"
+                            onClick={() => openProductAssignmentModal(supplier)}
+                          />
+                          <Button
+                            icon={<Edit size={20} />}
+                            colorText="text-gray_b"
+                            colorTextHover="hover:text-white"
+                            colorBg="bg-transparent"
+                            px="px-1"
+                            py="py-1"
+                            minwidth="min-w-0"
+                            onClick={() => handleEdit(supplier)}
+                          />
+                          <Button
+                            icon={<Trash size={20} />}
+                            colorText="text-gray_b"
+                            colorTextHover="hover:text-white"
+                            colorBg="bg-transparent"
+                            colorBgHover="hover:bg-red_m"
+                            px="px-1"
+                            py="py-1"
+                            minwidth="min-w-0"
+                            onClick={() => openDeleteModal(supplier)}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
+                    <td colSpan={6} className="py-4 text-center">
+                      <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
+                        <Truck size={64} className="mb-4 text-gray_m" />
+                        <p className="text-gray_m">
+                          {searchQuery
+                            ? "No hay proveedores que coincidan con la búsqueda"
+                            : "No hay proveedores registrados"}
+                        </p>
                       </div>
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
-                  <td colSpan={6} className="py-4 text-center">
-                    <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
-                      <Truck size={64} className="mb-4 text-gray_m" />
-                      <p className="text-gray_m">
-                        {searchQuery
-                          ? "No hay proveedores que coincidan con la búsqueda"
-                          : "No hay proveedores registrados"}
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
 
           {filteredSuppliers.length > 0 && (
             <Pagination
               text="Proveedores por página"
               text2="Total de proveedores"
-              currentPage={currentPage}
               totalItems={filteredSuppliers.length}
-              itemsPerPage={itemsPerPage}
-              onPageChange={setCurrentPage}
-              onItemsPerPageChange={(newItemsPerPage) => {
-                setItemsPerPage(newItemsPerPage);
-                setCurrentPage(1);
-              }}
             />
           )}
         </div>

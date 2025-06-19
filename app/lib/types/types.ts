@@ -7,6 +7,7 @@ export type User = {
   id: number;
   username: string;
   password: string;
+  logo?: string;
 };
 
 export type AuthData = {
@@ -248,6 +249,7 @@ export type DailyCashMovement = {
   sellPrice?: number;
   quantity?: number;
   profit?: number;
+  rubro?: Rubro;
   unit?:
     | "Unid."
     | "gr"
@@ -448,6 +450,7 @@ export type UserPreferences = {
   userId?: number;
   acceptedTerms: boolean;
   acceptedTermsDate?: string;
+  itemsPerPage?: number;
 };
 export type DailyData = {
   date: string;

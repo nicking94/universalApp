@@ -42,6 +42,7 @@ const Navbar: React.FC<NavbarProps> = ({
             </p>
             <Select
               options={rubroOptions}
+              noOptionsMessage={() => "No se encontraron opciones"}
               value={selectedRubro}
               onChange={(selectedOption) => {
                 if (selectedOption) {

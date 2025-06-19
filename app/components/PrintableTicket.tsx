@@ -144,11 +144,9 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
               console.error("Error con puerto serial:", serialError);
             }
           }
-
-          downloadAsFile(escPosCommands, sale.id);
         } catch (error) {
           console.error("Error general al imprimir:", error);
-          downloadAsFile(escPosCommands, sale.id);
+
           throw error;
         }
       },
@@ -161,21 +159,10 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
         });
       }
     }, [autoPrint]);
-    function downloadAsFile(commands: string, saleId: number) {
-      const blob = new Blob([commands], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `ticket_${saleId}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
 
     return (
       <div
-        className="max-h-[66vh] overflow-y-auto p-2 w-[80mm] mx-auto font-mono text-xs"
+        className=" max-h-[66vh] overflow-y-auto p-2 pb-4 w-[80mm] mx-auto font-mono text-xs bg-white text-gray_b "
         style={{
           fontFamily: "'Courier New', monospace",
           lineHeight: 1.2,

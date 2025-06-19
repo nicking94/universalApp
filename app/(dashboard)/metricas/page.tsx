@@ -83,32 +83,37 @@ const Metrics = () => {
     A: "amperio",
     W: "vatio",
   };
-
-  // Función para filtrar movimientos por rubro
   const filterByRubro = (
     movement: DailyCashMovement,
-    rubro: Rubro
+    currentRubro: Rubro
   ): boolean => {
-    if (rubro === "todos los rubros") return true;
-
-    // Para movimientos con items (ventas)
-    if (movement.items) {
-      return movement.items.some((item) => {
-        const product = products.find((p) => p.id === item.productId);
-        return product?.rubro === rubro;
-      });
+    if (currentRubro === "todos los rubros") return true;
+    if (movement.type === "INGRESO") {
+      if (movement.items) {
+        return movement.items.some((item) => {
+          const product = products.find((p) => p.id === item.productId);
+          return product?.rubro === currentRubro;
+        });
+      }
+      if (movement.productId) {
+        const product = products.find((p) => p.id === movement.productId);
+        return product?.rubro === currentRubro;
+      }
+      return false;
     }
-
-    // Para movimientos directos de productos
-    if (movement.productId) {
-      const product = products.find((p) => p.id === movement.productId);
-      return product?.rubro === rubro;
+    if (movement.type === "EGRESO") {
+      if (movement.rubro) {
+        return movement.rubro === currentRubro;
+      }
+      if (movement.productId) {
+        const product = products.find((p) => p.id === movement.productId);
+        return product?.rubro === currentRubro;
+      }
+      return false;
     }
 
     return false;
   };
-
-  // Función para obtener resumen consistente
   const getConsistentSummary = useMemo(
     () => (period: "month" | "year") => {
       const filteredCashes = dailyCashes.filter((cash) => {
@@ -201,7 +206,6 @@ const Metrics = () => {
           };
         });
       } else {
-        // For yearly data, explicitly type the return value
         const monthlyData: MonthlyData[] = Array.from(
           { length: 12 },
           (_, i) => {
@@ -297,7 +301,7 @@ const Metrics = () => {
               if (
                 product &&
                 (rubro === "todos los rubros" || product.rubro === rubro) &&
-                itemUnit === selectedUnit // Solo productos vendidos en la unidad seleccionada
+                itemUnit === selectedUnit
               ) {
                 const existing = productMap.get(item.productId) || {
                   name: item.productName,
@@ -316,12 +320,12 @@ const Metrics = () => {
 
                 productMap.set(item.productId, {
                   name: existing.name,
-                  quantity: existing.quantity + item.quantity, // Usamos la cantidad original
+                  quantity: existing.quantity + item.quantity,
                   amount:
                     existing.amount +
                     calculatePrice(product, item.quantity, itemUnit),
                   profit: existing.profit + profitPerUnit,
-                  unit: itemUnit, // Mantenemos la unidad original
+                  unit: itemUnit,
                   rubro: existing.rubro,
                 });
               }
@@ -427,7 +431,6 @@ const Metrics = () => {
     { value: "W", label: "Watts" },
   ];
 
-  // Obtener datos para gráficos y resúmenes
   const monthlySummary = getConsistentSummary("month");
   const annualSummary = getConsistentSummary("year");
   const dailyMonthData = getChartData("month");
@@ -435,7 +438,6 @@ const Metrics = () => {
   const topProductsMonthly = getProductMovements("month", monthlyRankingUnit);
   const topProductsYearly = getProductMovements("year", yearlyRankingUnit);
 
-  // Configuración de gráficos
   const monthlyBarChartData = {
     labels: dailyMonthData.map((data) =>
       "date" in data ? data.date : data.month

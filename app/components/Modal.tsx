@@ -39,7 +39,7 @@ const Modal: React.FC<ModalProps> = ({
   return (
     <div className="fixed top-0 left-0 w-full h-full bg-gray_b/80 dark:bg-gray_l/80 flex justify-center items-center z-50">
       <div
-        className={`${bgColor} max-h-[95vh] min-h-[10rem] w-[64rem] rounded-sm shadow-lg shadow-gray_b p-10 text-gray_b dark:text-white flex flex-col`}
+        className={`${bgColor} max-h-[95vh] min-h-[16rem] w-[90vw] 2xl:w-[60vw] rounded-sm shadow-lg shadow-gray_b p-6 text-gray_b dark:text-white flex flex-col`}
       >
         <h2 className="text-xl font-bold">{title}</h2>
 
