@@ -1,5 +1,4 @@
 "use client";
-
 import { createContext, useContext, useState, useEffect } from "react";
 import { BusinessData } from "../lib/types/types";
 import { db } from "../database/db";

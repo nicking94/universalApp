@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AuthForm from "@/app/components/AuthForm";
 import Notification from "@/app/components/Notification";
-import { AuthData, User } from "@/app/lib/types/types";
+import { AuthData } from "@/app/lib/types/types";
 import { TRIAL_CREDENTIALS, USERS } from "@/app/lib/constants/constants";
 import { db } from "../../database/db";
 
@@ -44,35 +44,26 @@ const LoginPage = () => {
     }
 
     const initializeUsers = async () => {
-      const adminUser = await db.users
-        .where("username")
-        .equals("admin")
-        .first();
-      if (adminUser) {
-        await db.users.delete(adminUser.id);
-      }
-      const count = await db.users.count();
-      if (count === 0) {
-        const usersToAdd: User[] = USERS.map((user) => {
-          if (!user.username || !user.password) {
-            throw new Error("Username or password is undefined");
-          }
-          return {
+      // Verificar y corregir todos los usuarios, no solo el admin
+      for (const user of USERS) {
+        const existingUser = await db.users.get(user.id);
+        if (!existingUser || existingUser.username !== user.username) {
+          await db.users.put({
             id: user.id,
             username: user.username,
             password: user.password,
-          };
-        });
-        await db.users.bulkAdd(usersToAdd);
-      } else {
-        const adminUser = await db.users.get(2);
-        if (!adminUser || adminUser.username !== "administrador") {
-          await db.users.put({
-            id: 2,
-            username: "administrador",
-            password: "administrador",
           });
         }
+      }
+      console.log("USERS from env:", USERS);
+
+      const adminUser = await db.users.get(2);
+      if (!adminUser || adminUser.username !== "administrador") {
+        await db.users.put({
+          id: 2,
+          username: "administrador",
+          password: "administrador",
+        });
       }
     };
     initializeUsers();

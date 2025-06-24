@@ -5,6 +5,7 @@ import { SidebarProvider } from "./context/SidebarContext";
 import SessionChecker from "./components/SessionChecker";
 import { RubroProvider } from "./context/RubroContext";
 import { NotificationProvider } from "./context/NotificationContext";
+import { BusinessDataProvider } from "./context/BusinessDataContext";
 
 const roboto = Roboto({
   variable: "--font-roboto",
@@ -28,18 +29,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <NotificationProvider>
-      <RubroProvider>
-        <SidebarProvider>
-          <html lang="es">
-            <body className={` ${roboto.variable} antialiased hidden md:block`}>
-              <main>
-                {children} <SessionChecker />
-              </main>
-            </body>
-          </html>
-        </SidebarProvider>
-      </RubroProvider>
-    </NotificationProvider>
+    <BusinessDataProvider>
+      <NotificationProvider>
+        <RubroProvider>
+          <SidebarProvider>
+            <html lang="es">
+              <body
+                className={` ${roboto.variable} antialiased hidden md:block`}
+              >
+                <main>
+                  {children} <SessionChecker />
+                </main>
+              </body>
+            </html>
+          </SidebarProvider>
+        </RubroProvider>
+      </NotificationProvider>
+    </BusinessDataProvider>
   );
 }

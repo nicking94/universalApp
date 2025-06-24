@@ -322,16 +322,23 @@ const ProductsPage = () => {
   const handleSearch = (query: string) => {
     setSearchQuery(query.toLowerCase());
   };
-  const handleGenerateBarcode = (product: Product) => {
-    setSelectedProductForBarcode(product);
-    setIsBarcodeModalOpen(true);
+  const generateRandom13DigitCode = (): string => {
+    const min = 1000000000000;
+    const max = 9999999999999;
+    const randomNum = Math.floor(Math.random() * (max - min + 1)) + min;
+    return randomNum.toString();
   };
+
   const generateAutoBarcode = () => {
-    const randomBarcode = `UNI${Math.floor(100000 + Math.random() * 900000)}`;
+    const randomBarcode = generateRandom13DigitCode();
     setNewProduct({
       ...newProduct,
       barcode: randomBarcode,
     });
+  };
+  const handleGenerateBarcode = (product: Product) => {
+    setSelectedProductForBarcode(product);
+    setIsBarcodeModalOpen(true);
   };
 
   const handleOpenPriceModal = () => {
@@ -965,7 +972,6 @@ const ProductsPage = () => {
               />
             </>
           }
-          minheight="min-h-[25rem]"
         >
           <form className="flex flex-col gap-2">
             <div className="w-full flex items-center space-x-4 ">
@@ -1011,7 +1017,7 @@ const ProductsPage = () => {
                 </div>
               </div>
               <div className="w-full flex items-center space-x-2">
-                <div className="max-w-[7rem]">
+                <div>
                   <Input
                     label="Lote (opcional)"
                     type="text"
@@ -1052,7 +1058,7 @@ const ProductsPage = () => {
                           category: selectedOption?.value || "",
                         });
                       }}
-                      className="text-black"
+                      className="min-w-40 text-black"
                       placeholder="Seleccionar categoría..."
                     />
                   </div>

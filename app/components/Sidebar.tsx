@@ -10,6 +10,7 @@ import {
   Users,
   Truck,
   LineChart,
+  ClipboardList,
   // Truck,
 } from "lucide-react";
 import Button from "./Button";
@@ -30,8 +31,8 @@ const menuItems = [
   { label: "Productos", href: "/productos", icon: <Package /> },
   { label: "Clientes", href: "/clientes", icon: <Users /> },
   { label: "Fiados", href: "/fiados", icon: <Wallet /> },
-
   { label: "Proveedores", href: "/proveedores", icon: <Truck /> },
+  { label: "Presupuestos", href: "/presupuestos", icon: <ClipboardList /> },
   { label: "Métricas", href: "/metricas", icon: <LineChart /> },
   {
     label: "Soporte técnico",
@@ -92,7 +93,7 @@ const Sidebar: React.FC<SidebarProps> = ({ items = menuItems }) => {
             onClick={toggleSidebar}
           />
         </div>
-        <nav className="space-y-1 2xl:space-y-4 py-2">
+        <nav className="space-y-1 2xl:space-y-2 py-2">
           {items.map((item) => (
             <div key={item.label} className="w-full text-md font-semibold">
               <button

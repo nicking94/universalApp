@@ -1,3 +1,8 @@
+export const TRIAL_CREDENTIALS = {
+  username: "demo",
+  password: "demo",
+  isTrial: true,
+};
 export const USERS = [
   {
     username: process.env.NEXT_PUBLIC_LOGIN_USERNAME_2,
@@ -17,10 +22,10 @@ export const USERS = [
     id: 3,
     isTrial: false,
   },
+  {
+    username: process.env.NEXT_PUBLIC_LOGIN_USERNAME_4,
+    password: process.env.NEXT_PUBLIC_LOGIN_PASSWORD_4,
+    id: 4,
+    isTrial: false,
+  },
 ];
-
-export const TRIAL_CREDENTIALS = {
-  username: "demo",
-  password: "demo",
-  isTrial: true,
-};

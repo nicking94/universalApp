@@ -29,175 +29,181 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
       price: number,
       quantity: number,
       discountPercent?: number
-    ) => {
+    ): number => {
       if (!discountPercent) return price * quantity;
       return price * quantity * (1 - discountPercent / 100);
     };
 
-    const generateEscPosCommands = () => {
-      let commands = "\x1B@";
-      commands += "\x1B!\x38";
-      commands += `${businessData?.name || "Universal App"}\n\n`;
-      commands += "\x1B!\x00";
-      commands += `Dirección: ${businessData?.address || "Calle Falsa 123"}\n`;
-      commands += `Tel: ${businessData?.phone || "123-456789"}\n`;
-      commands += `CUIT: ${businessData?.cuit || "12-34567890-1"}\n\n`;
-      commands += "\x1B!\x08";
-      commands += `TICKET #${sale.id}\n`;
-      commands += "\x1B!\x00";
-      commands += `${fecha}\n\n`;
+    const generateEscPosCommands = (): Uint8Array => {
+      const commands: number[] = [];
+      commands.push(0x1b, 0x40); // Inicializar impresora
 
+      // Configuración básica
+      commands.push(0x1b, 0x52, 0x08); // Juego de caracteres Latino
+      commands.push(0x1b, 0x74, 0x10); // Codificación Windows-1252
+
+      // Encabezado
+      commands.push(0x1b, 0x21, 0x08); // Texto enfatizado
+      pushText(commands, `${businessData?.name || "Mi Negocio"}\n`);
+      commands.push(0x1b, 0x21, 0x00); // Reset formato
+
+      pushText(commands, `${businessData?.address || "Dirección"}\n`);
+      pushText(commands, `Tel: ${businessData?.phone || "N/A"}\n`);
+      pushText(commands, `CUIT: ${businessData?.cuit || "N/A"}\n\n`);
+
+      // Línea separadora
+      commands.push(0x1b, 0x61, 0x01); // Centrar
+      pushText(commands, "------------------------------\n");
+      commands.push(0x1b, 0x61, 0x00); // Alineación izquierda
+
+      // Detalles del ticket
+      pushText(commands, `TICKET #${sale.id}\n`);
+      pushText(commands, `${fecha}\n\n`);
+
+      // Productos
       sale.products.forEach((product) => {
-        const discountedPrice = calculateDiscountedPrice(
+        const productName = getDisplayProductName(product, rubro);
+        const truncatedName =
+          productName.length > 24
+            ? productName.substring(0, 21) + "..."
+            : productName;
+
+        pushText(commands, `${truncatedName}\n`);
+        pushText(
+          commands,
+          `${product.quantity} ${
+            product.unit?.toLowerCase() || "un"
+          } x ${formatCurrency(product.price)}`
+        );
+
+        if (product.discount) {
+          pushText(commands, ` (-${product.discount}%)\n`);
+        } else {
+          commands.push(0x0a); // Nueva línea
+        }
+
+        const subtotal = calculateDiscountedPrice(
           product.price,
           product.quantity,
           product.discount
         );
 
-        const productName = getDisplayProductName(product, rubro);
-        const truncatedName =
-          productName.length > 20
-            ? productName.substring(0, 20) + "..."
-            : productName;
-
-        commands += `${truncatedName}\n`;
-        commands += `${product.quantity} ${
-          product.unit?.toLowerCase() || "un"
-        } x ${formatCurrency(product.price)}`;
-
-        if (product.discount) {
-          commands += ` (-${product.discount}%)`;
-        }
-
-        commands += `\n${formatCurrency(discountedPrice)}\n\n`;
-        if (sale.manualAmount && sale.manualAmount > 0) {
-          commands += "Monto Manual:\n";
-          commands += `${formatCurrency(sale.manualAmount)}\n\n`;
-        }
+        pushText(commands, `Subtotal: ${formatCurrency(subtotal)}\n\n`);
       });
 
-      if (sale.discount && sale.discount > 0) {
-        commands += "Descuento total:\n";
-        commands += `-${formatCurrency(sale.discount)}\n\n`;
-      }
+      // Totales y pagos
+      commands.push(0x1b, 0x61, 0x01); // Centrar
+      pushText(commands, "------------------------------\n");
+      commands.push(0x1b, 0x61, 0x02); // Alinear derecha
+
+      pushText(commands, `TOTAL: ${formatCurrency(sale.total)}\n\n`);
 
       if (sale.paymentMethods?.length > 0 && !sale.credit) {
         sale.paymentMethods.forEach((method) => {
-          commands += `${method.method}:\n`;
-          commands += `${formatCurrency(method.amount)}\n\n`;
+          pushText(
+            commands,
+            `${method.method}: ${formatCurrency(method.amount)}\n`
+          );
         });
       }
 
       if (sale.credit) {
-        commands += "\x1B!\x08";
-        commands += "** VENTA FIADA **\n";
-        commands += "\x1B!\x00";
+        commands.push(0x1b, 0x61, 0x01); // Centrar
+        commands.push(0x1b, 0x21, 0x08); // Texto enfatizado
+        pushText(commands, "** VENTA FIADA **\n");
+        commands.push(0x1b, 0x21, 0x00); // Reset formato
+
         if (sale.customerName) {
-          commands += `Cliente: ${sale.customerName}\n\n`;
+          pushText(commands, `Cliente: ${sale.customerName}\n`);
         }
       }
-      commands += "\x1B!\x18";
-      commands += "TOTAL:\n";
-      commands += `${formatCurrency(sale.total)}\n\n`;
-      commands += "\x1B!\x00";
-      commands += "¡Gracias por su compra!\n";
-      commands += "Conserve este ticket\n";
-      commands += "---\n";
-      commands += "Ticket no válido como factura\n\n\n";
-      commands += "\x1DVA\x03";
 
-      return commands;
+      // Pie de página
+      commands.push(0x1b, 0x61, 0x01); // Centrar
+      pushText(commands, "\n¡GRACIAS POR SU COMPRA!\n");
+      pushText(commands, "Conserve este ticket\n");
+      pushText(commands, "------------------------------\n");
+      pushText(commands, "Ticket no válido como factura\n\n");
+
+      // Cortar papel (compatible con mayoría de impresoras)
+      commands.push(0x1d, 0x56, 0x41, 0x00); // Cortar parcialmente
+
+      return new Uint8Array(commands);
+    };
+
+    const pushText = (commands: number[], text: string) => {
+      for (let i = 0; i < text.length; i++) {
+        commands.push(text.charCodeAt(i));
+      }
+    };
+
+    const printTicket = async () => {
+      if (onPrint) {
+        onPrint();
+        return;
+      }
+
+      try {
+        const escPosData = generateEscPosCommands();
+
+        // 1. Intento con Web Serial API (Chrome/Edge)
+        if ("serial" in navigator) {
+          try {
+            const port = await navigator.serial.requestPort();
+            await port.open({ baudRate: 9600 });
+
+            if (!port.writable) {
+              throw new Error("El puerto serial no es escribible");
+            }
+
+            const writer = port.writable.getWriter();
+            await writer.write(escPosData);
+            await writer.close();
+            await port.close();
+            return;
+          } catch (error) {
+            console.warn("Error con Web Serial:", error);
+          }
+        }
+
+        // 2. Intento con WebUSB (para algunas impresoras)
+        if ("usb" in navigator) {
+          try {
+            const device = await navigator.usb.requestDevice({
+              filters: [{ vendorId: 0x0416, productId: 0x5011 }], // Systel
+            });
+
+            await device.open();
+            await device.selectConfiguration(1);
+            await device.claimInterface(0);
+
+            await device.transferOut(1, escPosData);
+            await device.close();
+            return;
+          } catch (error) {
+            console.warn("Error con WebUSB:", error);
+          }
+        }
+      } catch (error) {
+        console.error("Error al imprimir:", error);
+        throw error;
+      }
     };
 
     useImperativeHandle(ref, () => ({
-      print: async () => {
-        if (onPrint) {
-          onPrint();
-          return;
-        }
-
-        try {
-          // Primero intentamos imprimir con ESC/POS si es posible
-          const escPosCommands = generateEscPosCommands();
-
-          if ("serial" in navigator) {
-            try {
-              const port = await (navigator as Navigator).serial!.requestPort();
-              await port.open({ baudRate: 9600 });
-
-              const writer = port.writable!.getWriter();
-              try {
-                await writer.write(new TextEncoder().encode(escPosCommands));
-                await writer.close();
-                return;
-              } catch (writeError) {
-                console.error(
-                  "Error al escribir en el puerto serial:",
-                  writeError
-                );
-              } finally {
-                writer.releaseLock();
-              }
-
-              await port.close();
-            } catch (serialError) {
-              console.error("Error con puerto serial:", serialError);
-            }
-          }
-
-          // Si no hay impresora serial, imprimimos el HTML
-          if (!ticketRef.current) return;
-
-          const printWindow = window.open("", "_blank");
-          if (printWindow) {
-            printWindow.document.write(`
-              <html>
-                <head>
-                  <title>Ticket de Venta</title>
-                  <style>
-                    body { margin: 0; padding: 0; font-family: 'Courier New', monospace; }
-                    .ticket { width: 80mm; margin: 0 auto; padding: 10px; font-size: 12px; }
-                    .header { text-align: center; margin-bottom: 10px; }
-                    .footer { text-align: center; margin-top: 10px; }
-                    .product-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
-                    .total-row { font-weight: bold; margin-top: 10px; }
-                  </style>
-                </head>
-                <body>
-                  ${ticketRef.current.innerHTML}
-                  <script>
-                    window.onload = function() {
-                      setTimeout(function() {
-                        window.print();
-                        window.close();
-                      }, 100);
-                    }
-                  </script>
-                </body>
-              </html>
-            `);
-            printWindow.document.close();
-          }
-        } catch (error) {
-          console.error("Error al imprimir:", error);
-          throw error;
-        }
-      },
+      print: printTicket,
     }));
 
     useEffect(() => {
-      if (autoPrint && ref) {
-        (ref as React.RefObject<PrintableTicketHandle>).current
-          ?.print()
-          .catch((error) => {
-            console.error("Error en impresión automática:", error);
-          });
+      if (autoPrint) {
+        printTicket().catch(console.error);
       }
-    }, [autoPrint, ref]);
+    }, [autoPrint]);
 
     return (
       <div
-        className=" max-h-[66vh] overflow-y-auto p-2 pb-4 w-[80mm] mx-auto font-mono text-xs bg-white text-gray_b "
+        ref={ticketRef}
+        className="max-h-[66vh] overflow-y-auto p-2 pb-4 w-[80mm] mx-auto font-mono text-xs bg-white text-gray_b"
         style={{
           fontFamily: "'Courier New', monospace",
           lineHeight: 1.2,

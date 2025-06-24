@@ -688,7 +688,6 @@ const CajaDiariaPage = () => {
             />
           </div>
         }
-        minheight="min-h-[23rem]"
       >
         <div className="mb-4 grid grid-cols-2 gap-2">
           <div className="bg-green_xl p-3 rounded-lg">
@@ -728,7 +727,7 @@ const CajaDiariaPage = () => {
                 option &&
                 setFilterType(option.value as "TODOS" | "INGRESO" | "EGRESO")
               }
-              className="w-full text-black"
+              className="min-w-40 text-black"
             />
           </div>
           <div>
@@ -747,7 +746,7 @@ const CajaDiariaPage = () => {
                 option &&
                 setFilterPaymentMethod(option.value as PaymentMethod | "TODOS")
               }
-              className="w-full text-black"
+              className="min-w-40 text-black"
             />
           </div>
         </div>
@@ -1006,14 +1005,14 @@ const CajaDiariaPage = () => {
                   onChange={(option) =>
                     option && setSelectedMonth(option.value)
                   }
-                  className="w-40 text-black"
+                  className="min-w-40 text-black"
                 />
                 <Select
                   options={yearOptions}
                   noOptionsMessage={() => "No se encontraron opciones"}
                   value={yearOptions.find((y) => y.value === selectedYear)}
                   onChange={(option) => option && setSelectedYear(option.value)}
-                  className="w-28 text-black"
+                  className="min-w-40 text-black"
                 />
               </div>
               <div className="flex gap-2">
@@ -1164,126 +1163,130 @@ const CajaDiariaPage = () => {
           title="Nuevo Movimiento"
           onConfirm={addMovement}
         >
-          <div className="flex flex-col gap-2">
-            <div className="w-full flex justify-between space-x-4">
-              <div className="flex flex-col w-full">
-                <label className="block text-gray_m dark:text-white text-sm font-semibold">
-                  Tipo de Movimiento
-                </label>
-                <Select
-                  options={movementTypes}
-                  noOptionsMessage={() => "No se encontraron opciones"}
-                  value={movementTypes.find((m) => m.value === movementType)}
-                  onChange={(option) =>
-                    option && setMovementType(option.value as MovementType)
-                  }
-                  className="w-full text-black"
-                />
-              </div>
-              {movementType === "EGRESO" && (
+          <div className="flex flex-col justify-between min-h-[40vh]">
+            <div className="flex flex-col gap-2">
+              <div className="w-full flex justify-between space-x-4">
                 <div className="flex flex-col w-full">
-                  <label className="block text-sm font-medium text-gray_m dark:text-white">
-                    Proveedor (opcional)
+                  <label className="block text-gray_m dark:text-white text-sm font-semibold">
+                    Tipo de Movimiento
                   </label>
                   <Select
-                    options={suppliers.map((s) => ({
-                      value: s.id,
-                      label: s.companyName,
-                    }))}
+                    options={movementTypes}
                     noOptionsMessage={() => "No se encontraron opciones"}
-                    value={selectedSupplier}
-                    onChange={(option) => setSelectedSupplier(option)}
-                    isClearable
-                    placeholder="Seleccionar proveedor..."
-                    className="w-full text-black"
-                  />
-                </div>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray_m dark:text-white">
-                Métodos de Pago
-              </label>
-              {paymentMethods.map((method, index) => (
-                <div
-                  key={index}
-                  className={`flex items-center gap-2 ${
-                    paymentMethods.length > 1 ? "space-y-2" : ""
-                  }`}
-                >
-                  <Select
-                    noOptionsMessage={() => "No se encontraron opciones"}
-                    value={paymentOptions.find(
-                      (option) => option.value === method.method
-                    )}
-                    onChange={(selectedOption) =>
-                      handlePaymentMethodChange(
-                        index,
-                        "method",
-                        (selectedOption?.value as PaymentMethod) || "EFECTIVO"
-                      )
+                    value={movementTypes.find((m) => m.value === movementType)}
+                    onChange={(option) =>
+                      option && setMovementType(option.value as MovementType)
                     }
-                    options={paymentOptions}
-                    className="w-full text-black"
-                    classNamePrefix="react-select"
+                    className="min-w-40 text-black"
                   />
-                  <InputCash
-                    placeholder="Monto"
-                    value={method.amount}
-                    onChange={(value) => {
-                      handlePaymentMethodChange(index, "amount", value);
-                      const newTotal = paymentMethods.reduce(
-                        (sum, m) => sum + (m.amount || 0),
-                        0
-                      );
-                      setAmount(newTotal.toString());
-                    }}
-                    className="w-32"
-                  />
-
-                  {paymentMethods.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removePaymentMethod(index)}
-                      className={`cursor-pointer text-red_m hover:text-red_b transition-all duration-300 ${
-                        paymentMethods.length > 1 ? "-mt-2" : ""
-                      }`}
-                    >
-                      <Trash size={16} />
-                    </button>
-                  )}
                 </div>
-              ))}
-              {paymentMethods.length < 3 && (
-                <button
-                  type="button"
-                  onClick={addPaymentMethod}
-                  className={`cursor-pointer text-sm text-blue_b dark:text-blue_l hover:text-blue_m flex items-center transition-all duration-300 ${
-                    paymentMethods.length === 1 ? "mt-4" : "-mt-2"
-                  }`}
-                >
-                  <Plus size={16} className="mr-1" /> Agregar otro método de
-                  pago
-                </button>
-              )}
-            </div>
-
-            <Input
-              label="Descripción"
-              type="text"
-              name="description"
-              placeholder="Ingrese una descripción..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-            <div className="p-2 bg-gray_b text-white text-center">
-              <p className="font-bold text-3xl">
-                TOTAL:{" "}
-                {formatCurrency(
-                  paymentMethods.reduce((sum, m) => sum + (m.amount || 0), 0)
+                {movementType === "EGRESO" && (
+                  <div className="flex flex-col w-full">
+                    <label className="block text-sm font-medium text-gray_m dark:text-white">
+                      Proveedor (opcional)
+                    </label>
+                    <Select
+                      options={suppliers.map((s) => ({
+                        value: s.id,
+                        label: s.companyName,
+                      }))}
+                      noOptionsMessage={() => "No se encontraron opciones"}
+                      value={selectedSupplier}
+                      onChange={(option) => setSelectedSupplier(option)}
+                      isClearable
+                      placeholder="Seleccionar proveedor..."
+                      className="min-w-40 text-black"
+                    />
+                  </div>
                 )}
-              </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray_m dark:text-white">
+                  Métodos de Pago
+                </label>
+                {paymentMethods.map((method, index) => (
+                  <div
+                    key={index}
+                    className={`flex items-center gap-2 ${
+                      paymentMethods.length > 1 ? "space-y-2" : ""
+                    }`}
+                  >
+                    <Select
+                      noOptionsMessage={() => "No se encontraron opciones"}
+                      value={paymentOptions.find(
+                        (option) => option.value === method.method
+                      )}
+                      onChange={(selectedOption) =>
+                        handlePaymentMethodChange(
+                          index,
+                          "method",
+                          (selectedOption?.value as PaymentMethod) || "EFECTIVO"
+                        )
+                      }
+                      options={paymentOptions}
+                      className="min-w-40 text-black"
+                      classNamePrefix="react-select"
+                    />
+                    <InputCash
+                      placeholder="Monto"
+                      value={method.amount}
+                      onChange={(value) => {
+                        handlePaymentMethodChange(index, "amount", value);
+                        const newTotal = paymentMethods.reduce(
+                          (sum, m) => sum + (m.amount || 0),
+                          0
+                        );
+                        setAmount(newTotal.toString());
+                      }}
+                      className="w-32"
+                    />
+
+                    {paymentMethods.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removePaymentMethod(index)}
+                        className={`cursor-pointer text-red_m hover:text-red_b transition-all duration-300 ${
+                          paymentMethods.length > 1 ? "-mt-2" : ""
+                        }`}
+                      >
+                        <Trash size={16} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {paymentMethods.length < 3 && (
+                  <button
+                    type="button"
+                    onClick={addPaymentMethod}
+                    className={`cursor-pointer text-sm text-blue_b dark:text-blue_l hover:text-blue_m flex items-center transition-all duration-300 ${
+                      paymentMethods.length === 1 ? "mt-4" : "-mt-2"
+                    }`}
+                  >
+                    <Plus size={16} className="mr-1" /> Agregar otro método de
+                    pago
+                  </button>
+                )}
+              </div>
+
+              <Input
+                label="Descripción"
+                type="text"
+                name="description"
+                placeholder="Ingrese una descripción..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+            <div>
+              <div className="p-2 bg-gray_b text-white text-center">
+                <p className="font-bold text-3xl">
+                  TOTAL:{" "}
+                  {formatCurrency(
+                    paymentMethods.reduce((sum, m) => sum + (m.amount || 0), 0)
+                  )}
+                </p>
+              </div>
             </div>
           </div>
         </Modal>
@@ -1291,7 +1294,7 @@ const CajaDiariaPage = () => {
           isOpen={isOpenCashModal}
           onClose={() => {
             setIsOpenCashModal(false);
-            setInitialAmount(""); // Limpiar el campo al cerrar
+            setInitialAmount("");
           }}
           title={
             currentDailyCash?.closed ? "Reapertura de caja" : "Apertura de caja"
@@ -1321,13 +1324,12 @@ const CajaDiariaPage = () => {
           }
         >
           <div className="flex flex-col gap-2">
-            <p className="text-gray_m dark:text-white">
-              {currentDailyCash?.closed
-                ? "Ingrese el monto inicial para reabrir la caja:"
-                : "Para comenzar, ingrese el monto inicial en caja."}
-            </p>
             <InputCash
-              label="Monto Inicial"
+              label={
+                currentDailyCash?.closed
+                  ? "Ingrese el monto inicial para reabrir la caja:"
+                  : "Para comenzar, ingrese el monto inicial en caja."
+              }
               value={Number(initialAmount) || 0}
               onChange={(value) => setInitialAmount(value.toString())}
               placeholder="Ingrese el monto inicial..."
@@ -1343,7 +1345,7 @@ const CajaDiariaPage = () => {
         >
           <div className="flex flex-col gap-2">
             <InputCash
-              label="Monto Contado en Efectivo"
+              label="Ingrese el monto contado en efectivo"
               value={Number(actualCashCount) || 0}
               onChange={(value) => setActualCashCount(value.toString())}
               placeholder="Ingrese el monto contado..."

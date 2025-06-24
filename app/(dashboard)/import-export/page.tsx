@@ -40,6 +40,8 @@ export default function ImportExportPage() {
       const customers = await db.customers.toArray();
       const suppliers = await db.suppliers.toArray();
       const supplierProducts = await db.supplierProducts.toArray();
+      const notes = await db.notes.toArray();
+      const budgets = await db.budgets.toArray();
 
       const data = {
         theme,
@@ -51,12 +53,14 @@ export default function ImportExportPage() {
         customers,
         suppliers,
         supplierProducts,
+        budgets,
+        notes,
       };
       const json = JSON.stringify(data, null, 2);
       const blob = new Blob([json], { type: "application/json;charset=utf-8" });
       const formattedDate = format(new Date(), "dd-MM-yyyy");
 
-      saveAs(blob, `copia_seguridad_${formattedDate}.json`);
+      saveAs(blob, `copia de seguridad del ${formattedDate}.json`);
     } catch (error) {
       console.error("Error al exportar datos:", error);
       showNotification("Error al exportar los datos", "error");
@@ -86,6 +90,8 @@ export default function ImportExportPage() {
           db.customers,
           db.suppliers,
           db.supplierProducts,
+          db.budgets,
+          db.notes,
         ],
         async () => {
           await db.theme.clear();
@@ -97,6 +103,8 @@ export default function ImportExportPage() {
           await db.customers.clear();
           await db.suppliers.clear();
           await db.supplierProducts.clear();
+          await db.budgets.clear();
+          await db.notes.clear();
 
           try {
             await db.theme.bulkAdd(data.theme || []);
@@ -108,6 +116,8 @@ export default function ImportExportPage() {
             await db.customers.bulkAdd(data.customers || []);
             await db.suppliers.bulkAdd(data.suppliers || []);
             await db.supplierProducts.bulkAdd(data.supplierProducts || []);
+            await db.budgets.bulkAdd(data.budgets || []);
+            await db.notes.bulkAdd(data.notes || []);
           } catch (e) {
             console.error("Error al importar datos:", e);
             throw e;

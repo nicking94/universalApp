@@ -37,6 +37,8 @@ import { formatCurrency } from "@/app/lib/utils/currency";
 import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
 import { useRubro } from "@/app/context/RubroContext";
 import { calculatePrice, calculateProfit } from "@/app/lib/utils/calculations";
+import Select from "react-select";
+import { SingleValue } from "react-select";
 
 ChartJS.register(
   BarElement,
@@ -549,20 +551,29 @@ const Metrics = () => {
               >
                 Mes:
               </label>
-              <select
+              <Select
                 id="month"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                className="bg-white dark:bg-gray_b border border-gray_l dark:border-gray_m rounded-md px-3 py-1 text-sm"
-              >
-                {Array.from({ length: 12 }, (_, i) => (
-                  <option key={i + 1} value={i + 1}>
-                    {format(new Date(selectedYear, i, 1), "MMMM", {
-                      locale: es,
-                    })}
-                  </option>
-                ))}
-              </select>
+                value={{
+                  value: selectedMonth,
+                  label: format(
+                    new Date(selectedYear, selectedMonth - 1, 1),
+                    "MMMM",
+                    { locale: es }
+                  ),
+                }}
+                onChange={(
+                  option: SingleValue<{ value: number; label: string }>
+                ) => setSelectedMonth(option?.value ?? selectedMonth)}
+                options={Array.from({ length: 12 }, (_, i) => ({
+                  value: i + 1,
+                  label: format(new Date(selectedYear, i, 1), "MMMM", {
+                    locale: es,
+                  }),
+                }))}
+                className="text-black min-w-40"
+                classNamePrefix="select"
+                isSearchable={false}
+              />
             </div>
 
             <div className="flex items-center gap-2">
@@ -572,18 +583,26 @@ const Metrics = () => {
               >
                 Año:
               </label>
-              <select
-                id="year"
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                className="bg-white dark:bg-gray_b border border-gray_l dark:border-gray_m rounded-md px-3 py-1 text-sm"
-              >
-                {availableYears.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
+              <Select
+                placeholder="Seleccionar año..."
+                noOptionsMessage={() => "No se encontraron opciones"}
+                options={availableYears.map((year) => ({
+                  value: year,
+                  label: year.toString(),
+                }))}
+                value={{
+                  value: selectedYear,
+                  label: selectedYear.toString(),
+                }}
+                onChange={(selectedOption) => {
+                  if (selectedOption) {
+                    setSelectedYear(selectedOption.value);
+                  }
+                }}
+                className="text-black min-w-40"
+                classNamePrefix="react-select"
+                menuPosition="fixed"
+              />
             </div>
           </div>
         </div>
@@ -637,27 +656,31 @@ const Metrics = () => {
                   5 Productos por {unidadLegible[monthlyRankingUnit]} más
                   vendidos este año
                 </h3>
-                <select
+                <Select
+                  placeholder="Seleccionar unidad..."
+                  noOptionsMessage={() => "No se encontraron opciones"}
+                  options={unitOptions}
                   value={
-                    rubro === "indumentaria" ? "unidad" : monthlyRankingUnit
+                    rubro === "indumentaria"
+                      ? { value: "unidad", label: "unidad" }
+                      : { value: monthlyRankingUnit, label: monthlyRankingUnit }
                   }
-                  onChange={(e) =>
-                    rubro !== "indumentaria" &&
-                    setMonthlyRankingUnit(e.target.value as Product["unit"])
-                  }
-                  disabled={rubro === "indumentaria"}
-                  className={`text-black dark:text-white bg-white dark:bg-gray_b border border-gray_l dark:border-gray_m rounded-sm px-2 py-1 text-sm ${
+                  onChange={(selectedOption) => {
+                    if (selectedOption && rubro !== "indumentaria") {
+                      setMonthlyRankingUnit(
+                        selectedOption.value as Product["unit"]
+                      );
+                    }
+                  }}
+                  isDisabled={rubro === "indumentaria"}
+                  className={`text-black min-w-40 dark:text-white ${
                     rubro === "indumentaria"
                       ? "opacity-50 cursor-not-allowed"
                       : ""
                   }`}
-                >
-                  {unitOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  classNamePrefix="react-select"
+                  menuPosition="fixed"
+                />
               </div>
 
               {topProductsMonthly.length > 0 ? (
@@ -732,27 +755,31 @@ const Metrics = () => {
                   5 Productos por {unidadLegible[yearlyRankingUnit]} más
                   vendidos este año
                 </h3>
-                <select
+                <Select
+                  placeholder="Seleccionar unidad..."
+                  noOptionsMessage={() => "No se encontraron opciones"}
+                  options={unitOptions}
                   value={
-                    rubro === "indumentaria" ? "unidad" : yearlyRankingUnit
+                    rubro === "indumentaria"
+                      ? { value: "unidad", label: "unidad" }
+                      : { value: yearlyRankingUnit, label: yearlyRankingUnit }
                   }
-                  onChange={(e) =>
-                    rubro !== "indumentaria" &&
-                    setYearlyRankingUnit(e.target.value as Product["unit"])
-                  }
-                  disabled={rubro === "indumentaria"}
-                  className={`text-black dark:text-white bg-white dark:bg-gray_b border border-gray_l dark:border-gray_m rounded-sm px-2 py-1 text-sm ${
+                  onChange={(selectedOption) => {
+                    if (selectedOption && rubro !== "indumentaria") {
+                      setYearlyRankingUnit(
+                        selectedOption.value as Product["unit"]
+                      );
+                    }
+                  }}
+                  isDisabled={rubro === "indumentaria"}
+                  className={`react-select-container text-black min-w-40 dark:text-white ${
                     rubro === "indumentaria"
                       ? "opacity-50 cursor-not-allowed"
                       : ""
                   }`}
-                >
-                  {unitOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  classNamePrefix="react-select"
+                  menuPosition="fixed"
+                />
               </div>
               {topProductsYearly.length > 0 ? (
                 <div className="space-y-2">

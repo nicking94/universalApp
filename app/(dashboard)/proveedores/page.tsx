@@ -538,7 +538,7 @@ const ProveedoresPage = () => {
           title={`Productos de ${
             selectedSupplierForProducts?.companyName || ""
           }`}
-          minheight="min-h-[50vh]"
+          minheight="min-h-[75vh]"
           buttons={
             <Button
               text="Cerrar"
@@ -564,13 +564,13 @@ const ProveedoresPage = () => {
                 />
               </div>
 
-              <div className="border rounded-lg p-2 h-[40vh] overflow-y-auto">
+              <div className="border rounded-lg p-2 h-[59.4vh] overflow-y-auto">
                 {isLoadingProducts ? (
                   <div className="flex justify-center items-center h-40">
-                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue_m"></div>
                   </div>
                 ) : filteredAvailableProducts.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="space-y-2 ">
                     {filteredAvailableProducts.map((product) => (
                       <div
                         key={product.id}
@@ -610,14 +610,16 @@ const ProveedoresPage = () => {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-gray_m">No hay productos disponibles</p>
+                  <div className="flex justify-center items-center h-full">
+                    <p className="text-gray_m">No hay productos disponibles</p>
+                  </div>
                 )}
               </div>
             </div>
 
             <div className="space-y-2">
               <h3 className="font-semibold">Productos asignados</h3>
-              <div className="border rounded-lg p-2 h-[45.5vh] overflow-y-auto">
+              <div className="border rounded-lg p-2 h-[65vh] overflow-y-auto">
                 {assignedProducts.length > 0 ? (
                   <div className="space-y-2">
                     {assignedProducts.map((product) => (
@@ -653,7 +655,9 @@ const ProveedoresPage = () => {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-gray_m">No hay productos asignados</p>
+                  <div className="flex justify-center items-center h-full">
+                    <p className="text-gray_m">No hay productos asignados</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -746,16 +750,13 @@ const ProveedoresPage = () => {
                   </div>
                 </div>
               ))}
-              <Button
-                icon={<Plus size={20} />}
-                text="Agregar otro proveedor"
-                colorText="text-blue_b dark:text-white"
-                colorTextHover="hover:text-blue_b dark:hover:text-white"
-                colorBg="bg-transparent "
-                colorBgHover="hover:bg-transparent"
-                px="px-0"
+              <button
+                type="button"
                 onClick={handleAddContact}
-              />
+                className={`cursor-pointer text-sm text-blue_b dark:text-blue_l hover:text-blue_m flex items-center transition-all duration-300`}
+              >
+                <Plus size={16} className="mr-1" /> Agregar otro proveedor
+              </button>
             </div>
 
             <div className="grid grid-cols-2 gap-2">

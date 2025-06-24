@@ -517,7 +517,6 @@ const VentasPage = () => {
 
     try {
       await ticketRef.current.print();
-      showNotification("Ticket enviado a impresión", "success");
     } catch (error) {
       console.error("Error al imprimir ticket:", error);
       showNotification("Error al imprimir ticket", "error");
@@ -1382,7 +1381,7 @@ const VentasPage = () => {
                 </div>
               }
             >
-              <div className=" overflow-y-auto bg-white dark:bg-gray_b">
+              <div className=" overflow-y-auto dark:bg-gray_b">
                 <PrintableTicket
                   ref={ticketRef}
                   sale={selectedSale}
@@ -1866,7 +1865,7 @@ const VentasPage = () => {
                         placeholder="Nombre del cliente..."
                         value={customerName}
                         onChange={(e) => {
-                          setCustomerName(e.target.value.toUpperCase());
+                          setCustomerName(e.target.value);
                           setSelectedCustomer(null);
                         }}
                         disabled={!!selectedCustomer}

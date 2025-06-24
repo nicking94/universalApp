@@ -35,10 +35,10 @@ const Navbar: React.FC<NavbarProps> = ({
           <h1 className="text-lg italic">Universal App | {rubro}</h1>
         </div>
 
-        <div className="flex items-center gap-6">
-          <div className=" flex items-center gap-2 bg-gradient-to-bl from-blue_m to-blue_b p-2 rounded-sm shadow-sm shadow-blue_b">
-            <p className="dark:text-white italic text-md font-normal text-white border-b border-white">
-              Rubro:
+        <div className="flex items-center space-x-6 ">
+          <div className=" flex items-center space-x-4 p-1  ">
+            <p className="dark:text-white italic text-md font-normal text-gray_m border-b-1 border-blue_l ">
+              Rubro actual:
             </p>
             <Select
               options={rubroOptions}
@@ -54,8 +54,7 @@ const Navbar: React.FC<NavbarProps> = ({
                   );
                 }
               }}
-              className="w-46 text-black rounded-none bg-blue_m"
-              classNamePrefix="react-select"
+              className="min-w-40 text-black"
               isSearchable={false}
             />
           </div>

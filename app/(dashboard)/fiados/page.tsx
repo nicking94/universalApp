@@ -294,7 +294,9 @@ const FiadosPage = () => {
     if (!customerToDelete) return;
 
     try {
-      const customer = customers.find((c) => c.name === customerToDelete);
+      const customer = customers.find(
+        (c) => c.name === customerToDelete.toLowerCase()
+      );
 
       if (!customer) {
         showNotification("Cliente no encontrado", "error");
@@ -722,7 +724,7 @@ const FiadosPage = () => {
                 </div>
               </div>
             </div>
-            <div className="max-h-96 overflow-y-auto border border-blue_xl rounded-md">
+            <div className="max-h-96 overflow-y-auto">
               <h3 className="font-semibold mb-3 text-lg border-b pb-2">
                 Historial de fiados
               </h3>
@@ -995,7 +997,7 @@ const FiadosPage = () => {
                       )
                     }
                     options={paymentOptions}
-                    className="w-full text-black"
+                    className="min-w-40 text-black"
                     classNamePrefix="react-select"
                   />
                   <InputCash

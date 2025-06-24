@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { db } from "../database/db";
 import { usePagination } from "../context/PaginationContext";
+import Select from "react-select";
 
 const Pagination: React.FC<
   Omit<
@@ -96,19 +97,28 @@ const Pagination: React.FC<
         >
           {text}
         </label>
-        <select
-          id="items-per-page"
-          value={itemsPerPage}
-          onChange={handleItemsPerPageChange}
-          className="cursor-pointer bg-white text-black border border-gray_xl rounded-md p-1 text-sm focus:outline-none"
+        <Select
+          inputId="items-per-page"
+          options={[5, 10, 20, 30].map((n) => ({
+            value: n,
+            label: n.toString(),
+          }))}
+          value={{ value: itemsPerPage, label: itemsPerPage.toString() }}
+          onChange={(selectedOption) => {
+            if (selectedOption) {
+              handleItemsPerPageChange({
+                target: { value: selectedOption.value.toString() },
+              } as React.ChangeEvent<HTMLSelectElement>);
+            }
+          }}
+          className="cursor-pointer text-black p-1 text-sm focus:outline-none"
+          classNamePrefix="react-select"
+          menuPosition="fixed"
           aria-label="Items por página"
-        >
-          {[5, 10, 20, 30].map((n) => (
-            <option key={n} value={n} aria-label={`Mostrar ${n} items`}>
-              {n}
-            </option>
-          ))}
-        </select>
+          components={{
+            IndicatorSeparator: () => null,
+          }}
+        />
       </div>
       <nav aria-label="Paginación">
         <ul className="flex items-center gap-2">
