@@ -565,7 +565,7 @@ const ClientesPage = () => {
         >
           {selectedBudget ? (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4 ">
                 <div>
                   <p className="font-semibold">Fecha:</p>
                   <p>
@@ -613,7 +613,7 @@ const ClientesPage = () => {
                   selectedBudget.items.length > 0 ? (
                     <div className="flex flex-col justify-between max-h-[50vh]">
                       <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
-                        <table className="w-full border-collapse">
+                        <table className="w-full border-collapse ">
                           <thead className="bg-gradient-to-bl from-blue_m to-blue_b text-white">
                             <tr>
                               <th className="p-2 border text-left">
@@ -622,19 +622,24 @@ const ClientesPage = () => {
                               <th className="p-2 border text-center">
                                 Cantidad
                               </th>
+
                               <th className="p-2 border text-center">Precio</th>
                               <th className="p-2 border text-center">Total</th>
                             </tr>
                           </thead>
                           <tbody>
                             {selectedBudget.items.map((item, index) => (
-                              <tr key={index}>
+                              <tr
+                                key={index}
+                                className=" text-gray_b dark:text-white"
+                              >
                                 <td className="p-2 border">
                                   {item.productName}
                                 </td>
                                 <td className="p-2 border text-center">
-                                  {item.quantity}
+                                  {item.quantity + " " + item.unit}
                                 </td>
+
                                 <td className="p-2 border text-center">
                                   ${item.price.toFixed(2)}
                                 </td>
@@ -671,7 +676,7 @@ const ClientesPage = () => {
                       <th className="p-2">Acciones</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray_xl">
+                  <tbody className="bg-white divide-y divide-gray_xl text-gray_b">
                     {customerBudgets.map((budget) => (
                       <tr key={budget.id}>
                         <td className="p-2 border border-gray_xl text-start">

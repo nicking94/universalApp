@@ -1313,6 +1313,7 @@ const PresupuestosPage = () => {
                   <div className="flex justify-between items-center bg-gray_xxl px-4 py-3 text-gray_b">
                     <div className="flex w-full max-w-[30vw] items-center space-x-4">
                       <Input
+                        colorLabel="text-gray_m"
                         label="Seña (opcional)"
                         type="number"
                         value={newBudget.deposit}
@@ -1352,7 +1353,7 @@ const PresupuestosPage = () => {
                         placeholder="Ingrese el monto de la seña..."
                       />
                       <div className="w-full">
-                        <label className="block text-sm font-medium text-gray_b dark:text-white mb-1">
+                        <label className="block text-sm font-medium text-gray_m  mb-1">
                           Saldo restante
                         </label>
                         <div className="p-2 border border-gray_xl rounded-md bg-gray-100">
@@ -1360,7 +1361,7 @@ const PresupuestosPage = () => {
                         </div>
                       </div>
                     </div>
-                    <span className="font-bold">
+                    <span className="font-bold text-xl  ">
                       Total: {formatCurrency(newBudget.total)}
                     </span>
                   </div>
