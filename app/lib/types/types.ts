@@ -16,7 +16,7 @@ export type AuthData = {
 };
 
 export type ButtonProps = {
-  onClick?: () => void;
+  onClick?: (e?: React.MouseEvent<HTMLButtonElement>) => void;
   children?: React.ReactNode;
   px?: string;
   py?: string;
@@ -148,6 +148,12 @@ export type Product = {
   discount?: number;
   basePrice?: number;
   lot?: string;
+  location?: string;
+  customCategory?: string;
+  customCategories?: Array<{
+    name: string;
+    rubro: Rubro;
+  }>;
 };
 export type ProductDisplayInfo = {
   name: string;
@@ -377,27 +383,31 @@ export type ProductFilters = {
   color?: string[];
   size?: string[];
   brand?: string[];
+  location?: string[];
+  customCategory?: string[];
 };
-export type ClothingCategoryOption = {
-  value: string;
+export type CategoryOption = {
+  value: {
+    name: string;
+    rubro: Rubro;
+    isLegacy?: boolean;
+  };
   label: string;
+};
+export type CustomCategory = {
+  id?: number;
+  name: string;
+  rubro: Rubro;
 };
 
 export type ClothingSizeOption = {
   value: string;
   label: string;
 };
-export type CommercialCategoryOption = {
-  value: string;
-  label: string;
-};
+
 export type GroupedOption = {
   label: string;
-  options: (
-    | ClothingCategoryOption
-    | ClothingSizeOption
-    | CommercialCategoryOption
-  ) & {
+  options: ClothingSizeOption & {
     groupType: string;
   };
 };
@@ -405,6 +415,8 @@ export type FilterOption = {
   value: string;
   label: string;
   groupType: keyof ProductFilters;
+  name?: string;
+  rubro?: Rubro;
 };
 
 export type GroupedFilterOption = {

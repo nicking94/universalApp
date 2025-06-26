@@ -14,6 +14,7 @@ import {
   Budget,
   Note,
   Rubro,
+  CustomCategory,
 } from "../lib/types/types";
 
 class MyDatabase extends Dexie {
@@ -37,10 +38,11 @@ class MyDatabase extends Dexie {
   businessData!: Table<BusinessData, number>;
   budgets!: Table<Budget, string>;
   notes!: Table<Note, number>;
+  customCategories!: Table<CustomCategory, number>;
 
   constructor() {
     super("MyDatabase");
-    this.version(15)
+    this.version(16)
       .stores({
         theme: "id",
         products: "++id, name, barcode, stock",
@@ -61,6 +63,7 @@ class MyDatabase extends Dexie {
         budgets:
           "++id, customerName, customerPhone, customerId, createdAt, updatedAt, status",
         notes: "++id, customerId, budgetId, createdAt",
+        customCategories: "++id, name, rubro, [name+rubro]",
       })
       .upgrade(async (trans) => {
         await trans
@@ -68,6 +71,7 @@ class MyDatabase extends Dexie {
           .toCollection()
           .modify((product: Product) => {
             product.lot = "";
+            product.location = "";
             if (product.name) product.name = this.formatString(product.name);
             if (product.barcode)
               product.barcode = this.formatString(product.barcode);
@@ -127,6 +131,47 @@ class MyDatabase extends Dexie {
             if (budget.customerName)
               budget.customerName = this.formatString(budget.customerName);
           });
+        const allProducts = await trans.table("products").toArray();
+        const categoriesMap = new Map<string, { name: string; rubro: Rubro }>();
+
+        // Extraer categorías de productos
+        allProducts.forEach((product: Product) => {
+          if (product.customCategories && product.customCategories.length > 0) {
+            product.customCategories.forEach(
+              (cat: { name: string; rubro?: Rubro }) => {
+                if (cat.name && cat.name.trim()) {
+                  const key = `${cat.name.toLowerCase().trim()}_${
+                    cat.rubro || product.rubro || "comercio"
+                  }`;
+                  if (!categoriesMap.has(key)) {
+                    categoriesMap.set(key, {
+                      name: cat.name.trim(),
+                      rubro: cat.rubro || product.rubro || "comercio",
+                    });
+                  }
+                }
+              }
+            );
+          }
+          // Compatibilidad con versiones anteriores (campo 'category')
+          else if (product.category && product.category.trim()) {
+            const key = `${product.category.toLowerCase().trim()}_${
+              product.rubro || "comercio"
+            }`;
+            if (!categoriesMap.has(key)) {
+              categoriesMap.set(key, {
+                name: product.category.trim(),
+                rubro: product.rubro || "comercio",
+              });
+            }
+          }
+        });
+
+        // Guardar categorías en la nueva tabla
+        const categoriesTable = trans.table("customCategories");
+        for (const category of categoriesMap.values()) {
+          await categoriesTable.add(category);
+        }
       });
 
     this.setupHooks();

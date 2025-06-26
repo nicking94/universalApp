@@ -5,7 +5,6 @@ const getDisplayProductName = (
   rubro?: Rubro,
   showSizeAndColor: boolean = true
 ): string => {
-  // Extract basic information
   const isProductObject = typeof productOrName !== "string";
   const productName = isProductObject ? productOrName.name : productOrName;
   const lot = isProductObject ? productOrName.lot : undefined;

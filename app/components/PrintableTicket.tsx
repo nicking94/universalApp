@@ -36,25 +36,25 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
 
     const generateEscPosCommands = (): Uint8Array => {
       const commands: number[] = [];
-      commands.push(0x1b, 0x40); // Inicializar impresora
+      commands.push(0x1b, 0x40);
 
       // Configuración básica
-      commands.push(0x1b, 0x52, 0x08); // Juego de caracteres Latino
-      commands.push(0x1b, 0x74, 0x10); // Codificación Windows-1252
+      commands.push(0x1b, 0x52, 0x08);
+      commands.push(0x1b, 0x74, 0x10);
 
       // Encabezado
-      commands.push(0x1b, 0x21, 0x08); // Texto enfatizado
+      commands.push(0x1b, 0x21, 0x08);
       pushText(commands, `${businessData?.name || "Mi Negocio"}\n`);
-      commands.push(0x1b, 0x21, 0x00); // Reset formato
+      commands.push(0x1b, 0x21, 0x00);
 
       pushText(commands, `${businessData?.address || "Dirección"}\n`);
       pushText(commands, `Tel: ${businessData?.phone || "N/A"}\n`);
       pushText(commands, `CUIT: ${businessData?.cuit || "N/A"}\n\n`);
 
       // Línea separadora
-      commands.push(0x1b, 0x61, 0x01); // Centrar
+      commands.push(0x1b, 0x61, 0x01);
       pushText(commands, "------------------------------\n");
-      commands.push(0x1b, 0x61, 0x00); // Alineación izquierda
+      commands.push(0x1b, 0x61, 0x00);
 
       // Detalles del ticket
       pushText(commands, `TICKET #${sale.id}\n`);
@@ -79,7 +79,7 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
         if (product.discount) {
           pushText(commands, ` (-${product.discount}%)\n`);
         } else {
-          commands.push(0x0a); // Nueva línea
+          commands.push(0x0a);
         }
 
         const subtotal = calculateDiscountedPrice(
@@ -92,9 +92,9 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
       });
 
       // Totales y pagos
-      commands.push(0x1b, 0x61, 0x01); // Centrar
+      commands.push(0x1b, 0x61, 0x01);
       pushText(commands, "------------------------------\n");
-      commands.push(0x1b, 0x61, 0x02); // Alinear derecha
+      commands.push(0x1b, 0x61, 0x02);
 
       pushText(commands, `TOTAL: ${formatCurrency(sale.total)}\n\n`);
 
@@ -108,10 +108,10 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
       }
 
       if (sale.credit) {
-        commands.push(0x1b, 0x61, 0x01); // Centrar
-        commands.push(0x1b, 0x21, 0x08); // Texto enfatizado
+        commands.push(0x1b, 0x61, 0x01);
+        commands.push(0x1b, 0x21, 0x08);
         pushText(commands, "** VENTA FIADA **\n");
-        commands.push(0x1b, 0x21, 0x00); // Reset formato
+        commands.push(0x1b, 0x21, 0x00);
 
         if (sale.customerName) {
           pushText(commands, `Cliente: ${sale.customerName}\n`);
@@ -119,14 +119,13 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
       }
 
       // Pie de página
-      commands.push(0x1b, 0x61, 0x01); // Centrar
+      commands.push(0x1b, 0x61, 0x01);
       pushText(commands, "\n¡GRACIAS POR SU COMPRA!\n");
       pushText(commands, "Conserve este ticket\n");
       pushText(commands, "------------------------------\n");
       pushText(commands, "Ticket no válido como factura\n\n");
 
-      // Cortar papel (compatible con mayoría de impresoras)
-      commands.push(0x1d, 0x56, 0x41, 0x00); // Cortar parcialmente
+      commands.push(0x1d, 0x56, 0x41, 0x00);
 
       return new Uint8Array(commands);
     };
@@ -145,8 +144,6 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
 
       try {
         const escPosData = generateEscPosCommands();
-
-        // 1. Intento con Web Serial API (Chrome/Edge)
         if ("serial" in navigator) {
           try {
             const port = await navigator.serial.requestPort();
@@ -165,12 +162,10 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
             console.warn("Error con Web Serial:", error);
           }
         }
-
-        // 2. Intento con WebUSB (para algunas impresoras)
         if ("usb" in navigator) {
           try {
             const device = await navigator.usb.requestDevice({
-              filters: [{ vendorId: 0x0416, productId: 0x5011 }], // Systel
+              filters: [{ vendorId: 0x0416, productId: 0x5011 }],
             });
 
             await device.open();

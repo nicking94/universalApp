@@ -25,6 +25,7 @@ import { useRubro } from "@/app/context/RubroContext";
 import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
 import { getLocalDateString } from "@/app/lib/utils/getLocalDate";
 import { usePagination } from "@/app/context/PaginationContext";
+import { TbCashRegister } from "react-icons/tb";
 
 const CajaDiariaPage = () => {
   const { rubro } = useRubro();
@@ -1082,7 +1083,7 @@ const CajaDiariaPage = () => {
                     </tr>
                   </thead>
                   <tbody
-                    className={`bg-white text-gray_b divide-y divide-gray_xl `}
+                    className={`bg-white text-gray_b divide-y divide-gray_xl  `}
                   >
                     {currentItems.length > 0 ? (
                       currentItems.map((day, index) => (
@@ -1130,10 +1131,13 @@ const CajaDiariaPage = () => {
                         </tr>
                       ))
                     ) : (
-                      <tr className="h-[55vh] 2xl:h-[calc(54vh-80px)]">
+                      <tr className="h-[41vh] 2xl:h-[calc(65vh-80px)]">
                         <td colSpan={6} className="py-4 text-center">
                           <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
-                            <Info size={64} className="mb-4 text-gray_m" />
+                            <TbCashRegister
+                              size={64}
+                              className="mb-4 text-gray_m"
+                            />
                             <p className="text-gray_m">
                               No hay registros para el período seleccionado.
                             </p>

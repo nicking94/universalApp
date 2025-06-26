@@ -4,12 +4,11 @@ import Input from "@/app/components/Input";
 import Modal from "@/app/components/Modal";
 import Notification from "@/app/components/Notification";
 import {
-  ClothingCategoryOption,
   ClothingSizeOption,
-  CommercialCategoryOption,
   FilterOption,
   Product,
   ProductFilters,
+  Rubro,
   UnitOption,
 } from "@/app/lib/types/types";
 import {
@@ -39,54 +38,6 @@ import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
 import { usePagination } from "@/app/context/PaginationContext";
 import BarcodeGenerator from "@/app/components/BarcodeGenerator";
 
-const clothingCategories: ClothingCategoryOption[] = [
-  // Superior (orden: básicos -> ocasionales)
-  { value: "remera", label: "Remera" }, // MÁS FRECUENTE
-  { value: "camiseta", label: "Camiseta" },
-  { value: "camisa", label: "Camisa" },
-  { value: "blusa", label: "Blusa" },
-  { value: "buzo", label: "Buzo" }, // Movido de "Abrigos" por ser básico
-  { value: "sweater", label: "Sweater" }, // Movido de "Abrigos"
-  { value: "musculosa", label: "Musculosa" },
-  { value: "top", label: "Top" },
-  { value: "body", label: "Body" },
-
-  // Inferior (orden: básicos -> ocasionales)
-  { value: "pantalon", label: "Pantalón" },
-  { value: "jean", label: "Jean" },
-  { value: "short", label: "Short" },
-  { value: "calza", label: "Calza" },
-  { value: "pollera", label: "Pollera" },
-  { value: "bermuda", label: "Bermuda" },
-
-  // Abrigos (orden: temporada fría -> ocasionales)
-  { value: "campera", label: "Campera" },
-  { value: "saco", label: "Saco" },
-  { value: "chaleco", label: "Chaleco" },
-
-  // Vestidos
-  { value: "vestido", label: "Vestido" },
-  { value: "enterizo", label: "Enterizo" },
-
-  // Interior
-  { value: "ropa_interior", label: "Ropa Interior" },
-  { value: "pijama", label: "Pijama" },
-  { value: "lenceria", label: "Lencería" },
-
-  // Deportivo/Nicho (agrupado por uso)
-  { value: "deportivo", label: "Indumentaria Deportiva" },
-  { value: "traje_baño", label: "Traje de Baño" },
-
-  // Accesorios
-  { value: "bolso", label: "Bolso" },
-  { value: "gorra", label: "Gorra" },
-  { value: "bufanda", label: "Bufanda" },
-  { value: "accesorio", label: "Accesorio" }, // GENÉRICO (menos frecuente)
-
-  // Otros
-  { value: "otro", label: "Otro" }, // MENOS FRECUENTE
-];
-
 const clothingSizes: ClothingSizeOption[] = [
   // Talles estándar
   { value: "XXS", label: "XXS" },
@@ -113,47 +64,6 @@ const clothingSizes: ClothingSizeOption[] = [
   { value: "prematuro", label: "Prematuro" },
 ];
 
-const commercialCategories: CommercialCategoryOption[] = [
-  // Básicos diarios (alta rotación)
-  { value: "almacen", label: "Almacén" }, // Arroz, fideos, harina, etc.
-  { value: "lacteos", label: "Lácteos" }, // Leche, yogur, manteca
-  { value: "panaderia", label: "Panadería" }, // Pan, facturas
-  { value: "frutas", label: "Frutas" },
-  { value: "verduras", label: "Verduras" },
-  { value: "carnes", label: "Carnes" }, // Pollo, carne vacuna
-  { value: "fiambres", label: "Fiambres" }, // Jamón, queso, salame
-  { value: "quesos", label: "Quesos" }, // Quesos varios
-
-  // Bebidas (alta frecuencia)
-  { value: "bebidas", label: "Bebidas" }, // Gaseosas, aguas, jugos
-  { value: "dulces", label: "Dulces/Golosinas" }, // Chocolate, caramelos
-  { value: "snacks", label: "Snacks" }, // Papas, chizitos
-
-  // Congelados (uso regular)
-  { value: "congelados", label: "Congelados" }, // Papas, pizzas, vegetales
-  { value: "helados", label: "Helados" }, // Temporada alta
-
-  // Higiene y limpieza (rotación media)
-  { value: "limpieza", label: "Limpieza" }, // Lavandina, detergente
-  { value: "cuidado_personal", label: "Cuidado Personal" }, // Shampoo, jabón
-  { value: "perfumeria", label: "Perfumería" }, // Desodorantes, cremas
-
-  // Especializados (menor frecuencia)
-  { value: "pescados", label: "Pescados" }, // Depende de zona/consumo
-  { value: "reposteria", label: "Repostería" }, // Ingredientes específicos
-  { value: "vinos", label: "Vinos" }, // Consumo ocasional
-  { value: "licores", label: "Licores" }, // Eventos especiales
-
-  // No alimenticios (baja rotación)
-  { value: "bazar", label: "Bazar" }, // Vajilla, utensilios
-  { value: "electro", label: "Electro" }, // Pequeños electrodomésticos
-  { value: "libreria", label: "Librería" }, // Útiles escolares/oficina
-  { value: "jugueteria", label: "Juguetería" }, // Temporal (ej. navidad)
-
-  // Otros
-  { value: "otros", label: "Otros" }, // MENOS FRECUENTE
-];
-
 const ProductsPage = () => {
   const { rubro } = useRubro();
 
@@ -175,9 +85,14 @@ const ProductsPage = () => {
     size: "",
     rubro: rubro,
     lot: "",
+    location: "",
+    customCategory: "",
+    customCategories: [],
   });
   const [filters, setFilters] = useState<ProductFilters>({});
-
+  const [globalCustomCategories, setGlobalCustomCategories] = useState<
+    Array<{ name: string; rubro: Rubro }>
+  >([]);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -197,6 +112,12 @@ const ProductsPage = () => {
   const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
   const [selectedProductForBarcode, setSelectedProductForBarcode] =
     useState<Product | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<{
+    name: string;
+    rubro: Rubro;
+  } | null>(null);
+  const [isCategoryDeleteModalOpen, setIsCategoryDeleteModalOpen] =
+    useState(false);
 
   const unitOptions: UnitOption[] = [
     { value: "Unid.", label: "Unidad", convertible: false },
@@ -224,12 +145,124 @@ const ProductsPage = () => {
   const selectedUnit =
     unitOptions.find((opt) => opt.value === newProduct.unit) ?? null;
 
+  const handleDeleteCategoryClick = async (category: {
+    name: string;
+    rubro: Rubro;
+  }) => {
+    if (!category.name.trim()) return;
+
+    setCategoryToDelete(category);
+    setIsCategoryDeleteModalOpen(true);
+  };
+
+  const handleConfirmDeleteCategory = async (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    if (!categoryToDelete) return;
+
+    try {
+      // 1. Eliminar de la tabla de categorías
+      await db.customCategories
+        .where("name")
+        .equalsIgnoreCase(categoryToDelete.name)
+        .and((cat) => cat.rubro === categoryToDelete.rubro)
+        .delete();
+
+      // 2. Obtener todos los productos (no solo los que tienen la categoría)
+      const allProducts = await db.products.toArray();
+
+      // 3. Actualizar productos que usaban esta categoría
+      const updatePromises = allProducts.map(async (product) => {
+        // Filtrar las categorías para eliminar la categoría marcada
+        const updatedCategories = (product.customCategories || []).filter(
+          (cat) =>
+            cat.name.toLowerCase() !== categoryToDelete.name.toLowerCase() ||
+            cat.rubro !== categoryToDelete.rubro
+        );
+
+        // Solo actualizar si realmente había cambios
+        if (
+          updatedCategories.length !== (product.customCategories?.length || 0)
+        ) {
+          await db.products.update(product.id, {
+            customCategories: updatedCategories,
+          });
+          return {
+            ...product,
+            customCategories: updatedCategories,
+          };
+        }
+        return product;
+      });
+
+      // Esperar a que todas las actualizaciones terminen
+      const updatedProducts = await Promise.all(updatePromises);
+
+      // 4. Actualizar el estado local de productos
+      setProducts(updatedProducts);
+
+      // 5. Actualizar estado de categorías globales
+      setGlobalCustomCategories((prev) =>
+        prev.filter(
+          (cat) =>
+            cat.name.toLowerCase() !== categoryToDelete.name.toLowerCase() ||
+            cat.rubro !== categoryToDelete.rubro
+        )
+      );
+
+      // 6. Limpiar la categoría seleccionada si es la que se eliminó
+      setNewProduct((prev) => ({
+        ...prev,
+        customCategories: (prev.customCategories || []).filter(
+          (cat) =>
+            cat.name.toLowerCase() !== categoryToDelete.name.toLowerCase() ||
+            cat.rubro !== categoryToDelete.rubro
+        ),
+      }));
+
+      showNotification(
+        `Categoría "${categoryToDelete.name}" eliminada correctamente`,
+        "success"
+      );
+    } catch (error) {
+      console.error("Error al eliminar categoría:", error);
+      showNotification("Error al eliminar categoría", "error");
+    } finally {
+      setIsCategoryDeleteModalOpen(false);
+      setCategoryToDelete(null);
+    }
+  };
+  const formatOptionLabel = ({
+    value,
+    label,
+  }: {
+    value: { name: string; rubro: Rubro };
+    label: string;
+  }) => {
+    return (
+      <div className="flex justify-between items-center w-full">
+        <div>
+          <span>{label}</span>
+        </div>
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleDeleteCategoryClick(value);
+          }}
+          className="text-red-500 hover:text-red-700 ml-2 cursor-pointer p-1 rounded-full hover:bg-red-100"
+          title="Eliminar categoría"
+        >
+          <Trash size={16} />
+        </button>
+      </div>
+    );
+  };
   const getFilterOptionsByRubro = () => {
     if (rubro === "indumentaria") {
       return [
         {
           type: "category",
-          options: clothingCategories,
+          options: globalCustomCategories,
           label: "Categoría",
         },
         {
@@ -252,7 +285,7 @@ const ProductsPage = () => {
       return [
         {
           type: "category",
-          options: commercialCategories,
+          options: globalCustomCategories.map((cat) => cat.name),
           label: "Categoría",
         },
       ];
@@ -287,7 +320,14 @@ const ProductsPage = () => {
           filters.category.includes(product.category || "")) &&
         (!filters.size || filters.size.includes(product.size || "")) &&
         (!filters.color || filters.color.includes(product.color || "")) &&
-        (!filters.brand || filters.brand.includes(product.brand || ""))
+        (!filters.brand || filters.brand.includes(product.brand || "")) &&
+        (!filters.location ||
+          filters.location.includes(product.location || "")) &&
+        (!filters.customCategory ||
+          (product.customCategories &&
+            product.customCategories.some((cat) =>
+              filters.customCategory?.includes(cat.name || "")
+            )))
     );
 
     return [...filtered].sort((a, b) => {
@@ -382,6 +422,8 @@ const ProductsPage = () => {
       originalProduct.barcode !== updatedProduct.barcode ||
       originalProduct.category !== updatedProduct.category ||
       originalProduct.lot !== updatedProduct.lot ||
+      originalProduct.location !== updatedProduct.location ||
+      originalProduct.customCategories !== updatedProduct.customCategories ||
       (rubro === "indumentaria" &&
         (originalProduct.category !== updatedProduct.category ||
           originalProduct.color !== updatedProduct.color ||
@@ -406,8 +448,55 @@ const ProductsPage = () => {
   const handleAddProduct = () => {
     setIsOpenModal(true);
   };
+  const handleAddCategory = async () => {
+    if (!newProduct.customCategory?.trim()) return;
+
+    const trimmedCategory = newProduct.customCategory.trim();
+    const lowerName = trimmedCategory.toLowerCase();
+
+    // Verificar si ya existe (insensitive case)
+    const alreadyExists = globalCustomCategories.some(
+      (cat) => cat.name.toLowerCase() === lowerName && cat.rubro === rubro
+    );
+
+    if (alreadyExists) {
+      showNotification("La categoría ya existe para este rubro", "error");
+      return;
+    }
+
+    const newCategory = {
+      name: trimmedCategory,
+      rubro: rubro,
+    };
+
+    try {
+      // Guardar en la tabla específica de categorías
+      await db.customCategories.add(newCategory);
+
+      // Actualizar estado local
+      setGlobalCustomCategories((prev) => [...prev, newCategory]);
+
+      // Actualizar el producto con la nueva categoría
+      setNewProduct((prev) => ({
+        ...prev,
+        customCategories: [newCategory],
+        customCategory: "",
+      }));
+
+      showNotification("Categoría agregada correctamente", "success");
+    } catch (error) {
+      console.error("Error al guardar categoría:", error);
+      showNotification("Error al guardar la categoría", "error");
+    }
+  };
 
   const handleConfirmAddProduct = async () => {
+    if (!newProduct.customCategories?.length && !newProduct.customCategory) {
+      showNotification("Por favor, seleccione o cree una categoría", "error");
+      return;
+    }
+
+    // Preparar el producto para guardar
     const productToSave = {
       ...newProduct,
       rubro: rubro,
@@ -415,64 +504,52 @@ const ProductsPage = () => {
       costPrice: Number(newProduct.costPrice),
       price: Number(newProduct.price),
       quantity: Number(newProduct.quantity),
+      customCategories:
+        newProduct.customCategories?.map((cat) => ({
+          name: cat.name.trim(),
+          rubro: cat.rubro || rubro,
+        })) || [],
+      category: "", // Limpiar campo heredado
     };
+
     if (
-      !newProduct.name ||
-      !newProduct.stock ||
-      !newProduct.costPrice ||
-      !newProduct.price ||
-      !newProduct.unit
+      !productToSave.name ||
+      !productToSave.stock ||
+      !productToSave.costPrice ||
+      !productToSave.price ||
+      !productToSave.unit
     ) {
       showNotification("Por favor, complete todos los campos", "error");
       return;
     }
 
-    if (newProduct.barcode !== "") {
-      const barcodeExists = products.some(
-        (p) =>
-          p.barcode === newProduct.barcode &&
-          (!editingProduct || p.id !== editingProduct.id)
-      );
-
-      if (barcodeExists) {
-        showNotification("El código de barras ya existe", "error");
-        return;
-      }
-    }
     try {
       if (editingProduct) {
         await db.products.update(editingProduct.id, productToSave);
         setProducts((prev) =>
-          prev.map((p) => (p.id === editingProduct.id ? newProduct : p))
+          prev.map((p) => (p.id === editingProduct.id ? productToSave : p))
         );
-        showNotification(`Producto ${newProduct.name} actualizado`, "success");
-        setEditingProduct(null);
       } else {
         const id = await db.products.add(productToSave);
-        setProducts([...products, { ...newProduct, id }]);
-        showNotification(`Producto ${newProduct.name} agregado`, "success");
+        setProducts((prev) => [...prev, { ...productToSave, id: Number(id) }]);
       }
+
+      // Recargar categorías inmediatamente después de guardar
+      const updatedCategories = await loadCustomCategories();
+      setGlobalCustomCategories(updatedCategories);
+
+      showNotification(
+        `Producto ${productToSave.name} ${
+          editingProduct ? "actualizado" : "agregado"
+        } correctamente`,
+        "success"
+      );
     } catch (error) {
+      console.error("Error al guardar el producto:", error);
       showNotification("Error al guardar el producto", "error");
-      console.error(error);
+    } finally {
+      handleCloseModal();
     }
-    setNewProduct({
-      id: Date.now(),
-      name: "",
-      stock: 0,
-      costPrice: 0,
-      price: 0,
-      expiration: "",
-      quantity: 0,
-      unit: "Unid.",
-      barcode: "",
-      category: "",
-      brand: "",
-      color: "",
-      size: "",
-      rubro: rubro,
-    });
-    setIsOpenModal(false);
   };
 
   const handleConfirmDelete = async () => {
@@ -503,6 +580,9 @@ const ProductsPage = () => {
       size: "",
       rubro: rubro,
       lot: "",
+      location: "",
+      customCategory: "",
+      customCategories: [],
     });
     setEditingProduct(null);
   };
@@ -519,20 +599,94 @@ const ProductsPage = () => {
     });
   };
 
-  const handleEditProduct = (product: Product) => {
+  const handleEditProduct = async (product: Product) => {
+    // Cargar categorías primero
+    await loadCustomCategories();
+
     setEditingProduct(product);
+
+    // Preparar las categorías del producto
+    let categoriesToSet = product.customCategories || [];
+
+    // Migrar categoría heredada si existe
+    if (
+      (!categoriesToSet || categoriesToSet.length === 0) &&
+      product.category
+    ) {
+      categoriesToSet = [
+        {
+          name: product.category,
+          rubro: product.rubro || "comercio",
+        },
+      ];
+    }
+
     setNewProduct({
       ...product,
-      category: product.category || "",
+      customCategories: categoriesToSet,
+      category: "", // Limpiar el campo heredado
+      customCategory: "",
       size: product.size || "",
       color: product.color || "",
     });
+
     setIsOpenModal(true);
   };
 
   const handleDeleteProduct = (product: Product) => {
     setProductToDelete(product);
     setIsConfirmModalOpen(true);
+  };
+  const loadCustomCategories = async () => {
+    try {
+      // 1. Cargar categorías desde la tabla específica
+      const storedCategories = await db.customCategories.toArray();
+
+      // 2. Cargar todos los productos para verificar categorías en uso
+      const allProducts = await db.products.toArray();
+
+      // 3. Crear un mapa de categorías válidas
+      const validCategories = new Map<string, { name: string; rubro: Rubro }>();
+
+      // 4. Primero agregar las categorías almacenadas
+      storedCategories.forEach((cat) => {
+        if (cat.name && cat.name.trim()) {
+          const key = `${cat.name.toLowerCase().trim()}_${cat.rubro}`;
+          validCategories.set(key, cat);
+        }
+      });
+
+      // 5. Luego agregar categorías de productos que no estén ya en las almacenadas
+      allProducts.forEach((product) => {
+        if (product.customCategories && product.customCategories.length > 0) {
+          product.customCategories.forEach((cat) => {
+            if (cat.name && cat.name.trim()) {
+              const key = `${cat.name.toLowerCase().trim()}_${
+                cat.rubro || product.rubro || "comercio"
+              }`;
+              if (!validCategories.has(key)) {
+                validCategories.set(key, {
+                  name: cat.name.trim(),
+                  rubro: cat.rubro || product.rubro || "comercio",
+                });
+              }
+            }
+          });
+        }
+      });
+
+      // 6. Convertir a array y ordenar
+      const categoriesArray = Array.from(validCategories.values()).sort(
+        (a, b) => a.name.localeCompare(b.name)
+      );
+
+      setGlobalCustomCategories(categoriesArray);
+      return categoriesArray;
+    } catch (error) {
+      console.error("Error cargando categorías:", error);
+      showNotification("Error al cargar categorías", "error");
+      return [];
+    }
   };
 
   useEffect(() => {
@@ -552,15 +706,22 @@ const ProductsPage = () => {
   useEffect(() => {
     let isMounted = true;
 
-    const fetchProducts = async () => {
+    const fetchData = async () => {
       try {
         const storedProducts = await db.products.toArray();
         if (isMounted) {
-          setProducts(
-            storedProducts
-              .map((p) => ({ ...p, id: Number(p.id) }))
-              .sort((a, b) => b.id - a.id)
-          );
+          // Convertir y limpiar las categorías de cada producto
+          const cleanedProducts = storedProducts.map((p) => ({
+            ...p,
+            id: Number(p.id),
+            // Asegurarse de que customCategories sea un array válido
+            customCategories: (p.customCategories || []).filter(
+              (cat) => cat.name && cat.name.trim()
+            ),
+          }));
+
+          setProducts(cleanedProducts.sort((a, b) => b.id - a.id));
+          await loadCustomCategories();
         }
       } catch (error) {
         console.error("Error fetching products:", error);
@@ -568,7 +729,7 @@ const ProductsPage = () => {
       }
     };
 
-    fetchProducts();
+    fetchData();
 
     return () => {
       isMounted = false;
@@ -600,13 +761,20 @@ const ProductsPage = () => {
   }, [products]);
 
   useEffect(() => {
-    setNewProduct((prev) => ({
-      ...prev,
-      rubro: rubro,
-    }));
-    setFilters({});
-    setSearchQuery("");
-  }, [rubro]);
+    const initialize = async () => {
+      await loadCustomCategories();
+      setNewProduct((prev) => ({
+        ...prev,
+        rubro: rubro,
+        customCategories:
+          prev.customCategories?.filter(
+            (cat) => cat.rubro === rubro || cat.rubro === "todos los rubros"
+          ) || [],
+      }));
+    };
+
+    initialize();
+  }, [rubro, isOpenModal]);
 
   const indexOfLastProduct = currentPage * itemsPerPage;
   const indexOfFirstProduct = indexOfLastProduct - itemsPerPage;
@@ -626,59 +794,83 @@ const ProductsPage = () => {
             <SearchBar onSearch={handleSearch} />
 
             <div className="w-90">
-              <Select<FilterOption, true>
+              <Select<FilterOption>
                 options={getFilterOptionsByRubro().map((group) => ({
                   label: group.label,
-                  options: group.options.map((opt) => ({
-                    ...opt,
-                    groupType: group.type as keyof ProductFilters,
-                  })),
+                  options: group.options.map((opt) => {
+                    if (typeof opt === "string") {
+                      return {
+                        value: opt,
+                        label: opt,
+                        groupType: group.type as keyof ProductFilters,
+                      };
+                    } else if ("value" in opt && "label" in opt) {
+                      return {
+                        ...opt,
+                        groupType: group.type as keyof ProductFilters,
+                      };
+                    } else {
+                      return {
+                        value: opt.name,
+                        label: opt.name,
+                        groupType: group.type as keyof ProductFilters,
+                        rubro: opt.rubro,
+                      };
+                    }
+                  }),
                 }))}
                 noOptionsMessage={() => "No se encontraron opciones"}
                 value={(() => {
-                  const selectedValues: FilterOption[] = [];
-                  getFilterOptionsByRubro().forEach((group) => {
-                    const filterValues =
-                      filters[group.type as keyof ProductFilters];
-                    if (filterValues && Array.isArray(filterValues)) {
-                      group.options.forEach((opt) => {
-                        if (filterValues.includes(opt.value)) {
-                          selectedValues.push({
-                            ...opt,
-                            groupType: group.type as keyof ProductFilters,
-                          });
-                        }
-                      });
-                    }
+                  const firstFilterType = Object.keys(filters)[0] as
+                    | keyof ProductFilters
+                    | undefined;
+                  if (!firstFilterType) return null;
+
+                  const filterValue = filters[firstFilterType];
+                  if (!filterValue || !Array.isArray(filterValue)) return null;
+
+                  const foundGroup = getFilterOptionsByRubro().find(
+                    (group) => group.type === firstFilterType
+                  );
+                  if (!foundGroup) return null;
+
+                  const foundOption = foundGroup.options.find((opt) => {
+                    const optValue =
+                      typeof opt === "object"
+                        ? "value" in opt
+                          ? opt.value
+                          : opt.name
+                        : opt;
+                    return filterValue.includes(optValue);
                   });
-                  return selectedValues;
-                })()}
-                onChange={(selectedOptions) => {
-                  if (selectedOptions) {
-                    const newFilters: ProductFilters = {
-                      category: undefined,
-                      size: undefined,
-                      color: undefined,
-                      brand: undefined,
+
+                  if (!foundOption) return null;
+
+                  if (typeof foundOption === "string") {
+                    return {
+                      value: foundOption,
+                      label: foundOption,
+                      groupType: firstFilterType,
                     };
-
-                    const groupedOptions = selectedOptions.reduce(
-                      (acc, option) => {
-                        if (!acc[option.groupType]) {
-                          acc[option.groupType] = [];
-                        }
-                        acc[option.groupType].push(option.value);
-                        return acc;
-                      },
-                      {} as Record<keyof ProductFilters, string[]>
-                    );
-
-                    (
-                      Object.keys(groupedOptions) as Array<keyof ProductFilters>
-                    ).forEach((key) => {
-                      newFilters[key] = groupedOptions[key];
-                    });
-
+                  } else if ("value" in foundOption) {
+                    return {
+                      ...foundOption,
+                      groupType: firstFilterType,
+                    };
+                  } else {
+                    return {
+                      value: foundOption.name,
+                      label: foundOption.name,
+                      groupType: firstFilterType,
+                      rubro: foundOption.rubro,
+                    };
+                  }
+                })()}
+                onChange={(selectedOption) => {
+                  if (selectedOption) {
+                    const newFilters: ProductFilters = {
+                      [selectedOption.groupType]: [selectedOption.value],
+                    };
                     setFilters(newFilters);
                   } else {
                     setFilters({});
@@ -686,7 +878,6 @@ const ProductsPage = () => {
                 }}
                 placeholder="Filtrar por..."
                 isClearable
-                isMulti
                 className="text-black"
               />
             </div>
@@ -717,6 +908,7 @@ const ProductsPage = () => {
                   <th className="p-2 text-start text-sm 2xl:text-lg ">
                     Producto
                   </th>
+                  <th className="text-sm 2xl:text-lg p-2">Ubicación</th>
                   <th className="text-sm 2xl:text-lg p-2">Categoría</th>
                   {rubro === "indumentaria" && (
                     <th className="text-sm 2xl:text-lg p-2">Talle</th>
@@ -817,8 +1009,11 @@ const ProductsPage = () => {
                               </span>
                             </div>
                           </td>
+                          <td className="p-2 border border-gray_xl">
+                            {product.location || "-"}
+                          </td>
                           <td className="p-2 border border-gray_xl capitalize">
-                            {product.category || "-"}
+                            {product.customCategories?.[0]?.name || "-"}
                           </td>
                           {rubro === "indumentaria" && (
                             <>
@@ -925,7 +1120,7 @@ const ProductsPage = () => {
                 ) : (
                   <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
                     <td
-                      colSpan={rubro === "indumentaria" ? 10 : 8}
+                      colSpan={rubro === "indumentaria" ? 11 : 9}
                       className="py-4 text-center"
                     >
                       <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
@@ -973,7 +1168,10 @@ const ProductsPage = () => {
             </>
           }
         >
-          <form className="flex flex-col gap-2">
+          <form
+            className="flex flex-col gap-2"
+            onSubmit={(e) => e.preventDefault()}
+          >
             <div className="w-full flex items-center space-x-4 ">
               <div className="w-full">
                 <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
@@ -1037,29 +1235,90 @@ const ProductsPage = () => {
                 />
               </div>
             </div>
+            <div className="flex items-center space-x-4">
+              <div className="w-full">
+                <Input
+                  label="Ubicación (opcional)"
+                  type="text"
+                  name="location"
+                  placeholder="Ej: Estante 2, Piso 1"
+                  value={newProduct.location || ""}
+                  onChange={handleInputChange}
+                />
+              </div>
+              {!editingProduct && (
+                <div className="w-full">
+                  <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                    Crear categoría
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      name="customCategory"
+                      placeholder="Nueva categoría..."
+                      value={newProduct.customCategory || ""}
+                      onChange={handleInputChange}
+                    />
+                    <Button
+                      text="Agregar"
+                      colorText="text-white"
+                      colorTextHover="text-white"
+                      colorBg="bg-blue_m"
+                      colorBgHover="hover:bg-blue_b"
+                      onClick={handleAddCategory}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
             {(rubro === "comercio" || rubro === "todos los rubros") && (
               <>
                 <div className="w-full grid grid-cols-2 gap-4">
                   <div className="w-full">
                     <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
-                      Categoría
+                      Seleccionar categoría
                     </label>
                     <Select
-                      options={commercialCategories}
-                      noOptionsMessage={() => "No se encontraron opciones"}
+                      key={`category-select-${
+                        globalCustomCategories.length
+                      }-${JSON.stringify(newProduct.customCategories)}`}
+                      options={globalCustomCategories
+                        .filter(
+                          (cat) =>
+                            rubro === "todos los rubros" ||
+                            cat.rubro === rubro ||
+                            cat.rubro === "todos los rubros"
+                        )
+                        .map((cat) => ({
+                          value: cat,
+                          label: cat.name,
+                        }))}
+                      noOptionsMessage={({ inputValue }) =>
+                        inputValue
+                          ? `No se encontraron categorías para "${inputValue}"`
+                          : "No hay categorías disponibles. Cree una nueva categoría arriba."
+                      }
                       value={
-                        commercialCategories.find(
-                          (opt) => opt.value === newProduct.category
-                        ) || null
+                        newProduct.customCategories?.[0]
+                          ? {
+                              value: newProduct.customCategories[0],
+                              label: newProduct.customCategories[0].name,
+                            }
+                          : null
                       }
                       onChange={(selectedOption) => {
-                        setNewProduct({
-                          ...newProduct,
-                          category: selectedOption?.value || "",
-                        });
+                        setNewProduct((prev) => ({
+                          ...prev,
+                          customCategories: selectedOption
+                            ? [selectedOption.value]
+                            : [],
+                          customCategory: "",
+                        }));
                       }}
-                      className="min-w-40 text-black"
                       placeholder="Seleccionar categoría..."
+                      className="w-full text-black"
+                      formatOptionLabel={formatOptionLabel}
+                      isClearable
                     />
                   </div>
                   <div className="w-full">
@@ -1087,24 +1346,48 @@ const ProductsPage = () => {
                 <div className="w-full grid grid-cols-2 gap-4">
                   <div className="w-full">
                     <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
-                      Categoría
+                      Seleccionar categoría
                     </label>
                     <Select
-                      options={clothingCategories}
-                      noOptionsMessage={() => "No se encontraron opciones"}
+                      key={`category-select-${
+                        globalCustomCategories.length
+                      }-${JSON.stringify(newProduct.customCategories)}`}
+                      options={globalCustomCategories
+                        .filter(
+                          (cat) =>
+                            cat.rubro === rubro ||
+                            cat.rubro === "todos los rubros"
+                        )
+                        .map((cat) => ({
+                          value: cat,
+                          label: cat.name,
+                        }))}
+                      noOptionsMessage={({ inputValue }) =>
+                        inputValue
+                          ? `No se encontraron categorías para "${inputValue}"`
+                          : "No hay categorías disponibles. Cree una nueva categoría arriba."
+                      }
                       value={
-                        clothingCategories.find(
-                          (opt) => opt.value === newProduct.category
-                        ) || null
+                        newProduct.customCategories?.[0]
+                          ? {
+                              value: newProduct.customCategories[0],
+                              label: newProduct.customCategories[0].name,
+                            }
+                          : null
                       }
                       onChange={(selectedOption) => {
-                        setNewProduct({
-                          ...newProduct,
-                          category: selectedOption?.value || "",
-                        });
+                        setNewProduct((prev) => ({
+                          ...prev,
+                          customCategories: selectedOption
+                            ? [selectedOption.value]
+                            : [],
+                          customCategory: "",
+                        }));
                       }}
-                      className="text-black"
                       placeholder="Seleccionar categoría..."
+                      className="w-full text-black"
+                      formatOptionLabel={formatOptionLabel}
+                      isClearable
                     />
                   </div>
                   <div className="w-full">
@@ -1204,6 +1487,54 @@ const ProductsPage = () => {
               </div>
             )}
           </form>
+        </Modal>
+        <Modal
+          isOpen={isCategoryDeleteModalOpen}
+          onClose={() => setIsCategoryDeleteModalOpen(false)}
+          title="Eliminar Categoría"
+          bgColor="bg-white dark:bg-gray_b"
+          buttons={
+            <>
+              <Button
+                text="Confirmar"
+                colorText="text-white dark:text-white"
+                colorTextHover="hover:dark:text-white"
+                colorBg="bg-red_m border-b-1 dark:bg-blue_b"
+                colorBgHover="hover:bg-red_b hover:dark:bg-blue_m"
+                onClick={(e) => {
+                  e?.preventDefault();
+                  handleConfirmDeleteCategory();
+                }}
+              />
+              <Button
+                text="Cancelar"
+                colorText="text-gray_b dark:text-white"
+                colorTextHover="hover:dark:text-white"
+                colorBg="bg-transparent dark:bg-gray_m"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                onClick={(e) => {
+                  e?.preventDefault();
+                  setIsCategoryDeleteModalOpen(false);
+                }}
+              />
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <p>
+              ¿Está seguro que desea eliminar la categoría{" "}
+              <span className="font-bold">{categoryToDelete?.name}</span>?
+            </p>
+
+            {categoryToDelete && (
+              <div className="bg-yellow-50 dark:bg-gray-700 p-3 rounded-lg">
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <AlertTriangle className="inline mr-2" size={16} />
+                  Esta acción afectará a todos los productos con esta categoría.
+                </p>
+              </div>
+            )}
+          </div>
         </Modal>
         <Modal
           isOpen={isConfirmModalOpen}

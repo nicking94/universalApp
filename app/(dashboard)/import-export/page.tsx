@@ -8,6 +8,7 @@ import { useState } from "react";
 import ImportFileButton from "@/app/components/ImportFileButton";
 import { format } from "date-fns";
 import Notification from "@/app/components/Notification";
+import { Product } from "@/app/lib/types/types";
 
 export default function ImportExportPage() {
   const [loading, setLoading] = useState(false);
@@ -75,6 +76,24 @@ export default function ImportExportPage() {
 
     const text = await file.text();
     const data = JSON.parse(text);
+
+    if (data.products && Array.isArray(data.products)) {
+      data.products = data.products.map((product: Product) => {
+        if (
+          product.category &&
+          (!product.customCategories || product.customCategories.length === 0)
+        ) {
+          return {
+            ...product,
+            customCategories: product.category
+              ? [{ name: product.category, rubro: product.rubro || "comercio" }]
+              : [],
+            category: product.category || "",
+          };
+        }
+        return product;
+      });
+    }
 
     setLoading(true);
     try {
