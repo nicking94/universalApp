@@ -939,7 +939,17 @@ const VentasPage = () => {
     };
 
     fetchProducts();
+
+    db.sales.hook("updating", fetchSales);
+    db.sales.hook("deleting", fetchSales);
+
     fetchSales();
+
+    return () => {
+      db.sales.hook("creating").unsubscribe(fetchSales);
+      db.sales.hook("updating").unsubscribe(fetchSales);
+      db.sales.hook("deleting").unsubscribe(fetchSales);
+    };
   }, []);
 
   useEffect(() => {
@@ -1286,19 +1296,29 @@ const VentasPage = () => {
                               VENTA FIADA
                             </span>
                           ) : (
-                            paymentMethods.map((payment, i) => (
-                              <div
-                                key={i}
-                                className="text-xs flex justify-between"
-                              >
-                                <span>
-                                  {payment?.method || "Método no especificado"}:{" "}
-                                </span>
-                                <span>
-                                  {formatCurrency(payment?.amount || 0)}
-                                </span>
-                              </div>
-                            ))
+                            <>
+                              {sale.deposit && sale.deposit > 0 && (
+                                <div className="text-xs flex justify-between">
+                                  <span>SEÑA:</span>
+                                  <span>{formatCurrency(sale.deposit)}</span>
+                                </div>
+                              )}
+                              {paymentMethods.map((payment, i) => (
+                                <div
+                                  key={i}
+                                  className="text-xs flex justify-between"
+                                >
+                                  <span>
+                                    {payment?.method ||
+                                      "Método no especificado"}
+                                    :{" "}
+                                  </span>
+                                  <span>
+                                    {formatCurrency(payment?.amount || 0)}
+                                  </span>
+                                </div>
+                              ))}
+                            </>
                           )}
                         </td>
                         <td className=" p-2 border border-gray_xl font-semibold">

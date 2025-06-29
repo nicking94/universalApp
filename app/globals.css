@@ -22,6 +22,10 @@
   --color-red_l: #f2dede;
   --color-red_m: #e74c3c;
   --color-red_b: #c0392b;
+  --color-yellow_xl: #fffbe6;
+  --color-yellow_l: #fff9c4;
+  --color-yellow_m: #f1c40f;
+  --color-yellow_b: #f39c12;
 }
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {

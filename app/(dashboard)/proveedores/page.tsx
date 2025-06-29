@@ -150,6 +150,8 @@ const ProveedoresPage = () => {
         "suppliers"
       );
 
+      if (suppliersToUse.length === 0) return;
+
       const allProducts = await db.products.toArray();
       const counts: { [supplierId: number]: number } = {};
 
@@ -160,18 +162,18 @@ const ProveedoresPage = () => {
           .primaryKeys();
 
         const productIds = productKeys.map(([, productId]) => productId);
+
+        // Filtrar productos por rubro del proveedor
         const filteredProducts = allProducts.filter(
           (p) =>
             productIds.includes(p.id) &&
-            (rubro === "todos los rubros" || p.rubro === rubro)
+            (rubro === "todos los rubros" ||
+              p.rubro === rubro ||
+              (supplier.rubro &&
+                supplier.rubro.toLowerCase() === rubro.toLowerCase()))
         );
 
         counts[supplier.id] = filteredProducts.length;
-        console.log(
-          `Supplier ${supplier.id} has ${
-            counts[supplier.id]
-          } products in rubro ${rubro}`
-        );
       }
 
       setSupplierProductCounts(counts);
@@ -182,35 +184,36 @@ const ProveedoresPage = () => {
   const fetchSuppliers = useCallback(async () => {
     try {
       console.log(`Fetching suppliers for rubro: ${rubro}`);
+      const allSuppliers = await db.suppliers.toArray();
 
       if (rubro === "todos los rubros") {
-        const allSuppliers = await db.suppliers.toArray();
-        setSuppliers(allSuppliers);
-        setFilteredSuppliers(allSuppliers);
-        await fetchSupplierProductCounts(allSuppliers);
-        return;
+        return allSuppliers;
       }
 
-      const filteredSuppliers = await db.suppliers
-        .where("rubro")
-        .equals(rubro)
-        .toArray();
+      const filtered = allSuppliers.filter((supplier) => {
+        // Si el proveedor no tiene rubro, no lo mostramos a menos que sea "todos los rubros"
+        if (!supplier.rubro) return false;
 
-      console.log(
-        `Found ${filteredSuppliers.length} suppliers for rubro ${rubro}`
-      );
-      setSuppliers(filteredSuppliers);
-      setFilteredSuppliers(filteredSuppliers);
-      await fetchSupplierProductCounts(filteredSuppliers);
+        // Convertir a minúsculas y comparar
+        return supplier.rubro.toLowerCase() === rubro.toLowerCase();
+      });
+
+      console.log(`Found ${filtered.length} suppliers for rubro ${rubro}`);
+      return filtered;
     } catch (error) {
-      console.error("Error loading suppliers:", error);
-      showNotification("Error al cargar proveedores", "error");
+      console.error("Error fetching suppliers:", error);
+      return [];
     }
-  }, [rubro, fetchSupplierProductCounts]);
+  }, [rubro]);
 
   useEffect(() => {
-    fetchSuppliers();
-  }, [fetchSuppliers]);
+    const fetchData = async () => {
+      const filteredSuppliers = await fetchSuppliers();
+      setSuppliers(filteredSuppliers);
+      setFilteredSuppliers(filteredSuppliers);
+    };
+    fetchData();
+  }, [rubro, fetchSuppliers]);
 
   useEffect(() => {
     const filtered = suppliers.filter(
@@ -280,7 +283,6 @@ const ProveedoresPage = () => {
       showNotification("El nombre de la empresa es requerido", "error");
       return;
     }
-
     if (contacts.some((contact) => !contact.name.trim())) {
       showNotification("Todos los proveedores deben tener un nombre", "error");
       return;
@@ -297,14 +299,14 @@ const ProveedoresPage = () => {
         nextVisit: nextVisit || undefined,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        rubro: rubro === "todos los rubros" ? undefined : rubro,
+        rubro: rubro === "todos los rubros" ? "comercio" : rubro,
       };
 
       if (editingSupplier) {
         const updatedSupplier = {
           ...editingSupplier,
           ...supplierData,
-          rubro: editingSupplier.rubro || supplierData.rubro,
+          rubro: rubro === "todos los rubros" ? "comercio" : rubro, // Asegurar que el rubro se actualice
         };
         await db.suppliers.update(editingSupplier.id, updatedSupplier);
         setSuppliers(
@@ -319,7 +321,8 @@ const ProveedoresPage = () => {
           id: Date.now(),
         });
         const newSupplier = { ...supplierData, id };
-        setSuppliers([...suppliers, newSupplier]);
+        setSuppliers((prev) => [...prev, newSupplier]);
+        setFilteredSuppliers((prev) => [...prev, newSupplier]);
         showNotification("Proveedor agregado correctamente", "success");
       }
 

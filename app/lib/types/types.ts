@@ -150,10 +150,10 @@ export type Product = {
   lot?: string;
   location?: string;
   customCategory?: string;
-  customCategories?: Array<{
+  customCategories?: {
     name: string;
     rubro: Rubro;
-  }>;
+  }[];
 };
 export type ProductDisplayInfo = {
   name: string;
@@ -197,6 +197,7 @@ export type Sale = {
   customerPhone?: string;
   customerId?: string;
   discount?: number;
+  deposit?: number;
 };
 
 export type SaleItem = {
@@ -211,6 +212,7 @@ export type SaleItem = {
   basePrice?: number;
   notes?: string;
   description?: string;
+  rubro?: Rubro;
 };
 
 export type PaginationProps = {
@@ -399,6 +401,10 @@ export type CustomCategory = {
   name: string;
   rubro: Rubro;
 };
+export type GlobalCategory = {
+  name: string;
+  rubro: Rubro;
+};
 
 export type ClothingSizeOption = {
   value: string;
@@ -507,6 +513,7 @@ export type Budget = {
   updatedAt: string;
   expirationDate?: string;
   notes?: string;
-  status?: "pendiente" | "aprobado" | "rechazado";
+  status?: "pendiente" | "aprobado" | "rechazado" | "cobrado";
   rubro?: Rubro;
+  convertedToSale?: boolean;
 };

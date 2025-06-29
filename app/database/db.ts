@@ -90,21 +90,20 @@ class MyDatabase extends Dexie {
           .table("suppliers")
           .toCollection()
           .modify((supplier: Supplier) => {
-            supplier.rubro = "";
             if (supplier.companyName)
               supplier.companyName = this.formatString(supplier.companyName);
-            if (supplier.rubro) {
-              const formattedRubro = this.formatString(supplier.rubro);
 
+            if (!supplier.rubro || supplier.rubro.trim() === "") {
+              supplier.rubro = "comercio";
+            } else {
+              const formattedRubro = this.formatString(supplier.rubro) as Rubro;
               supplier.rubro = [
                 "todos los rubros",
                 "comercio",
                 "indumentaria",
               ].includes(formattedRubro)
-                ? (formattedRubro as Rubro)
-                : undefined;
-            } else {
-              supplier.rubro = undefined;
+                ? formattedRubro
+                : "comercio";
             }
           });
 

@@ -8,6 +8,9 @@ import {
   SaleItem,
   Customer,
   UnitOption,
+  DailyCashMovement,
+  PaymentSplit,
+  Sale,
 } from "@/app/lib/types/types";
 import ProtectedRoute from "@/app/components/ProtectedRoute";
 import Modal from "@/app/components/Modal";
@@ -22,6 +25,7 @@ import {
   FileText,
   Download,
   StickyNote,
+  ShoppingCart,
 } from "lucide-react";
 import SearchBar from "@/app/components/SearchBar";
 import { useRubro } from "@/app/context/RubroContext";
@@ -33,6 +37,8 @@ import { PDFDownloadLink } from "@react-pdf/renderer";
 import BudgetPDF from "@/app/components/BudgetPDF";
 import CustomerNotes from "@/app/components/CustomerNotes";
 import { useBusinessData } from "@/app/context/BusinessDataContext";
+import { ConvertToSaleModal } from "@/app/components/ConvertToSaleModal";
+import { getLocalDateString } from "@/app/lib/utils/getLocalDate";
 
 const PresupuestosPage = () => {
   const { rubro } = useRubro();
@@ -58,6 +64,8 @@ const PresupuestosPage = () => {
     status: "pendiente",
   });
 
+  const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
+  const [budgetToConvert, setBudgetToConvert] = useState<Budget | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerOptions, setCustomerOptions] = useState<
@@ -322,6 +330,181 @@ const PresupuestosPage = () => {
       };
     }
   };
+  const updateStockAfterSale = (
+    productId: number,
+    soldQuantity: number,
+    unit: string
+  ): number => {
+    const product = products.find((p) => p.id === productId);
+    if (!product) throw new Error(`Producto con ID ${productId} no encontrado`);
+
+    const stockInBase = convertToBaseUnit(Number(product.stock), product.unit);
+    const soldInBase = convertToBaseUnit(soldQuantity, unit);
+    const newStockInBase = stockInBase - soldInBase;
+
+    return convertFromBaseUnit(newStockInBase, product.unit);
+  };
+  const handleConvertToSale = async (paymentMethods: PaymentSplit[]) => {
+    if (!budgetToConvert) return;
+
+    try {
+      // 1. Verificar que los métodos de pago sumen el total a pagar (total - seña)
+      const deposit = budgetToConvert.deposit
+        ? parseFloat(budgetToConvert.deposit)
+        : 0;
+      const totalToPay = budgetToConvert.total - deposit;
+
+      if (
+        Math.abs(
+          paymentMethods.reduce((sum, m) => sum + m.amount, 0) - totalToPay
+        ) > 0.01
+      ) {
+        showNotification(
+          "La suma de los métodos de pago no coincide con el total a pagar",
+          "error"
+        );
+        return;
+      }
+
+      // 2. Actualizar stock de productos
+      for (const item of budgetToConvert.items) {
+        const product = await db.products.get(item.productId);
+        if (product) {
+          const updatedStock = updateStockAfterSale(
+            item.productId,
+            item.quantity,
+            item.unit
+          );
+          await db.products.update(item.productId, { stock: updatedStock });
+        }
+      }
+
+      // 3. Calcular ganancia total CORREGIDA (considerando descuentos)
+      const totalProfit = budgetToConvert.items.reduce((sum, item) => {
+        const product = products.find((p) => p.id === item.productId);
+        if (!product) return sum;
+
+        // Precio con descuento aplicado
+        const precioConDescuento =
+          item.price * (1 - (item.discount || 0) / 100);
+
+        // Ganancia por unidad
+        const gananciaPorUnidad = precioConDescuento - product.costPrice;
+
+        // Ganancia total para este item
+        return sum + gananciaPorUnidad * item.quantity;
+      }, 0);
+
+      // Calcular el porcentaje de ganancia sobre el total
+      const profitPercentage = (totalProfit / budgetToConvert.total) * 100;
+
+      // 4. Crear la venta
+      const sale: Sale = {
+        id: Date.now(),
+        products: budgetToConvert.items.map((item) => ({
+          id: item.productId || Date.now(),
+          name: item.productName,
+          stock: 0,
+          costPrice: item.basePrice || 0,
+          price: item.price,
+          quantity: item.quantity,
+          unit: item.unit,
+          discount: item.discount || 0, // Asegurarse de incluir el descuento
+          rubro: item.rubro || "comercio",
+          size: item.size,
+          color: item.color,
+          description: item.description,
+        })),
+        paymentMethods,
+        total: budgetToConvert.total,
+        date: new Date().toISOString(),
+        customerName: budgetToConvert.customerName,
+        customerPhone: budgetToConvert.customerPhone,
+        customerId: budgetToConvert.customerId,
+        deposit: deposit,
+      };
+
+      await db.sales.add(sale);
+
+      // 5. Registrar movimientos en caja diaria
+      const today = getLocalDateString();
+      const dailyCash = await db.dailyCashes.get({ date: today });
+
+      if (dailyCash) {
+        const movements: DailyCashMovement[] = [];
+
+        // Registrar cada método de pago con su parte proporcional de ganancia
+        paymentMethods.forEach((method) => {
+          const methodAmount = method.amount;
+          const methodProfit = totalProfit * (methodAmount / totalToPay);
+
+          movements.push({
+            id: Date.now() + Math.random(),
+            amount: methodAmount,
+            description: `Venta desde presupuesto ${budgetToConvert.id}`,
+            type: "INGRESO",
+            date: new Date().toISOString(),
+            paymentMethod: method.method,
+            items: budgetToConvert.items.map((item) => {
+              const product = products.find((p) => p.id === item.productId);
+              return {
+                productId: item.productId,
+                productName: item.productName,
+                quantity: item.quantity,
+                unit: item.unit,
+                price: item.price,
+                costPrice: product ? product.costPrice : 0,
+                discount: item.discount || 0, // Asegurarse de incluir el descuento
+              };
+            }),
+            profit: methodProfit,
+            profitPercentage: profitPercentage,
+          });
+        });
+
+        const updatedCash = {
+          ...dailyCash,
+          movements: [...dailyCash.movements, ...movements],
+          totalIncome: (dailyCash.totalIncome || 0) + totalToPay,
+          totalProfit: (dailyCash.totalProfit || 0) + totalProfit,
+        };
+
+        await db.dailyCashes.update(dailyCash.id, updatedCash);
+      }
+
+      // 6. Marcar el presupuesto como convertido
+      await db.budgets.update(budgetToConvert.id, {
+        convertedToSale: true,
+        status: "cobrado", // Agregar esta línea
+      });
+
+      // 7. Actualizar el estado local
+      setBudgets((prev) =>
+        prev.map((b) =>
+          b.id === budgetToConvert.id
+            ? { ...b, convertedToSale: true, status: "cobrado" }
+            : b
+        )
+      );
+      setFilteredBudgets((prev) =>
+        prev.map((b) =>
+          b.id === budgetToConvert.id
+            ? { ...b, convertedToSale: true, status: "cobrado" }
+            : b
+        )
+      );
+
+      showNotification(
+        "Presupuesto cobrado como venta exitosamente",
+        "success"
+      );
+      setIsConvertModalOpen(false);
+      setBudgetToConvert(null);
+    } catch (error) {
+      console.error("Error al convertir presupuesto a venta:", error);
+      showNotification("Error al convertir presupuesto a venta", "error");
+    }
+  };
   const handleProductSelect = (newValue: MultiValue<ProductOption>) => {
     const selectedProducts = Array.from(newValue).map((option) => {
       const product = products.find((p) => p.id === option.value);
@@ -334,8 +517,8 @@ const PresupuestosPage = () => {
         discount: 0,
         size: product?.size,
         color: product?.color,
-        basePrice: product?.price
-          ? product.price / convertToBaseUnit(1, product.unit || "Unid.")
+        basePrice: product
+          ? product.price / convertToBaseUnit(1, product.unit)
           : 0,
       };
     });
@@ -384,9 +567,7 @@ const PresupuestosPage = () => {
             quantity,
             unit,
             price: parseFloat(newPrice.toFixed(2)),
-            basePrice:
-              item.basePrice ||
-              product.price / convertToBaseUnit(1, product.unit),
+            basePrice: product.price / convertToBaseUnit(1, product.unit),
           };
         }
         return item;
@@ -542,6 +723,57 @@ const PresupuestosPage = () => {
       };
 
       await db.budgets.add(budgetToAdd);
+
+      // Registrar la seña en caja diaria si existe
+      if (newBudget.deposit && parseFloat(newBudget.deposit) > 0) {
+        const today = getLocalDateString();
+        const dailyCash = await db.dailyCashes.get({ date: today });
+
+        if (dailyCash) {
+          const depositAmount = parseFloat(newBudget.deposit);
+
+          // En handleAddBudget (para la seña):
+          const totalProfit = newBudget.items.reduce((sum, item) => {
+            const product = products.find((p) => p.id === item.productId);
+            const costPrice = product ? product.costPrice : 0;
+            const finalPrice = item.price * (1 - (item.discount || 0) / 100);
+            const profitPerUnit = finalPrice - costPrice;
+            return sum + profitPerUnit * item.quantity;
+          }, 0);
+
+          const profitPercentage = (totalProfit / newBudget.total) * 100;
+
+          const depositMovement: DailyCashMovement = {
+            id: Date.now() + Math.random(),
+            amount: depositAmount,
+            description: `Seña de presupuesto ${budgetToAdd.id}`,
+            type: "INGRESO",
+            date: new Date().toISOString(),
+            paymentMethod: "EFECTIVO",
+            items: newBudget.items.map((item) => ({
+              productId: item.productId,
+              productName: item.productName,
+              quantity: item.quantity,
+              unit: item.unit,
+              price: item.price,
+              costPrice: item.basePrice || 0,
+            })),
+            profit: totalProfit * (depositAmount / newBudget.total),
+            profitPercentage: profitPercentage,
+          };
+
+          const updatedCash = {
+            ...dailyCash,
+            movements: [...dailyCash.movements, depositMovement],
+            totalIncome: (dailyCash.totalIncome || 0) + depositAmount,
+            totalProfit:
+              (dailyCash.totalProfit || 0) +
+              totalProfit * (depositAmount / newBudget.total),
+          };
+
+          await db.dailyCashes.update(dailyCash.id, updatedCash);
+        }
+      }
 
       // Actualizar la lista de presupuestos inmediatamente
       const allBudgets = await db.budgets.toArray();
@@ -820,7 +1052,9 @@ const PresupuestosPage = () => {
                         {budget.customerPhone || "-"}
                       </td>
                       <td className="p-2 border border-gray_xl text-center">
-                        ${budget.total.toFixed(2)}
+                        <div className="flex flex-col items-center">
+                          ${budget.total.toFixed(2)}
+                        </div>
                       </td>
                       <td className="p-2 border border-gray_xl text-center">
                         {budget.deposit
@@ -828,11 +1062,27 @@ const PresupuestosPage = () => {
                           : "-"}
                       </td>
                       <td className="p-2 border border-gray_xl text-center">
-                        $
-                        {(
-                          budget.total -
-                          (budget.deposit ? parseFloat(budget.deposit) : 0)
-                        ).toFixed(2)}
+                        {budget.status === "cobrado" ? (
+                          <div className="flex flex-col items-center">
+                            <span className="line-through text-gray_l">
+                              $
+                              {(
+                                budget.total -
+                                (budget.deposit
+                                  ? parseFloat(budget.deposit)
+                                  : 0)
+                              ).toFixed(2)}
+                            </span>
+                            <span className="text-xs text-blue_b font-normal">
+                              (Cobrado)
+                            </span>
+                          </div>
+                        ) : (
+                          `$${(
+                            budget.total -
+                            (budget.deposit ? parseFloat(budget.deposit) : 0)
+                          ).toFixed(2)}`
+                        )}
                       </td>
                       <td className="p-2 border border-gray_xl text-center">
                         {new Date(budget.createdAt).toLocaleDateString("es-AR")}
@@ -844,14 +1094,17 @@ const PresupuestosPage = () => {
                             )
                           : "-"}
                       </td>
+
                       <td className="p-2 border border-gray_xl text-center">
                         <span
                           className={`px-2 py-1 rounded-full text-xs ${
                             budget.status === "aprobado"
-                              ? "bg-green-100 text-green-800"
+                              ? "bg-green_xl text-green_b"
                               : budget.status === "rechazado"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-yellow-100 text-yellow-800"
+                              ? "bg-red_xl text-red_b"
+                              : budget.status === "cobrado"
+                              ? "bg-blue_xl text-blue_b"
+                              : "bg-yellow_xl text-yellow_b"
                           }`}
                         >
                           {budget.status}
@@ -859,6 +1112,40 @@ const PresupuestosPage = () => {
                       </td>
                       <td className="p-2 border border-gray_xl">
                         <div className="flex justify-center items-center gap-2 h-full">
+                          <Button
+                            icon={<ShoppingCart size={20} />}
+                            colorText={
+                              budget.status === "cobrado"
+                                ? "text-gray-400"
+                                : "text-gray_b"
+                            }
+                            colorTextHover={
+                              budget.status === "cobrado"
+                                ? ""
+                                : "hover:text-white"
+                            }
+                            colorBg="bg-transparent"
+                            colorBgHover={
+                              budget.status === "cobrado"
+                                ? ""
+                                : "hover:bg-green-500"
+                            }
+                            px="px-1"
+                            py="py-1"
+                            minwidth="min-w-0"
+                            onClick={() => {
+                              if (budget.status !== "cobrado") {
+                                setBudgetToConvert(budget);
+                                setIsConvertModalOpen(true);
+                              }
+                            }}
+                            disabled={budget.status === "cobrado"}
+                            title={
+                              budget.status === "cobrado"
+                                ? "Presupuesto ya cobrado"
+                                : "Cobrar como venta"
+                            }
+                          />
                           {handleDownloadPDF(budget)}
                           <Button
                             icon={<StickyNote size={20} />}
@@ -877,6 +1164,7 @@ const PresupuestosPage = () => {
                                 : "Ver notas del cliente"
                             }
                           />
+
                           <Button
                             icon={<Edit size={20} />}
                             colorText="text-gray_b"
@@ -931,7 +1219,14 @@ const PresupuestosPage = () => {
             />
           )}
         </div>
-
+        {isConvertModalOpen && budgetToConvert && (
+          <ConvertToSaleModal
+            isOpen={isConvertModalOpen}
+            onClose={() => setIsConvertModalOpen(false)}
+            budget={budgetToConvert}
+            onConfirm={handleConvertToSale}
+          />
+        )}
         <Modal
           isOpen={isModalOpen}
           onClose={() => {
@@ -1056,7 +1351,7 @@ const PresupuestosPage = () => {
                       ? {
                           value: newBudget.status,
                           label:
-                            newBudget.status.charAt(0) +
+                            newBudget.status.charAt(0).toUpperCase() +
                             newBudget.status.slice(1),
                         }
                       : null
@@ -1314,7 +1609,7 @@ const PresupuestosPage = () => {
                     <div className="flex w-full max-w-[30vw] items-center space-x-4">
                       <Input
                         colorLabel="text-gray_m"
-                        label="Seña (opcional)"
+                        label="Seña en efectivo (opcional)"
                         type="number"
                         value={newBudget.deposit}
                         onChange={(e) => {
@@ -1322,9 +1617,7 @@ const PresupuestosPage = () => {
                           if (value === "" || /^[0-9]*\.?[0-9]*$/.test(value)) {
                             const depositValue =
                               value === "" ? 0 : parseFloat(value);
-                            const remaining =
-                              newBudget.total -
-                              (isNaN(depositValue) ? 0 : depositValue);
+                            const remaining = newBudget.total - depositValue;
                             setNewBudget({
                               ...newBudget,
                               deposit: value,

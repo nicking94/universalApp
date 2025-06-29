@@ -258,11 +258,19 @@ const ProductsPage = () => {
     );
   };
   const getFilterOptionsByRubro = () => {
+    // Cuando el rubro es "todos los rubros", mostrar todas las categorías sin filtrar
+    const filteredCategories =
+      rubro === "todos los rubros"
+        ? globalCustomCategories
+        : globalCustomCategories.filter(
+            (cat) => cat.rubro === rubro || cat.rubro === "todos los rubros"
+          );
+
     if (rubro === "indumentaria") {
       return [
         {
           type: "category",
-          options: globalCustomCategories,
+          options: filteredCategories,
           label: "Categoría",
         },
         {
@@ -285,7 +293,7 @@ const ProductsPage = () => {
       return [
         {
           type: "category",
-          options: globalCustomCategories.map((cat) => cat.name),
+          options: filteredCategories,
           label: "Categoría",
         },
       ];
@@ -504,11 +512,10 @@ const ProductsPage = () => {
       costPrice: Number(newProduct.costPrice),
       price: Number(newProduct.price),
       quantity: Number(newProduct.quantity),
-      customCategories:
-        newProduct.customCategories?.map((cat) => ({
-          name: cat.name.trim(),
-          rubro: cat.rubro || rubro,
-        })) || [],
+      customCategories: (newProduct.customCategories || []).map((cat) => ({
+        name: cat.name.trim(),
+        rubro: cat.rubro || rubro,
+      })),
       category: "", // Limpiar campo heredado
     };
 
@@ -600,23 +607,23 @@ const ProductsPage = () => {
   };
 
   const handleEditProduct = async (product: Product) => {
-    // Cargar categorías primero
     await loadCustomCategories();
 
     setEditingProduct(product);
 
     // Preparar las categorías del producto
-    let categoriesToSet = product.customCategories || [];
+    let categoriesToSet = (product.customCategories || []).map((cat) => ({
+      name: cat.name,
+      rubro: cat.rubro || product.rubro || rubro || "comercio",
+    }));
 
     // Migrar categoría heredada si existe
-    if (
-      (!categoriesToSet || categoriesToSet.length === 0) &&
-      product.category
-    ) {
+    if (categoriesToSet.length === 0 && product.category) {
       categoriesToSet = [
         {
           name: product.category,
-          rubro: product.rubro || "comercio",
+          // Usar el rubro del producto si existe, de lo contrario usar el rubro actual
+          rubro: product.rubro || rubro || "comercio",
         },
       ];
     }
@@ -632,7 +639,6 @@ const ProductsPage = () => {
 
     setIsOpenModal(true);
   };
-
   const handleDeleteProduct = (product: Product) => {
     setProductToDelete(product);
     setIsConfirmModalOpen(true);
@@ -648,15 +654,18 @@ const ProductsPage = () => {
       // 3. Crear un mapa de categorías válidas
       const validCategories = new Map<string, { name: string; rubro: Rubro }>();
 
-      // 4. Primero agregar las categorías almacenadas
+      // 4. Primero agregar las categorías almacenadas (asegurando formato)
       storedCategories.forEach((cat) => {
         if (cat.name && cat.name.trim()) {
           const key = `${cat.name.toLowerCase().trim()}_${cat.rubro}`;
-          validCategories.set(key, cat);
+          validCategories.set(key, {
+            name: cat.name.trim(),
+            rubro: cat.rubro || "comercio", // Valor por defecto
+          });
         }
       });
 
-      // 5. Luego agregar categorías de productos que no estén ya en las almacenadas
+      // 5. Luego agregar categorías de productos (asegurando formato)
       allProducts.forEach((product) => {
         if (product.customCategories && product.customCategories.length > 0) {
           product.customCategories.forEach((cat) => {
@@ -763,14 +772,21 @@ const ProductsPage = () => {
   useEffect(() => {
     const initialize = async () => {
       await loadCustomCategories();
-      setNewProduct((prev) => ({
-        ...prev,
-        rubro: rubro,
-        customCategories:
-          prev.customCategories?.filter(
-            (cat) => cat.rubro === rubro || cat.rubro === "todos los rubros"
-          ) || [],
-      }));
+      // Solo actualizar las categorías si no estamos editando un producto
+      if (!editingProduct) {
+        setNewProduct((prev) => ({
+          ...prev,
+          rubro: rubro,
+          customCategories: (prev.customCategories || [])
+            .filter(
+              (cat) => cat.rubro === rubro || cat.rubro === "todos los rubros"
+            )
+            .map((cat) => ({
+              name: cat.name,
+              rubro: cat.rubro || rubro,
+            })),
+        }));
+      }
     };
 
     initialize();
@@ -1271,169 +1287,93 @@ const ProductsPage = () => {
                 </div>
               )}
             </div>
-            {(rubro === "comercio" || rubro === "todos los rubros") && (
-              <>
-                <div className="w-full grid grid-cols-2 gap-4">
-                  <div className="w-full">
-                    <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
-                      Seleccionar categoría
-                    </label>
-                    <Select
-                      key={`category-select-${
-                        globalCustomCategories.length
-                      }-${JSON.stringify(newProduct.customCategories)}`}
-                      options={globalCustomCategories
-                        .filter(
-                          (cat) =>
-                            rubro === "todos los rubros" ||
-                            cat.rubro === rubro ||
-                            cat.rubro === "todos los rubros"
-                        )
-                        .map((cat) => ({
-                          value: cat,
-                          label: cat.name,
-                        }))}
-                      noOptionsMessage={({ inputValue }) =>
-                        inputValue
-                          ? `No se encontraron categorías para "${inputValue}"`
-                          : "No hay categorías disponibles. Cree una nueva categoría arriba."
-                      }
-                      value={
-                        newProduct.customCategories?.[0]
-                          ? {
-                              value: newProduct.customCategories[0],
-                              label: newProduct.customCategories[0].name,
-                            }
-                          : null
-                      }
-                      onChange={(selectedOption) => {
-                        setNewProduct((prev) => ({
-                          ...prev,
-                          customCategories: selectedOption
-                            ? [selectedOption.value]
-                            : [],
-                          customCategory: "",
-                        }));
-                      }}
-                      placeholder="Seleccionar categoría..."
-                      className="w-full text-black"
-                      formatOptionLabel={formatOptionLabel}
-                      isClearable
-                    />
-                  </div>
-                  <div className="w-full">
-                    <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
-                      Unidad
-                    </label>
-                    <Select
-                      options={unitOptions}
-                      noOptionsMessage={() => "No se encontraron opciones"}
-                      value={selectedUnit}
-                      onChange={(selectedOption) => {
-                        setNewProduct({
-                          ...newProduct,
-                          unit: selectedOption?.value as Product["unit"],
-                        });
-                      }}
-                      className="text-black"
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-            {rubro === "indumentaria" ? (
-              <>
-                <div className="w-full grid grid-cols-2 gap-4">
-                  <div className="w-full">
-                    <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
-                      Seleccionar categoría
-                    </label>
-                    <Select
-                      key={`category-select-${
-                        globalCustomCategories.length
-                      }-${JSON.stringify(newProduct.customCategories)}`}
-                      options={globalCustomCategories
-                        .filter(
-                          (cat) =>
-                            cat.rubro === rubro ||
-                            cat.rubro === "todos los rubros"
-                        )
-                        .map((cat) => ({
-                          value: cat,
-                          label: cat.name,
-                        }))}
-                      noOptionsMessage={({ inputValue }) =>
-                        inputValue
-                          ? `No se encontraron categorías para "${inputValue}"`
-                          : "No hay categorías disponibles. Cree una nueva categoría arriba."
-                      }
-                      value={
-                        newProduct.customCategories?.[0]
-                          ? {
-                              value: newProduct.customCategories[0],
-                              label: newProduct.customCategories[0].name,
-                            }
-                          : null
-                      }
-                      onChange={(selectedOption) => {
-                        setNewProduct((prev) => ({
-                          ...prev,
-                          customCategories: selectedOption
-                            ? [selectedOption.value]
-                            : [],
-                          customCategory: "",
-                        }));
-                      }}
-                      placeholder="Seleccionar categoría..."
-                      className="w-full text-black"
-                      formatOptionLabel={formatOptionLabel}
-                      isClearable
-                    />
-                  </div>
-                  <div className="w-full">
-                    <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
-                      Talle
-                    </label>
-                    <Select
-                      options={clothingSizes}
-                      noOptionsMessage={() => "No se encontraron opciones"}
-                      value={
-                        clothingSizes.find(
-                          (opt) => opt.value === newProduct.size
-                        ) || null
-                      }
-                      onChange={(selectedOption) => {
-                        setNewProduct({
-                          ...newProduct,
-                          size: selectedOption?.value || "",
-                        });
-                      }}
-                      className="text-black"
-                      placeholder="Seleccionar talle..."
-                    />
-                  </div>
-                </div>
+            <div className="w-full grid grid-cols-2 gap-4">
+              <div className="w-full">
+                <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                  Seleccionar categoría
+                </label>
+                <Select
+                  key={`category-select-${rubro}-${
+                    globalCustomCategories.length
+                  }-${JSON.stringify(newProduct.customCategories)}`}
+                  options={globalCustomCategories
+                    .filter((cat) => {
+                      if (rubro === "todos los rubros") return true;
 
-                <div className="w-full flex items-center space-x-4">
-                  <Input
-                    label="Color"
-                    type="text"
-                    name="color"
-                    placeholder="Color..."
-                    value={newProduct.color || ""}
-                    onChange={handleInputChange}
-                  />
-                  <Input
-                    label="Marca"
-                    type="text"
-                    name="brand"
-                    placeholder="Marca..."
-                    value={newProduct.brand || ""}
-                    onChange={handleInputChange}
+                      return (
+                        cat.rubro === rubro || cat.rubro === "todos los rubros"
+                      );
+                    })
+                    .map((cat) => ({
+                      value: cat,
+                      label: cat.name,
+                    }))}
+                  value={
+                    newProduct.customCategories?.[0]
+                      ? {
+                          value: newProduct.customCategories[0],
+                          label: newProduct.customCategories[0].name,
+                        }
+                      : null
+                  }
+                  onChange={(selectedOption) => {
+                    setNewProduct((prev) => ({
+                      ...prev,
+                      customCategories: selectedOption
+                        ? [selectedOption.value]
+                        : [],
+                      customCategory: "",
+                    }));
+                  }}
+                  placeholder="Seleccionar categoría..."
+                  className="w-full text-black"
+                  formatOptionLabel={formatOptionLabel}
+                  isClearable
+                />
+              </div>
+              {rubro === "indumentaria" ? (
+                <div className="w-full">
+                  <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                    Talle
+                  </label>
+                  <Select
+                    options={clothingSizes}
+                    noOptionsMessage={() => "No se encontraron opciones"}
+                    value={
+                      clothingSizes.find(
+                        (opt) => opt.value === newProduct.size
+                      ) || null
+                    }
+                    onChange={(selectedOption) => {
+                      setNewProduct({
+                        ...newProduct,
+                        size: selectedOption?.value || "",
+                      });
+                    }}
+                    className="text-black"
+                    placeholder="Seleccionar talle..."
                   />
                 </div>
-              </>
-            ) : null}
+              ) : (
+                <div className="w-full">
+                  <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                    Unidad
+                  </label>
+                  <Select
+                    options={unitOptions}
+                    noOptionsMessage={() => "No se encontraron opciones"}
+                    value={selectedUnit}
+                    onChange={(selectedOption) => {
+                      setNewProduct({
+                        ...newProduct,
+                        unit: selectedOption?.value as Product["unit"],
+                      });
+                    }}
+                    className="text-black"
+                  />
+                </div>
+              )}
+            </div>
 
             <div className="flex items-center space-x-4">
               <div className="w-full flex items-center space-x-4">
