@@ -8,9 +8,9 @@ export const ensureCashIsOpen = async () => {
     return { isOpen: false, cash: null, needsRedirect: true };
   }
 
-  return {
-    isOpen: !dailyCash.closed,
-    cash: dailyCash,
-    needsRedirect: dailyCash.closed,
-  };
+  if (dailyCash.closed) {
+    return { isOpen: false, cash: dailyCash, needsRedirect: true };
+  }
+
+  return { isOpen: true, cash: dailyCash, needsRedirect: false };
 };

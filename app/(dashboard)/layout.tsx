@@ -10,6 +10,7 @@ import { AuthProvider } from "../context/AuthContext";
 import TrialNotification from "../components/TrialNotification";
 import { BusinessDataProvider } from "../context/BusinessDataContext";
 import { PaginationProvider } from "../context/PaginationContext";
+import UpdatesManager from "../components/Notifications/UpdatesManager";
 
 export default function AppLayout({
   children,
@@ -60,6 +61,7 @@ export default function AppLayout({
         <PaginationProvider>
           <div className={`bg-white dark:bg-black text-gray_b dark:text-white`}>
             <TrialNotification />
+            <UpdatesManager />
             <Navbar
               theme={theme}
               handleTheme={handleTheme}

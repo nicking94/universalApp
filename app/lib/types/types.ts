@@ -410,6 +410,18 @@ export type ClothingSizeOption = {
   value: string;
   label: string;
 };
+export type Notification = {
+  id?: number;
+  title: string;
+  message: string;
+  date?: string;
+  read: number;
+  type?: "system" | "update" | "alert" | "message";
+  link?: string;
+  version?: string;
+  actualizationId?: number;
+  isDeleted?: boolean;
+};
 
 export type GroupedOption = {
   label: string;
@@ -428,6 +440,10 @@ export type FilterOption = {
 export type GroupedFilterOption = {
   label: string;
   options: FilterOption[];
+};
+export type MonthOption = {
+  value: number;
+  label: string;
 };
 
 export interface SerialPortRequestOptions {

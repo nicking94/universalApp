@@ -183,18 +183,19 @@ const ProveedoresPage = () => {
 
   const fetchSuppliers = useCallback(async () => {
     try {
-      console.log(`Fetching suppliers for rubro: ${rubro}`);
       const allSuppliers = await db.suppliers.toArray();
 
+      // Ordenar alfabéticamente por nombre de empresa
+      const sortedSuppliers = [...allSuppliers].sort((a, b) =>
+        a.companyName.localeCompare(b.companyName)
+      );
+
       if (rubro === "todos los rubros") {
-        return allSuppliers;
+        return sortedSuppliers;
       }
 
-      const filtered = allSuppliers.filter((supplier) => {
-        // Si el proveedor no tiene rubro, no lo mostramos a menos que sea "todos los rubros"
+      const filtered = sortedSuppliers.filter((supplier) => {
         if (!supplier.rubro) return false;
-
-        // Convertir a minúsculas y comparar
         return supplier.rubro.toLowerCase() === rubro.toLowerCase();
       });
 
@@ -211,9 +212,10 @@ const ProveedoresPage = () => {
       const filteredSuppliers = await fetchSuppliers();
       setSuppliers(filteredSuppliers);
       setFilteredSuppliers(filteredSuppliers);
+      fetchSupplierProductCounts(filteredSuppliers);
     };
     fetchData();
-  }, [rubro, fetchSuppliers]);
+  }, [rubro, fetchSuppliers, fetchSupplierProductCounts]);
 
   useEffect(() => {
     const filtered = suppliers.filter(

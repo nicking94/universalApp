@@ -92,7 +92,12 @@ const ClientesPage = () => {
     const fetchCustomers = async () => {
       const allCustomers = await db.customers.toArray();
 
-      const filtered = allCustomers.filter((customer) => {
+      // Ordenar alfabéticamente por nombre
+      const sortedCustomers = [...allCustomers].sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
+
+      const filtered = sortedCustomers.filter((customer) => {
         if (rubro === "todos los rubros") return true;
         return customer.rubro === rubro;
       });
@@ -103,7 +108,7 @@ const ClientesPage = () => {
           customer.phone?.toLowerCase().includes(searchQuery.toLowerCase())
       );
 
-      setCustomers(allCustomers);
+      setCustomers(sortedCustomers);
       setFilteredCustomers(searched);
     };
 

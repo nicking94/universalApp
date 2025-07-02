@@ -59,8 +59,12 @@ const Metrics = () => {
   const [yearlyRankingUnit, setYearlyRankingUnit] =
     useState<Product["unit"]>("Unid.");
   const [dailyCashes, setDailyCashes] = useState<DailyCash[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(
+    () => new Date().getMonth() + 1
+  );
+  const [selectedYear, setSelectedYear] = useState<number>(() =>
+    new Date().getFullYear()
+  );
   const [availableYears, setAvailableYears] = useState<number[]>([]);
 
   const unidadLegible: Record<Product["unit"], string> = {
@@ -388,6 +392,16 @@ const Metrics = () => {
     },
     [dailyCashes, products, rubro, selectedYear, selectedMonth]
   );
+  useEffect(() => {
+    const today = new Date();
+    const currentMonth = today.getMonth() + 1;
+    const currentYear = today.getFullYear();
+
+    if (selectedMonth !== currentMonth || selectedYear !== currentYear) {
+      setSelectedMonth(currentMonth);
+      setSelectedYear(currentYear);
+    }
+  }, [new Date().getMonth()]);
 
   useEffect(() => {
     const fetchData = async () => {

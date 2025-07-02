@@ -43,6 +43,10 @@ export default function ImportExportPage() {
       const supplierProducts = await db.supplierProducts.toArray();
       const notes = await db.notes.toArray();
       const budgets = await db.budgets.toArray();
+      const userPreferences = await db.userPreferences.toArray();
+      const businessData = await db.businessData.toArray();
+      const deletedActualizations = await db.deletedActualizations.toArray();
+      const notifications = await db.notifications.toArray();
 
       const data = {
         theme,
@@ -56,6 +60,11 @@ export default function ImportExportPage() {
         supplierProducts,
         budgets,
         notes,
+        userPreferences,
+        businessData,
+        deletedActualizations,
+        notifications,
+        customCategories: await db.customCategories.toArray(),
       };
       const json = JSON.stringify(data, null, 2);
       const blob = new Blob([json], { type: "application/json;charset=utf-8" });
@@ -111,6 +120,11 @@ export default function ImportExportPage() {
           db.supplierProducts,
           db.budgets,
           db.notes,
+          db.userPreferences,
+          db.businessData,
+          db.deletedActualizations,
+          db.notifications,
+          db.customCategories,
         ],
         async () => {
           await db.theme.clear();
@@ -124,6 +138,11 @@ export default function ImportExportPage() {
           await db.supplierProducts.clear();
           await db.budgets.clear();
           await db.notes.clear();
+          await db.userPreferences.clear();
+          await db.businessData.clear();
+          await db.deletedActualizations.clear();
+          await db.notifications.clear();
+          await db.customCategories.clear();
 
           try {
             await db.theme.bulkAdd(data.theme || []);
@@ -137,6 +156,13 @@ export default function ImportExportPage() {
             await db.supplierProducts.bulkAdd(data.supplierProducts || []);
             await db.budgets.bulkAdd(data.budgets || []);
             await db.notes.bulkAdd(data.notes || []);
+            await db.userPreferences.bulkAdd(data.userPreferences || []);
+            await db.businessData.bulkAdd(data.businessData || []);
+            await db.deletedActualizations.bulkAdd(
+              data.deletedActualizations || []
+            );
+            await db.notifications.bulkAdd(data.notifications || []);
+            await db.customCategories.bulkAdd(data.customCategories || []);
           } catch (e) {
             console.error("Error al importar datos:", e);
             throw e;

@@ -1,28 +1,12 @@
 "use client";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { checkVersionAndClean } from "./lib/utils/cacheUtils";
-
 export default function Home() {
   const router = useRouter();
-  const APP_VERSION = "1.4";
 
   useEffect(() => {
     const initializeApp = async () => {
-      try {
-        const versionChanged = await checkVersionAndClean(APP_VERSION);
-
-        if (versionChanged) {
-          setTimeout(() => {
-            router.replace("/login");
-          }, 500);
-        } else {
-          router.replace("/login");
-        }
-      } catch (error) {
-        console.error("Initialization error:", error);
-        router.replace("/login");
-      }
+      router.replace("/login");
     };
 
     initializeApp();

@@ -145,6 +145,10 @@ const ProductsPage = () => {
   const selectedUnit =
     unitOptions.find((opt) => opt.value === newProduct.unit) ?? null;
 
+  const checkProductLimit = async (rubro: Rubro) => {
+    const products = await db.products.where("rubro").equals(rubro).count();
+    return products >= 20;
+  };
   const handleDeleteCategoryClick = async (category: {
     name: string;
     rubro: Rubro;
@@ -356,16 +360,19 @@ const ProductsPage = () => {
       const isExpiringSoonB =
         expirationB >= today && expirationB <= today + 7 * 24 * 60 * 60 * 1000;
 
-      if (isExpiredA !== isExpiredB)
-        return Number(isExpiredB) - Number(isExpiredA);
-      if (isExpiringSoonA !== isExpiringSoonB)
-        return Number(isExpiringSoonB) - Number(isExpiringSoonA);
+      if (isExpiredA !== isExpiredB) {
+        return isExpiredA ? -1 : 1;
+      }
+      if (isExpiringSoonA !== isExpiringSoonB) {
+        return isExpiringSoonA ? -1 : 1;
+      }
+      if (a.stock !== b.stock) {
+        return a.stock - b.stock;
+      }
 
-      return sortOrder === "asc"
-        ? Number(a.stock) - Number(b.stock)
-        : Number(b.stock) - Number(a.stock);
+      return a.name.localeCompare(b.name);
     });
-  }, [products, searchQuery, sortOrder, rubro, filters]);
+  }, [products, searchQuery, rubro, filters]);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query.toLowerCase());
@@ -499,6 +506,17 @@ const ProductsPage = () => {
   };
 
   const handleConfirmAddProduct = async () => {
+    const authData = await db.auth.get(1);
+    if (authData?.userId === 2) {
+      const isLimitReached = await checkProductLimit(rubro);
+      if (isLimitReached) {
+        showNotification(
+          `Límite alcanzado: máximo 20 productos por rubro para el administrador`,
+          "error"
+        );
+        return;
+      }
+    }
     if (!newProduct.customCategories?.length && !newProduct.customCategory) {
       showNotification("Por favor, seleccione o cree una categoría", "error");
       return;
@@ -1308,6 +1326,7 @@ const ProductsPage = () => {
                       value: cat,
                       label: cat.name,
                     }))}
+                  noOptionsMessage={() => "No se encontraron opciones"}
                   value={
                     newProduct.customCategories?.[0]
                       ? {

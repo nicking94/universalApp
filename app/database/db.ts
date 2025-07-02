@@ -15,6 +15,7 @@ import {
   Note,
   Rubro,
   CustomCategory,
+  Notification,
 } from "../lib/types/types";
 
 class MyDatabase extends Dexie {
@@ -39,13 +40,18 @@ class MyDatabase extends Dexie {
   budgets!: Table<Budget, string>;
   notes!: Table<Note, number>;
   customCategories!: Table<CustomCategory, number>;
+  notifications!: Table<Notification, number>;
+  deletedActualizations!: Table<
+    { id?: number; actualizationId: number },
+    number
+  >;
 
   constructor() {
     super("MyDatabase");
-    this.version(16)
+    this.version(17)
       .stores({
         theme: "id",
-        products: "++id, name, barcode, stock",
+        products: "++id, name, barcode, stock, rubro",
         users: "id, username",
         auth: "id, userId",
         sales:
@@ -64,8 +70,26 @@ class MyDatabase extends Dexie {
           "++id, customerName, customerPhone, customerId, createdAt, updatedAt, status",
         notes: "++id, customerId, budgetId, createdAt",
         customCategories: "++id, name, rubro, [name+rubro]",
+        notifications:
+          "++id, title, message, date, read, type, actualizationId, isDeleted, [read+date]",
+        deletedActualizations: "++id, actualizationId",
       })
       .upgrade(async (trans) => {
+        const deletedSystemNotifs = await trans
+          .table("notifications")
+          .where("isDeleted")
+          .equals(1)
+          .filter((n) => n.type === "system")
+          .toArray();
+
+        if (deletedSystemNotifs.length > 0) {
+          await trans.table("deletedActualizations").bulkAdd(
+            deletedSystemNotifs.map((n) => ({
+              actualizationId: n.actualizationId!,
+            }))
+          );
+        }
+
         await trans
           .table("products")
           .toCollection()
@@ -75,6 +99,9 @@ class MyDatabase extends Dexie {
             if (product.name) product.name = this.formatString(product.name);
             if (product.barcode)
               product.barcode = this.formatString(product.barcode);
+            if (!product.rubro || product.rubro.trim() === "") {
+              product.rubro = "comercio";
+            }
           });
 
         const adminUser = await trans
@@ -166,7 +193,6 @@ class MyDatabase extends Dexie {
           }
         });
 
-        // Guardar categorías en la nueva tabla
         const categoriesTable = trans.table("customCategories");
         for (const category of categoriesMap.values()) {
           await categoriesTable.add(category);

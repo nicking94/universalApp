@@ -73,6 +73,7 @@ const UserMenu: React.FC<UserMenuProps> = ({
         ref={userIconRef}
         onClick={() => setIsMenuOpen(!isMenuOpen)}
         className="cursor-pointer flex bg-white shadow dark:bg-gray_b rounded-full p-1 text-gray_b w-8 h-8 hover:dark:bg-gray_m transition-all duration-300"
+        title="Configuraciones"
       >
         <Settings className="flex items-center justify-center w-full h-full text-gray_b dark:text-white" />
       </div>
@@ -102,7 +103,7 @@ const UserMenu: React.FC<UserMenuProps> = ({
             className="cursor-pointer flex items-center w-full p-2 text-sm text-gray_b dark:text-white hover:bg-blue_xl dark:hover:bg-gray_b transition-all duration-300"
           >
             <Ticket className="mr-2" />
-            Datos de ticket
+            Datos del negocio
           </button>
           <a
             className="cursor-pointer flex items-center w-full p-2 text-sm text-gray_b dark:text-white hover:bg-blue_xl dark:hover:bg-gray_b transition-all duration-300"
@@ -128,7 +129,7 @@ const UserMenu: React.FC<UserMenuProps> = ({
       <Modal
         isOpen={isTicketDataModalOpen}
         onClose={() => setIsTicketDataModalOpen(false)}
-        title="Datos de ticket"
+        title="Datos del negocio"
         bgColor="bg-white dark:bg-gray_b"
         buttons={
           <>

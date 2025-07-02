@@ -103,6 +103,7 @@ const Pagination: React.FC<
             value: n,
             label: n.toString(),
           }))}
+          noOptionsMessage={() => "No se encontraron opciones"}
           value={{ value: itemsPerPage, label: itemsPerPage.toString() }}
           onChange={(selectedOption) => {
             if (selectedOption) {

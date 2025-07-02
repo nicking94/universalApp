@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@react-pdf/renderer": "^4.3.0",
     "@types/date-fns": "^2.5.3",
     "chart.js": "^4.4.9",
@@ -16,10 +17,8 @@
     "date-fns": "^2.30.0",
     "dexie": "^4.0.11",
     "file-saver": "^2.0.5",
-    "jspdf": "^3.0.1",
     "lucide-react": "^0.484.0",
     "next": "15.2.4",
-    "print-js": "^1.6.0",
     "react": "^19.1.0",
     "react-barcode": "^1.6.1",
     "react-chartjs-2": "^5.3.0",

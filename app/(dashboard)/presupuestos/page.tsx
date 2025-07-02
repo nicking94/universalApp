@@ -39,6 +39,8 @@ import CustomerNotes from "@/app/components/CustomerNotes";
 import { useBusinessData } from "@/app/context/BusinessDataContext";
 import { ConvertToSaleModal } from "@/app/components/ConvertToSaleModal";
 import { getLocalDateString } from "@/app/lib/utils/getLocalDate";
+import { ensureCashIsOpen } from "@/app/lib/utils/cash";
+import { useRouter } from "next/navigation";
 
 const PresupuestosPage = () => {
   const { rubro } = useRubro();
@@ -90,6 +92,7 @@ const PresupuestosPage = () => {
     id: string | null;
     name: string;
   } | null>(null);
+  const router = useRouter();
 
   const CONVERSION_FACTORS = {
     // Masa (de menor a mayor)
@@ -285,6 +288,18 @@ const PresupuestosPage = () => {
     const remaining = total - (isNaN(depositValue) ? 0 : depositValue);
     return { total, remaining };
   };
+  const handleNewBudgetClick = async () => {
+    const { needsRedirect } = await ensureCashIsOpen();
+
+    if (needsRedirect) {
+      router.push(`/caja-diaria`);
+
+      return;
+    }
+
+    setIsModalOpen(true);
+  };
+
   const checkStockAvailability = (
     product: Product,
     requestedQuantity: number,
@@ -348,7 +363,6 @@ const PresupuestosPage = () => {
     if (!budgetToConvert) return;
 
     try {
-      // 1. Verificar que los métodos de pago sumen el total a pagar (total - seña)
       const deposit = budgetToConvert.deposit
         ? parseFloat(budgetToConvert.deposit)
         : 0;
@@ -366,7 +380,6 @@ const PresupuestosPage = () => {
         return;
       }
 
-      // 2. Actualizar stock de productos
       for (const item of budgetToConvert.items) {
         const product = await db.products.get(item.productId);
         if (product) {
@@ -379,26 +392,20 @@ const PresupuestosPage = () => {
         }
       }
 
-      // 3. Calcular ganancia total CORREGIDA (considerando descuentos)
       const totalProfit = budgetToConvert.items.reduce((sum, item) => {
         const product = products.find((p) => p.id === item.productId);
         if (!product) return sum;
 
-        // Precio con descuento aplicado
         const precioConDescuento =
           item.price * (1 - (item.discount || 0) / 100);
 
-        // Ganancia por unidad
         const gananciaPorUnidad = precioConDescuento - product.costPrice;
 
-        // Ganancia total para este item
         return sum + gananciaPorUnidad * item.quantity;
       }, 0);
 
-      // Calcular el porcentaje de ganancia sobre el total
       const profitPercentage = (totalProfit / budgetToConvert.total) * 100;
 
-      // 4. Crear la venta
       const sale: Sale = {
         id: Date.now(),
         products: budgetToConvert.items.map((item) => ({
@@ -409,7 +416,7 @@ const PresupuestosPage = () => {
           price: item.price,
           quantity: item.quantity,
           unit: item.unit,
-          discount: item.discount || 0, // Asegurarse de incluir el descuento
+          discount: item.discount || 0,
           rubro: item.rubro || "comercio",
           size: item.size,
           color: item.color,
@@ -426,14 +433,11 @@ const PresupuestosPage = () => {
 
       await db.sales.add(sale);
 
-      // 5. Registrar movimientos en caja diaria
       const today = getLocalDateString();
       const dailyCash = await db.dailyCashes.get({ date: today });
 
       if (dailyCash) {
         const movements: DailyCashMovement[] = [];
-
-        // Registrar cada método de pago con su parte proporcional de ganancia
         paymentMethods.forEach((method) => {
           const methodAmount = method.amount;
           const methodProfit = totalProfit * (methodAmount / totalToPay);
@@ -441,7 +445,7 @@ const PresupuestosPage = () => {
           movements.push({
             id: Date.now() + Math.random(),
             amount: methodAmount,
-            description: `Venta desde presupuesto ${budgetToConvert.id}`,
+            description: `Venta desde presupuesto de ${budgetToConvert.customerName}`,
             type: "INGRESO",
             date: new Date().toISOString(),
             paymentMethod: method.method,
@@ -454,7 +458,7 @@ const PresupuestosPage = () => {
                 unit: item.unit,
                 price: item.price,
                 costPrice: product ? product.costPrice : 0,
-                discount: item.discount || 0, // Asegurarse de incluir el descuento
+                discount: item.discount || 0,
               };
             }),
             profit: methodProfit,
@@ -472,13 +476,11 @@ const PresupuestosPage = () => {
         await db.dailyCashes.update(dailyCash.id, updatedCash);
       }
 
-      // 6. Marcar el presupuesto como convertido
       await db.budgets.update(budgetToConvert.id, {
         convertedToSale: true,
-        status: "cobrado", // Agregar esta línea
+        status: "cobrado",
       });
 
-      // 7. Actualizar el estado local
       setBudgets((prev) =>
         prev.map((b) =>
           b.id === budgetToConvert.id
@@ -724,7 +726,6 @@ const PresupuestosPage = () => {
 
       await db.budgets.add(budgetToAdd);
 
-      // Registrar la seña en caja diaria si existe
       if (newBudget.deposit && parseFloat(newBudget.deposit) > 0) {
         const today = getLocalDateString();
         const dailyCash = await db.dailyCashes.get({ date: today });
@@ -732,7 +733,6 @@ const PresupuestosPage = () => {
         if (dailyCash) {
           const depositAmount = parseFloat(newBudget.deposit);
 
-          // En handleAddBudget (para la seña):
           const totalProfit = newBudget.items.reduce((sum, item) => {
             const product = products.find((p) => p.id === item.productId);
             const costPrice = product ? product.costPrice : 0;
@@ -746,7 +746,7 @@ const PresupuestosPage = () => {
           const depositMovement: DailyCashMovement = {
             id: Date.now() + Math.random(),
             amount: depositAmount,
-            description: `Seña de presupuesto ${budgetToAdd.id}`,
+            description: `Seña de presupuesto de ${budgetToAdd.customerName}`,
             type: "INGRESO",
             date: new Date().toISOString(),
             paymentMethod: "EFECTIVO",
@@ -1011,7 +1011,6 @@ const PresupuestosPage = () => {
     <ProtectedRoute>
       <div className="px-10 2xl:px-10 py-4 text-gray_l dark:text-white h-[calc(100vh-80px)]">
         <h1 className="text-lg 2xl:text-xl font-semibold mb-2">Presupuestos</h1>
-
         <div className="flex justify-between mb-2">
           <div className="w-full max-w-md">
             <SearchBar onSearch={handleSearch} />
@@ -1021,10 +1020,9 @@ const PresupuestosPage = () => {
             text="Nuevo Presupuesto"
             colorText="text-white"
             colorTextHover="text-white"
-            onClick={() => setIsModalOpen(true)}
+            onClick={handleNewBudgetClick}
           />
         </div>
-
         <div className="flex flex-col justify-between h-[calc(100vh-200px)]">
           <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
             <table className="w-full table-auto divide-y divide-gray_xl">
@@ -1219,6 +1217,7 @@ const PresupuestosPage = () => {
             />
           )}
         </div>
+
         {isConvertModalOpen && budgetToConvert && (
           <ConvertToSaleModal
             isOpen={isConvertModalOpen}
@@ -1292,6 +1291,7 @@ const PresupuestosPage = () => {
                 </label>
                 <Select
                   options={customerOptions}
+                  noOptionsMessage={() => "No se encontraron opciones"}
                   value={selectedCustomer}
                   onChange={handleCustomerSelect}
                   placeholder="Buscar cliente..."
@@ -1346,6 +1346,7 @@ const PresupuestosPage = () => {
                     { value: "aprobado", label: "Aprobado" },
                     { value: "rechazado", label: "Rechazado" },
                   ]}
+                  noOptionsMessage={() => "No se encontraron opciones"}
                   value={
                     newBudget?.status
                       ? {
@@ -1380,6 +1381,7 @@ const PresupuestosPage = () => {
                 <Select
                   isMulti
                   options={productOptions}
+                  noOptionsMessage={() => "No se encontraron opciones"}
                   placeholder="Buscar productos..."
                   className="text-black"
                   classNamePrefix="react-select"
@@ -1473,6 +1475,9 @@ const PresupuestosPage = () => {
                                       product
                                         ? getCompatibleUnits(product.unit)
                                         : []
+                                    }
+                                    noOptionsMessage={() =>
+                                      "No se encontraron opciones"
                                     }
                                     value={unitOptions.find(
                                       (option) => option.value === item.unit
@@ -1663,7 +1668,6 @@ const PresupuestosPage = () => {
             </div>
           </div>
         </Modal>
-
         <Modal
           isOpen={isDeleteModalOpen}
           onClose={() => setIsDeleteModalOpen(false)}
@@ -1694,7 +1698,6 @@ const PresupuestosPage = () => {
             {budgetToDelete?.customerName}?
           </p>
         </Modal>
-
         {selectedCustomerForNotes && (
           <CustomerNotes
             customerId={selectedCustomerForNotes.id}
@@ -1703,7 +1706,6 @@ const PresupuestosPage = () => {
             onClose={() => setNotesModalOpen(false)}
           />
         )}
-
         <Notification
           isOpen={isNotificationOpen}
           message={notificationMessage}

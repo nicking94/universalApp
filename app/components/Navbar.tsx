@@ -6,6 +6,8 @@ import UserMenu from "./userMenu";
 import logo from "../../public/logo.png";
 import { useRubro } from "../context/RubroContext";
 import Select from "react-select";
+import NotificationIcon from "./Notifications/NotificationIcon";
+import { APP_VERSION } from "../lib/constants/constants";
 
 const rubroOptions = [
   { value: "todos los rubros", label: "todos los rubros" },
@@ -32,7 +34,10 @@ const Navbar: React.FC<NavbarProps> = ({
       >
         <div className="flex items-center gap-2">
           <Image className="rounded-full w-8 h-8" src={logo} alt="User Logo" />
-          <h1 className="text-lg italic">Universal App | {rubro}</h1>
+          <h1 className="text-lg italic">
+            Universal App <span className="text-[.8rem]">v.{APP_VERSION}</span>{" "}
+            | {rubro}
+          </h1>
         </div>
 
         <div className="flex items-center space-x-6 ">
@@ -58,7 +63,9 @@ const Navbar: React.FC<NavbarProps> = ({
               isSearchable={false}
             />
           </div>
-
+          <div className="flex items-center space-x-4">
+            <NotificationIcon />
+          </div>
           <div className="flex flex-col justify-center items-center">
             <UserMenu
               theme={theme}

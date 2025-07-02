@@ -236,6 +236,7 @@ export const ConvertToSaleModal = ({
             <div key={index} className="flex items-center gap-2 mb-2">
               <Select
                 options={paymentOptions}
+                noOptionsMessage={() => "No se encontraron opciones"}
                 value={paymentOptions.find((o) => o.value === method.method)}
                 onChange={(selected) =>
                   selected &&
