@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Notification } from "../../lib/types/types";
 import { BellIcon } from "@heroicons/react/24/outline";
 import { BellAlertIcon } from "@heroicons/react/24/solid";
 import NotificationDropdown from "./NotificationDropdown";
@@ -11,9 +10,10 @@ import {
   deleteNotification,
   markAllAsRead,
 } from "../../services/notifications";
+import { NotificationType } from "@/app/lib/types/types";
 
 const NotificationIcon = () => {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<NotificationType[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
 

@@ -28,5 +28,11 @@ export const USERS = [
     id: 4,
     isTrial: false,
   },
+  {
+    username: process.env.NEXT_PUBLIC_LOGIN_USERNAME_5,
+    password: process.env.NEXT_PUBLIC_LOGIN_PASSWORD_5,
+    id: 5,
+    isTrial: false,
+  },
 ];
 export const APP_VERSION = "1.4.1";

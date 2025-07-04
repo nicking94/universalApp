@@ -1,11 +1,12 @@
 "use client";
-import { Notification } from "../../lib/types/types";
+
+import { NotificationType } from "@/app/lib/types/types";
 import { XMarkIcon, CheckIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 
 interface NotificationDropdownProps {
-  notifications: Notification[];
+  notifications: NotificationType[];
   onMarkAsRead: (id: number) => void;
   onDelete: (id: number) => void;
   onMarkAllAsRead: () => void;
@@ -97,7 +98,7 @@ const NotificationItem = ({
   onDelete,
   isUnread,
 }: {
-  notification: Notification;
+  notification: NotificationType;
   onMarkAsRead: (id: number) => void;
   onDelete: (id: number) => void;
   isUnread: boolean;

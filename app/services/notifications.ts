@@ -1,9 +1,9 @@
 import { db } from "../database/db";
-import { Notification } from "../lib/types/types";
 import { liveQuery } from "dexie";
+import { NotificationType } from "../lib/types/types";
 
 export const addNotification = async (
-  notification: Omit<Notification, "id" | "read" | "date">
+  notification: Omit<NotificationType, "id" | "read" | "date">
 ) => {
   return await db.notifications.add({
     ...notification,
@@ -76,7 +76,7 @@ export const addSystemNotification = async (
 };
 
 export const observeNotifications = (
-  callback: (notifs: Notification[]) => void
+  callback: (notifs: NotificationType[]) => void
 ) => {
   return liveQuery(() =>
     db.notifications

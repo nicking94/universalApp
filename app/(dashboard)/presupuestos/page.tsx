@@ -368,6 +368,7 @@ const PresupuestosPage = () => {
         : 0;
       const totalToPay = budgetToConvert.total - deposit;
 
+      // Verificar que el pago coincida con el total a pagar (sin la seña)
       if (
         Math.abs(
           paymentMethods.reduce((sum, m) => sum + m.amount, 0) - totalToPay
@@ -380,6 +381,7 @@ const PresupuestosPage = () => {
         return;
       }
 
+      // Actualizar stock
       for (const item of budgetToConvert.items) {
         const product = await db.products.get(item.productId);
         if (product) {
@@ -392,20 +394,21 @@ const PresupuestosPage = () => {
         }
       }
 
+      // Calcular la ganancia total correctamente
       const totalProfit = budgetToConvert.items.reduce((sum, item) => {
         const product = products.find((p) => p.id === item.productId);
         if (!product) return sum;
 
+        // Modificación clave: Usar directamente el precio y cantidad sin conversión adicional
         const precioConDescuento =
           item.price * (1 - (item.discount || 0) / 100);
-
-        const gananciaPorUnidad = precioConDescuento - product.costPrice;
+        const costPriceInItemUnit = product.costPrice; // Usar el costo directamente
+        const gananciaPorUnidad = precioConDescuento - costPriceInItemUnit;
 
         return sum + gananciaPorUnidad * item.quantity;
       }, 0);
 
-      const profitPercentage = (totalProfit / budgetToConvert.total) * 100;
-
+      // Crear la venta
       const sale: Sale = {
         id: Date.now(),
         products: budgetToConvert.items.map((item) => ({
@@ -433,6 +436,7 @@ const PresupuestosPage = () => {
 
       await db.sales.add(sale);
 
+      // Registrar en caja diaria
       const today = getLocalDateString();
       const dailyCash = await db.dailyCashes.get({ date: today });
 
@@ -440,7 +444,10 @@ const PresupuestosPage = () => {
         const movements: DailyCashMovement[] = [];
         paymentMethods.forEach((method) => {
           const methodAmount = method.amount;
-          const methodProfit = totalProfit * (methodAmount / totalToPay);
+          const paymentRatio = methodAmount / totalToPay;
+
+          const methodProfit =
+            totalProfit * (totalToPay / budgetToConvert.total) * paymentRatio;
 
           movements.push({
             id: Date.now() + Math.random(),
@@ -449,38 +456,58 @@ const PresupuestosPage = () => {
             type: "INGRESO",
             date: new Date().toISOString(),
             paymentMethod: method.method,
-            items: budgetToConvert.items.map((item) => {
-              const product = products.find((p) => p.id === item.productId);
-              return {
-                productId: item.productId,
-                productName: item.productName,
-                quantity: item.quantity,
-                unit: item.unit,
-                price: item.price,
-                costPrice: product ? product.costPrice : 0,
-                discount: item.discount || 0,
-              };
-            }),
             profit: methodProfit,
-            profitPercentage: profitPercentage,
+            profitPercentage: (methodProfit / methodAmount) * 100,
+            budgetId: budgetToConvert.id,
+            fromBudget: true,
           });
         });
 
-        const updatedCash = {
-          ...dailyCash,
-          movements: [...dailyCash.movements, ...movements],
-          totalIncome: (dailyCash.totalIncome || 0) + totalToPay,
-          totalProfit: (dailyCash.totalProfit || 0) + totalProfit,
-        };
+        // 2. Actualizar el movimiento de la seña para asignarle su parte del profit
+        const depositMovementIndex = dailyCash.movements.findIndex((m) =>
+          m.description?.includes(
+            `Presupuesto de ${budgetToConvert.customerName}`
+          )
+        );
 
-        await db.dailyCashes.update(dailyCash.id, updatedCash);
+        if (depositMovementIndex !== -1 && deposit > 0) {
+          const depositRatio = deposit / budgetToConvert.total;
+          const depositProfit = totalProfit * depositRatio;
+
+          const updatedMovements = [...dailyCash.movements];
+          updatedMovements[depositMovementIndex] = {
+            ...updatedMovements[depositMovementIndex],
+            profit: depositProfit,
+            profitPercentage: (depositProfit / deposit) * 100,
+          };
+
+          const updatedCash = {
+            ...dailyCash,
+            movements: [...updatedMovements, ...movements],
+            totalIncome: (dailyCash.totalIncome || 0) + totalToPay,
+            totalProfit: (dailyCash.totalProfit || 0) + totalProfit,
+          };
+
+          await db.dailyCashes.update(dailyCash.id, updatedCash);
+        } else {
+          const updatedCash = {
+            ...dailyCash,
+            movements: [...dailyCash.movements, ...movements],
+            totalIncome: (dailyCash.totalIncome || 0) + totalToPay,
+            totalProfit: (dailyCash.totalProfit || 0) + totalProfit,
+          };
+
+          await db.dailyCashes.update(dailyCash.id, updatedCash);
+        }
       }
 
+      // Marcar presupuesto como cobrado
       await db.budgets.update(budgetToConvert.id, {
         convertedToSale: true,
         status: "cobrado",
       });
 
+      // Actualizar estados
       setBudgets((prev) =>
         prev.map((b) =>
           b.id === budgetToConvert.id
@@ -562,14 +589,15 @@ const PresupuestosPage = () => {
 
       const updatedItems = prevState.items.map((item) => {
         if (item.productId === productId) {
-          const newPrice =
-            (item.basePrice || product.price) * convertToBaseUnit(1, unit);
+          // Modificación clave aquí: No multiplicar por convertToBaseUnit
+          const newPrice = product.price; // Usar el precio directamente
+
           return {
             ...item,
             quantity,
             unit,
             price: parseFloat(newPrice.toFixed(2)),
-            basePrice: product.price / convertToBaseUnit(1, product.unit),
+            basePrice: product.price, // Almacenar el precio base sin conversión
           };
         }
         return item;
@@ -733,20 +761,10 @@ const PresupuestosPage = () => {
         if (dailyCash) {
           const depositAmount = parseFloat(newBudget.deposit);
 
-          const totalProfit = newBudget.items.reduce((sum, item) => {
-            const product = products.find((p) => p.id === item.productId);
-            const costPrice = product ? product.costPrice : 0;
-            const finalPrice = item.price * (1 - (item.discount || 0) / 100);
-            const profitPerUnit = finalPrice - costPrice;
-            return sum + profitPerUnit * item.quantity;
-          }, 0);
-
-          const profitPercentage = (totalProfit / newBudget.total) * 100;
-
           const depositMovement: DailyCashMovement = {
             id: Date.now() + Math.random(),
             amount: depositAmount,
-            description: `Seña de presupuesto de ${budgetToAdd.customerName}`,
+            description: `Presupuesto de ${budgetToAdd.customerName}`,
             type: "INGRESO",
             date: new Date().toISOString(),
             paymentMethod: "EFECTIVO",
@@ -758,17 +776,17 @@ const PresupuestosPage = () => {
               price: item.price,
               costPrice: item.basePrice || 0,
             })),
-            profit: totalProfit * (depositAmount / newBudget.total),
-            profitPercentage: profitPercentage,
+            profit: 0,
+            profitPercentage: 0,
+            isDeposit: true,
+            budgetId: budgetToAdd.id,
+            fromBudget: true,
           };
 
           const updatedCash = {
             ...dailyCash,
             movements: [...dailyCash.movements, depositMovement],
             totalIncome: (dailyCash.totalIncome || 0) + depositAmount,
-            totalProfit:
-              (dailyCash.totalProfit || 0) +
-              totalProfit * (depositAmount / newBudget.total),
           };
 
           await db.dailyCashes.update(dailyCash.id, updatedCash);

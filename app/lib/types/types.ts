@@ -198,6 +198,8 @@ export type Sale = {
   customerId?: string;
   discount?: number;
   deposit?: number;
+  fromBudget?: boolean;
+  budgetId?: string;
 };
 
 export type SaleItem = {
@@ -213,6 +215,8 @@ export type SaleItem = {
   notes?: string;
   description?: string;
   rubro?: Rubro;
+  fromBudget?: boolean;
+  budgetId?: string;
 };
 
 export type PaginationProps = {
@@ -241,13 +245,18 @@ export type PaymentMethod = "EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "MIXTO";
 export type PaymentSplit = {
   method: PaymentMethod;
   amount: number;
+  isDeposit?: boolean;
+  paymentMethod?: "EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "MIXTO";
 };
 
 export type MovementType = "INGRESO" | "EGRESO";
 
 export type DailyCashMovement = {
   id: number;
-  subMovements?: PaymentSplit[];
+  isDeposit?: boolean;
+  originalAmount?: number;
+  isBudgetGroup?: boolean;
+  subMovements?: DailyCashMovement[];
   method?: PaymentMethod;
   amount: number;
   manualAmount?: number;
@@ -296,6 +305,8 @@ export type DailyCashMovement = {
   manualProfit?: number;
   productsProfit?: number;
   profitPercentage?: number;
+  budgetId?: string;
+  fromBudget?: boolean;
 };
 
 export type DailyCash = {
@@ -410,7 +421,7 @@ export type ClothingSizeOption = {
   value: string;
   label: string;
 };
-export type Notification = {
+export type NotificationType = {
   id?: number;
   title: string;
   message: string;

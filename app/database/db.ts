@@ -15,7 +15,7 @@ import {
   Note,
   Rubro,
   CustomCategory,
-  Notification,
+  NotificationType,
 } from "../lib/types/types";
 
 class MyDatabase extends Dexie {
@@ -40,7 +40,7 @@ class MyDatabase extends Dexie {
   budgets!: Table<Budget, string>;
   notes!: Table<Note, number>;
   customCategories!: Table<CustomCategory, number>;
-  notifications!: Table<Notification, number>;
+  notifications!: Table<NotificationType, number>;
   deletedActualizations!: Table<
     { id?: number; actualizationId: number },
     number

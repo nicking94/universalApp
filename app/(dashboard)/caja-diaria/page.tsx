@@ -666,12 +666,48 @@ const CajaDiariaPage = () => {
   const DetailModal = () => {
     const filteredMovements = getFilteredMovements();
     const { totalIngresos, totalEgresos } = calculateFilteredTotals();
+    // En el componente DetailModal dentro de CajaDiariaPage.tsx
+
     const groupedMovements = filteredMovements.reduce((acc, movement) => {
+      // Si es un movimiento de presupuesto (tiene budgetId)
+      if (movement.budgetId) {
+        if (!acc[movement.budgetId]) {
+          acc[movement.budgetId] = {
+            ...movement,
+            subMovements: [],
+            isBudgetGroup: true,
+            originalAmount: movement.amount,
+            amount: 0, // Inicializamos en 0 para calcular el total después
+          };
+        }
+
+        // Agregamos el movimiento como submovimiento
+        acc[movement.budgetId].subMovements!.push(movement);
+
+        // Sumamos al monto total del grupo
+        acc[movement.budgetId].amount += movement.amount;
+
+        // Si es la venta principal, copiamos los items para mostrarlos
+        if (!movement.isDeposit && movement.items) {
+          acc[movement.budgetId].items = movement.items;
+        }
+
+        return acc;
+      }
+
+      // Para movimientos normales (no de presupuesto)
       if (movement.originalSaleId) {
         if (!acc[movement.originalSaleId]) {
           acc[movement.originalSaleId] = {
             ...movement,
-            subMovements: movement.combinedPaymentMethods || [],
+            subMovements:
+              movement.combinedPaymentMethods?.map((m) => ({
+                ...m,
+                id: Math.random(),
+                description: movement.description,
+                type: movement.type,
+                date: movement.date,
+              })) || [],
           };
         }
         return acc;
@@ -679,7 +715,7 @@ const CajaDiariaPage = () => {
 
       acc[movement.id] = movement;
       return acc;
-    }, {} as Record<number, DailyCashMovement>);
+    }, {} as Record<string | number, DailyCashMovement>);
 
     return (
       <Modal
@@ -787,7 +823,7 @@ const CajaDiariaPage = () => {
                 </th>
               </tr>
             </thead>
-            <tbody className={`bg-white  divide-y divide-gray_xl`}>
+            <tbody className={`bg-white divide-y divide-gray_xl`}>
               {Object.values(groupedMovements).length > 0 ? (
                 Object.values(groupedMovements).map((movement, index) => (
                   <tr
@@ -805,10 +841,8 @@ const CajaDiariaPage = () => {
                         {movement.type}
                       </span>
                     </td>
-
                     <td className="p-2 text-sm text-gray_m min-w-[23rem]">
-                      {Array.isArray(movement.items) &&
-                      movement.items.length > 0 ? (
+                      {movement.items && movement.items.length > 0 ? (
                         <div className="flex flex-col">
                           {movement.items.map((item, i) => (
                             <div key={i} className="flex justify-between">
@@ -823,8 +857,8 @@ const CajaDiariaPage = () => {
                                   rubro,
                                   true
                                 )}
-                              </span>{" "}
-                              <div className=" min-w-[5rem]">
+                              </span>
+                              <div className="min-w-[5rem]">
                                 ×{item.quantity} {""}
                                 {item.unit}
                               </div>
@@ -844,7 +878,7 @@ const CajaDiariaPage = () => {
                               rubro,
                               true
                             )}
-                          </span>{" "}
+                          </span>
                           ×{movement.quantity} {""}
                           {movement.unit}
                         </div>
@@ -856,21 +890,36 @@ const CajaDiariaPage = () => {
                       {movement.description}
                     </td>
                     <td className="p-2 text-sm text-gray_m">
-                      {movement.combinedPaymentMethods ? (
-                        <div className="flex flex-col">
+                      {movement.isBudgetGroup ? (
+                        <div>
+                          {movement.subMovements?.map((sub, i) => (
+                            <div key={i} className="flex flex-col">
+                              <div className="flex flex-row justify-between">
+                                <span>{sub.isDeposit ? "Seña" : "Venta"}:</span>
+                                <span>
+                                  {sub.paymentMethod}:{" "}
+                                  {formatCurrency(sub.amount)}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : movement.combinedPaymentMethods ? (
+                        <div className="flex flex-col ">
                           {movement.combinedPaymentMethods.map((method, i) => (
-                            <div key={i}>
+                            <div key={i} className="flex justify-between">
                               {method.method}: {formatCurrency(method.amount)}
                             </div>
                           ))}
                         </div>
                       ) : (
-                        `${movement.paymentMethod}: ${formatCurrency(
-                          movement.amount
-                        )}`
+                        <div className="flex justify-between">
+                          <span> {movement.paymentMethod}:</span>
+
+                          {formatCurrency(movement.amount)}
+                        </div>
                       )}
                     </td>
-
                     <td className="p-2 text-sm text-center font-medium text-green_b">
                       {formatCurrency(movement.amount)}
                     </td>
