@@ -777,7 +777,7 @@ const CajaDiariaPage = () => {
                 option &&
                 setFilterType(option.value as "TODOS" | "INGRESO" | "EGRESO")
               }
-              className="min-w-40 text-black"
+              className="min-w-40 text-gray_b"
             />
           </div>
           <div>
@@ -796,7 +796,7 @@ const CajaDiariaPage = () => {
                 option &&
                 setFilterPaymentMethod(option.value as PaymentMethod | "TODOS")
               }
-              className="min-w-40 text-black"
+              className="min-w-40 text-gray_b"
             />
           </div>
         </div>
@@ -1064,14 +1064,14 @@ const CajaDiariaPage = () => {
                   onChange={(option) =>
                     option && setSelectedMonth(option.value)
                   }
-                  className="min-w-40 text-black"
+                  className="min-w-40 text-gray_b"
                 />
                 <Select
                   options={yearOptions}
                   noOptionsMessage={() => "No se encontraron opciones"}
                   value={yearOptions.find((y) => y.value === selectedYear)}
                   onChange={(option) => option && setSelectedYear(option.value)}
-                  className="min-w-40 text-black"
+                  className="min-w-40 text-gray_b"
                 />
               </div>
               <div className="flex gap-2">
@@ -1239,7 +1239,7 @@ const CajaDiariaPage = () => {
                     onChange={(option) =>
                       option && setMovementType(option.value as MovementType)
                     }
-                    className="min-w-40 text-black"
+                    className="min-w-40 text-gray_b"
                   />
                 </div>
                 {movementType === "EGRESO" && (
@@ -1257,7 +1257,7 @@ const CajaDiariaPage = () => {
                       onChange={(option) => setSelectedSupplier(option)}
                       isClearable
                       placeholder="Seleccionar proveedor..."
-                      className="min-w-40 text-black"
+                      className="min-w-40 text-gray_b"
                     />
                   </div>
                 )}
@@ -1287,7 +1287,7 @@ const CajaDiariaPage = () => {
                         )
                       }
                       options={paymentOptions}
-                      className="min-w-40 text-black"
+                      className="min-w-40 text-gray_b"
                       classNamePrefix="react-select"
                     />
                     <InputCash

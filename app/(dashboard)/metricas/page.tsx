@@ -584,7 +584,7 @@ const Metrics = () => {
                     locale: es,
                   }),
                 }))}
-                className="text-black min-w-40"
+                className="text-gray_b min-w-40"
                 classNamePrefix="select"
                 isSearchable={false}
               />
@@ -613,7 +613,7 @@ const Metrics = () => {
                     setSelectedYear(selectedOption.value);
                   }
                 }}
-                className="text-black min-w-40"
+                className="text-gray_b min-w-40"
                 classNamePrefix="react-select"
                 menuPosition="fixed"
               />
@@ -687,7 +687,7 @@ const Metrics = () => {
                     }
                   }}
                   isDisabled={rubro === "indumentaria"}
-                  className={`text-black min-w-40 dark:text-white ${
+                  className={`text-gray_b min-w-40 dark:text-white ${
                     rubro === "indumentaria"
                       ? "opacity-50 cursor-not-allowed"
                       : ""
@@ -786,7 +786,7 @@ const Metrics = () => {
                     }
                   }}
                   isDisabled={rubro === "indumentaria"}
-                  className={`react-select-container text-black min-w-40 dark:text-white ${
+                  className={`react-select-container text-gray_b min-w-40 dark:text-white ${
                     rubro === "indumentaria"
                       ? "opacity-50 cursor-not-allowed"
                       : ""

@@ -1208,7 +1208,7 @@ const VentasPage = () => {
                 setSelectedMonth(option?.value ?? new Date().getMonth() + 1)
               }
               placeholder="Mes"
-              className="w-full h-[2rem] 2xl:h-auto text-black"
+              className="w-full h-[2rem] 2xl:h-auto text-gray_b"
               classNamePrefix="react-select"
               menuPosition="fixed"
               styles={{
@@ -1227,7 +1227,7 @@ const VentasPage = () => {
               onChange={handleYearChange}
               onInputChange={handleYearInputChange}
               isClearable
-              className="w-full h-[2rem] 2xl:h-auto text-black"
+              className="w-full h-[2rem] 2xl:h-auto text-gray_b"
               classNamePrefix="react-select"
               menuPosition="fixed"
               styles={{
@@ -1524,7 +1524,7 @@ const VentasPage = () => {
                         isDisabled: false,
                       }))}
                       onChange={handleProductSelect}
-                      className="text-black"
+                      className="text-gray_b"
                       classNamePrefix="react-select"
                       menuPosition="fixed"
                       styles={{
@@ -1599,7 +1599,7 @@ const VentasPage = () => {
                                         product.quantity
                                       );
                                     }}
-                                    className="text-black"
+                                    className="text-gray_b"
                                     menuPosition="fixed"
                                     styles={{
                                       menuPortal: (base) => ({
@@ -1902,7 +1902,7 @@ const VentasPage = () => {
                       }}
                       placeholder="Buscar cliente..."
                       isClearable
-                      className="text-black"
+                      className="text-gray_b"
                       classNamePrefix="react-select"
                       menuPosition="fixed"
                       styles={{

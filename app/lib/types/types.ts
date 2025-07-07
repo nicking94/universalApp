@@ -14,6 +14,19 @@ export type AuthData = {
   username: string;
   password: string;
 };
+export type SortField =
+  | "name"
+  | "expiration"
+  | "stock"
+  | "costPrice"
+  | "price"
+  | "category"
+  | "brand"
+  | "size"
+  | "color"
+  | "location";
+
+export type SortDirection = "asc" | "desc";
 
 export type ButtonProps = {
   onClick?: (e?: React.MouseEvent<HTMLButtonElement>) => void;
@@ -391,13 +404,17 @@ export type TicketProps = {
   paymentMethods?: { method: string; amount: number }[];
   isCredit?: boolean;
 };
-export type ProductFilters = {
-  category?: string[];
-  color?: string[];
-  size?: string[];
-  brand?: string[];
-  location?: string[];
-  customCategory?: string[];
+export type ProductFilter = {
+  field: keyof Product;
+
+  value: string | number;
+};
+
+export type ProductFilters = ProductFilter[];
+
+export type SortConfig = {
+  field: keyof Product;
+  direction: "asc" | "desc";
 };
 export type CategoryOption = {
   value: {

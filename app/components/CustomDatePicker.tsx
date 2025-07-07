@@ -51,7 +51,7 @@ const CustomDatePicker: React.FC<DatePickerProps> = ({
           placeholderText={placeholderText}
           isClearable={false}
           className={`focus:shadow-lg focus:shadow-gray_xl dark:focus:shadow-gray_m border-1 border-gray_xl
-            w-full rounded-md  bg-white dark:bg-white text-black shadow-sm
+            w-full rounded-md  bg-white dark:bg-white text-gray_b shadow-sm
             text-sm ring-offset-background focus-visible:outline-none 
          pl-10 pr-10 py-2
             ${error ? "border-red_m" : ""}

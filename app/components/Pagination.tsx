@@ -112,7 +112,7 @@ const Pagination: React.FC<
               } as React.ChangeEvent<HTMLSelectElement>);
             }
           }}
-          className="cursor-pointer text-black p-1 text-sm focus:outline-none"
+          className="cursor-pointer text-gray_b p-1 text-sm focus:outline-none"
           classNamePrefix="react-select"
           menuPosition="fixed"
           aria-label="Items por página"

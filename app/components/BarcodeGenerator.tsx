@@ -189,7 +189,7 @@ const BarcodeGenerator = ({
               type="number"
               value={displayCopies}
               onChange={handleCopiesChange}
-              className="w-16 p-1 border border-gray_xl bg-white text-black rounded outline-none"
+              className="w-16 p-1 border border-gray_xl bg-white text-gray_b rounded outline-none"
               disabled={isPrinting}
             />
           </div>
@@ -227,7 +227,7 @@ const BarcodeGenerator = ({
                   onBarcodeChange(e.target.value);
                 }
               }}
-              className="w-full p-2 border border-gray_xl bg-white text-black rounded outline-none"
+              className="w-full p-2 border border-gray_xl bg-white text-gray_b rounded outline-none"
               disabled={isPrinting}
             />
           </div>

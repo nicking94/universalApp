@@ -49,7 +49,7 @@ const NotificationDropdown = ({
         </div>
       </div>
 
-      <div className="max-h-96 overflow-y-auto">
+      <div className="max-h-[60vh] overflow-y-auto">
         {notifications.length === 0 ? (
           <div className="p-4 text-center text-gray_l dark:text-gray_xl">
             No hay notificaciones

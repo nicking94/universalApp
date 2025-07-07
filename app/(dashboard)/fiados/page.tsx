@@ -997,7 +997,7 @@ const FiadosPage = () => {
                       )
                     }
                     options={paymentOptions}
-                    className="min-w-40 text-black"
+                    className="min-w-40 text-gray_b"
                     classNamePrefix="react-select"
                   />
                   <InputCash

@@ -13,14 +13,14 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
   };
 
   return (
-    <div className="h-[2rem] 2xl:h-auto max-w-[20rem]  flex items-center w-full bg-white  p-2 rounded-sm placeholder:text-gray_l outline-none text-gray_b">
+    <div className="h-[2rem] 2xl:h-auto max-w-[20rem] flex items-center w-full bg-white p-2 rounded-sm placeholder:text-gray_l outline-none text-gray_b border">
       <Search className="text-gray_m dark:text-gray_m mr-2" />
       <input
         type="text"
         placeholder="Buscar..."
         value={query}
         onChange={handleChange}
-        className="w-full  dark:bg-white  dark:text-gray_b placeholder:text-gray_l dark:placeholder:text-gray_l outline-none"
+        className="w-full dark:bg-white dark:text-gray_b placeholder:text-gray_l dark:placeholder:text-gray_l outline-none "
       />
     </div>
   );

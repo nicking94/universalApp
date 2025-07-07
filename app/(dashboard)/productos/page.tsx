@@ -5,21 +5,12 @@ import Modal from "@/app/components/Modal";
 import Notification from "@/app/components/Notification";
 import {
   ClothingSizeOption,
-  FilterOption,
   Product,
   ProductFilters,
   Rubro,
   UnitOption,
 } from "@/app/lib/types/types";
-import {
-  Edit,
-  Trash,
-  PackageX,
-  AlertTriangle,
-  SortAsc,
-  SortDesc,
-  Barcode,
-} from "lucide-react";
+import { Edit, Trash, PackageX, AlertTriangle, Barcode } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { db } from "@/app/database/db";
 import SearchBar from "@/app/components/SearchBar";
@@ -37,9 +28,9 @@ import { useRubro } from "@/app/context/RubroContext";
 import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
 import { usePagination } from "@/app/context/PaginationContext";
 import BarcodeGenerator from "@/app/components/BarcodeGenerator";
+import AdvancedFilterPanel from "@/app/components/AdvancedFilterPanel";
 
 const clothingSizes: ClothingSizeOption[] = [
-  // Talles estándar
   { value: "XXS", label: "XXS" },
   { value: "XS", label: "XS" },
   { value: "S", label: "S" },
@@ -49,7 +40,6 @@ const clothingSizes: ClothingSizeOption[] = [
   { value: "XXL", label: "XXL" },
   { value: "XXXL", label: "XXXL" },
 
-  // Talles numéricos
   { value: "34", label: "34" },
   { value: "36", label: "36" },
   { value: "38", label: "38" },
@@ -58,7 +48,6 @@ const clothingSizes: ClothingSizeOption[] = [
   { value: "44", label: "44" },
   { value: "46", label: "46" },
 
-  // Talles especiales
   { value: "unico", label: "Único" },
   { value: "kids", label: "Kids" },
   { value: "prematuro", label: "Prematuro" },
@@ -89,7 +78,15 @@ const ProductsPage = () => {
     customCategory: "",
     customCategories: [],
   });
-  const [filters, setFilters] = useState<ProductFilters>({});
+  const [sortConfig, setSortConfig] = useState<{
+    field: keyof Product;
+    direction: "asc" | "desc";
+  }>({
+    field: "name",
+    direction: "asc",
+  });
+
+  const [filters, setFilters] = useState<ProductFilters>([]);
   const [globalCustomCategories, setGlobalCustomCategories] = useState<
     Array<{ name: string; rubro: Rubro }>
   >([]);
@@ -101,7 +98,6 @@ const ProductsPage = () => {
   const [type, setType] = useState<"success" | "error" | "info">("success");
   const [isSaveDisabled, setIsSaveDisabled] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [isPriceModalOpen, setIsPriceModalOpen] = useState(false);
   const [scannedProduct, setScannedProduct] = useState<Product | null>(null);
   const [barcodeInput, setBarcodeInput] = useState("");
@@ -118,7 +114,14 @@ const ProductsPage = () => {
   } | null>(null);
   const [isCategoryDeleteModalOpen, setIsCategoryDeleteModalOpen] =
     useState(false);
+  const [newBrand, setNewBrand] = useState("");
 
+  const handleSort = (sort: {
+    field: keyof Product;
+    direction: "asc" | "desc";
+  }) => {
+    setSortConfig(sort);
+  };
   const unitOptions: UnitOption[] = [
     { value: "Unid.", label: "Unidad", convertible: false },
     { value: "Kg", label: "Kilogramo", convertible: true },
@@ -149,6 +152,84 @@ const ProductsPage = () => {
     const products = await db.products.where("rubro").equals(rubro).count();
     return products >= 20;
   };
+  // En el componente ProductsPage, modifica la función sortedProducts:
+  const sortedProducts = useMemo(() => {
+    let filtered = [...products];
+
+    if (rubro !== "todos los rubros") {
+      filtered = filtered.filter((product) => product.rubro === rubro);
+    }
+    if (searchQuery) {
+      filtered = filtered.filter((product) => {
+        const productName = getDisplayProductName(
+          product,
+          rubro,
+          false
+        ).toLowerCase();
+        return productName.includes(searchQuery.toLowerCase());
+      });
+    }
+
+    if (filters.length > 0) {
+      filtered = filtered.filter((product) => {
+        return filters.every((filter) => {
+          const fieldValue =
+            filter.field === "customCategories"
+              ? product.customCategories?.[0]?.name
+              : product[filter.field];
+
+          if (fieldValue === undefined || fieldValue === null) return false;
+          return (
+            String(fieldValue).toLowerCase() ===
+            String(filter.value).toLowerCase()
+          );
+        });
+      });
+    }
+
+    // Ordenar por estado de expiración primero
+    filtered.sort((a, b) => {
+      const today = startOfDay(new Date());
+
+      const getExpirationStatus = (product: Product) => {
+        if (!product.expiration) return 3; // Sin fecha van al final
+
+        const expDate = startOfDay(parseISO(product.expiration));
+        const diffDays = differenceInDays(expDate, today);
+
+        if (diffDays < 0) return 0; // Expirados primero
+        if (diffDays === 0) return 1; // Vencen hoy
+        return 2; // Por vencer
+      };
+
+      const statusA = getExpirationStatus(a);
+      const statusB = getExpirationStatus(b);
+
+      if (statusA === statusB) {
+        let compareResult = 0;
+        switch (sortConfig.field) {
+          case "name":
+            compareResult = a.name.localeCompare(b.name);
+            break;
+          case "price":
+            // Convertir a número antes de comparar
+            compareResult = Number(a.price) - Number(b.price);
+            break;
+          case "stock":
+            compareResult = a.stock - b.stock;
+            break;
+          default:
+            compareResult = 0;
+        }
+        return sortConfig.direction === "asc" ? compareResult : -compareResult;
+      }
+
+      return statusA - statusB;
+    });
+
+    return filtered;
+  }, [products, searchQuery, filters, sortConfig, rubro]);
+
   const handleDeleteCategoryClick = async (category: {
     name: string;
     rubro: Rubro;
@@ -164,26 +245,21 @@ const ProductsPage = () => {
     if (!categoryToDelete) return;
 
     try {
-      // 1. Eliminar de la tabla de categorías
       await db.customCategories
         .where("name")
         .equalsIgnoreCase(categoryToDelete.name)
         .and((cat) => cat.rubro === categoryToDelete.rubro)
         .delete();
 
-      // 2. Obtener todos los productos (no solo los que tienen la categoría)
       const allProducts = await db.products.toArray();
 
-      // 3. Actualizar productos que usaban esta categoría
       const updatePromises = allProducts.map(async (product) => {
-        // Filtrar las categorías para eliminar la categoría marcada
         const updatedCategories = (product.customCategories || []).filter(
           (cat) =>
             cat.name.toLowerCase() !== categoryToDelete.name.toLowerCase() ||
             cat.rubro !== categoryToDelete.rubro
         );
 
-        // Solo actualizar si realmente había cambios
         if (
           updatedCategories.length !== (product.customCategories?.length || 0)
         ) {
@@ -198,13 +274,10 @@ const ProductsPage = () => {
         return product;
       });
 
-      // Esperar a que todas las actualizaciones terminen
       const updatedProducts = await Promise.all(updatePromises);
 
-      // 4. Actualizar el estado local de productos
       setProducts(updatedProducts);
 
-      // 5. Actualizar estado de categorías globales
       setGlobalCustomCategories((prev) =>
         prev.filter(
           (cat) =>
@@ -213,7 +286,6 @@ const ProductsPage = () => {
         )
       );
 
-      // 6. Limpiar la categoría seleccionada si es la que se eliminó
       setNewProduct((prev) => ({
         ...prev,
         customCategories: (prev.customCategories || []).filter(
@@ -261,51 +333,6 @@ const ProductsPage = () => {
       </div>
     );
   };
-  const getFilterOptionsByRubro = () => {
-    // Cuando el rubro es "todos los rubros", mostrar todas las categorías sin filtrar
-    const filteredCategories =
-      rubro === "todos los rubros"
-        ? globalCustomCategories
-        : globalCustomCategories.filter(
-            (cat) => cat.rubro === rubro || cat.rubro === "todos los rubros"
-          );
-
-    if (rubro === "indumentaria") {
-      return [
-        {
-          type: "category",
-          options: filteredCategories,
-          label: "Categoría",
-        },
-        {
-          type: "size",
-          options: clothingSizes,
-          label: "Talle",
-        },
-        {
-          type: "color",
-          options: colorOptions,
-          label: "Color",
-        },
-        {
-          type: "brand",
-          options: brandOptions,
-          label: "Marca",
-        },
-      ];
-    } else {
-      return [
-        {
-          type: "category",
-          options: filteredCategories,
-          label: "Categoría",
-        },
-      ];
-    }
-  };
-  const toggleSortOrder = () => {
-    setSortOrder((prevOrder) => (prevOrder === "asc" ? "desc" : "asc"));
-  };
 
   const getUniqueOptions = (field: keyof Product) => {
     return Array.from(
@@ -321,58 +348,6 @@ const ProductsPage = () => {
 
   const colorOptions = getUniqueOptions("color");
   const brandOptions = getUniqueOptions("brand");
-
-  const sortedProducts = useMemo(() => {
-    const filtered = products.filter(
-      (product) =>
-        (rubro === "todos los rubros" || product.rubro === rubro) &&
-        (product.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          product.barcode?.includes(searchQuery)) &&
-        (!filters.category ||
-          filters.category.includes(product.category || "")) &&
-        (!filters.size || filters.size.includes(product.size || "")) &&
-        (!filters.color || filters.color.includes(product.color || "")) &&
-        (!filters.brand || filters.brand.includes(product.brand || "")) &&
-        (!filters.location ||
-          filters.location.includes(product.location || "")) &&
-        (!filters.customCategory ||
-          (product.customCategories &&
-            product.customCategories.some((cat) =>
-              filters.customCategory?.includes(cat.name || "")
-            )))
-    );
-
-    return [...filtered].sort((a, b) => {
-      const expirationA =
-        a.expiration && isValid(parseISO(a.expiration))
-          ? startOfDay(parseISO(a.expiration)).getTime()
-          : Infinity;
-      const expirationB =
-        b.expiration && isValid(parseISO(b.expiration))
-          ? startOfDay(parseISO(b.expiration)).getTime()
-          : Infinity;
-      const today = startOfDay(new Date()).getTime();
-
-      const isExpiredA = expirationA < today;
-      const isExpiredB = expirationB < today;
-      const isExpiringSoonA =
-        expirationA >= today && expirationA <= today + 7 * 24 * 60 * 60 * 1000;
-      const isExpiringSoonB =
-        expirationB >= today && expirationB <= today + 7 * 24 * 60 * 60 * 1000;
-
-      if (isExpiredA !== isExpiredB) {
-        return isExpiredA ? -1 : 1;
-      }
-      if (isExpiringSoonA !== isExpiringSoonB) {
-        return isExpiringSoonA ? -1 : 1;
-      }
-      if (a.stock !== b.stock) {
-        return a.stock - b.stock;
-      }
-
-      return a.name.localeCompare(b.name);
-    });
-  }, [products, searchQuery, rubro, filters]);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query.toLowerCase());
@@ -468,8 +443,6 @@ const ProductsPage = () => {
 
     const trimmedCategory = newProduct.customCategory.trim();
     const lowerName = trimmedCategory.toLowerCase();
-
-    // Verificar si ya existe (insensitive case)
     const alreadyExists = globalCustomCategories.some(
       (cat) => cat.name.toLowerCase() === lowerName && cat.rubro === rubro
     );
@@ -485,13 +458,10 @@ const ProductsPage = () => {
     };
 
     try {
-      // Guardar en la tabla específica de categorías
       await db.customCategories.add(newCategory);
 
-      // Actualizar estado local
       setGlobalCustomCategories((prev) => [...prev, newCategory]);
 
-      // Actualizar el producto con la nueva categoría
       setNewProduct((prev) => ({
         ...prev,
         customCategories: [newCategory],
@@ -522,7 +492,6 @@ const ProductsPage = () => {
       return;
     }
 
-    // Preparar el producto para guardar
     const productToSave = {
       ...newProduct,
       rubro: rubro,
@@ -530,11 +499,24 @@ const ProductsPage = () => {
       costPrice: Number(newProduct.costPrice),
       price: Number(newProduct.price),
       quantity: Number(newProduct.quantity),
-      customCategories: (newProduct.customCategories || []).map((cat) => ({
-        name: cat.name.trim(),
-        rubro: cat.rubro || rubro,
-      })),
-      category: "", // Limpiar campo heredado
+      ...(newProduct.customCategories?.length
+        ? {
+            customCategories: newProduct.customCategories.map((cat) => ({
+              name: cat.name.trim(),
+              rubro: cat.rubro || rubro,
+            })),
+            category: "",
+          }
+        : newProduct.category
+        ? {
+            customCategories: [],
+            category: newProduct.category,
+          }
+        : {
+            // Ninguna de las dos
+            customCategories: [],
+            category: "",
+          }),
     };
 
     if (
@@ -559,7 +541,6 @@ const ProductsPage = () => {
         setProducts((prev) => [...prev, { ...productToSave, id: Number(id) }]);
       }
 
-      // Recargar categorías inmediatamente después de guardar
       const updatedCategories = await loadCustomCategories();
       setGlobalCustomCategories(updatedCategories);
 
@@ -589,6 +570,7 @@ const ProductsPage = () => {
 
   const handleCloseModal = () => {
     setIsOpenModal(false);
+    setNewBrand("");
     setNewProduct({
       id: Date.now(),
       name: "",
@@ -628,19 +610,17 @@ const ProductsPage = () => {
     await loadCustomCategories();
 
     setEditingProduct(product);
+    setNewBrand(product.brand || "");
 
-    // Preparar las categorías del producto
     let categoriesToSet = (product.customCategories || []).map((cat) => ({
       name: cat.name,
       rubro: cat.rubro || product.rubro || rubro || "comercio",
     }));
 
-    // Migrar categoría heredada si existe
     if (categoriesToSet.length === 0 && product.category) {
       categoriesToSet = [
         {
           name: product.category,
-          // Usar el rubro del producto si existe, de lo contrario usar el rubro actual
           rubro: product.rubro || rubro || "comercio",
         },
       ];
@@ -649,7 +629,7 @@ const ProductsPage = () => {
     setNewProduct({
       ...product,
       customCategories: categoriesToSet,
-      category: "", // Limpiar el campo heredado
+      category: "",
       customCategory: "",
       size: product.size || "",
       color: product.color || "",
@@ -663,36 +643,49 @@ const ProductsPage = () => {
   };
   const loadCustomCategories = async () => {
     try {
-      // 1. Cargar categorías desde la tabla específica
+      // Obtener categorías almacenadas
       const storedCategories = await db.customCategories.toArray();
 
-      // 2. Cargar todos los productos para verificar categorías en uso
+      // Obtener categorías de productos existentes
       const allProducts = await db.products.toArray();
 
-      // 3. Crear un mapa de categorías válidas
-      const validCategories = new Map<string, { name: string; rubro: Rubro }>();
+      const allCategories = new Map<string, { name: string; rubro: Rubro }>();
 
-      // 4. Primero agregar las categorías almacenadas (asegurando formato)
+      // Agregar categorías almacenadas
       storedCategories.forEach((cat) => {
-        if (cat.name && cat.name.trim()) {
+        if (cat.name?.trim()) {
           const key = `${cat.name.toLowerCase().trim()}_${cat.rubro}`;
-          validCategories.set(key, {
+          allCategories.set(key, {
             name: cat.name.trim(),
-            rubro: cat.rubro || "comercio", // Valor por defecto
+            rubro: cat.rubro || "comercio",
           });
         }
       });
 
-      // 5. Luego agregar categorías de productos (asegurando formato)
+      // Agregar categorías de productos
       allProducts.forEach((product) => {
-        if (product.customCategories && product.customCategories.length > 0) {
+        // Incluir categoría principal si existe
+        if (product.category?.trim()) {
+          const key = `${product.category.toLowerCase().trim()}_${
+            product.rubro
+          }`;
+          if (!allCategories.has(key)) {
+            allCategories.set(key, {
+              name: product.category.trim(),
+              rubro: product.rubro || "comercio",
+            });
+          }
+        }
+
+        // Incluir customCategories
+        if (product.customCategories?.length) {
           product.customCategories.forEach((cat) => {
-            if (cat.name && cat.name.trim()) {
+            if (cat.name?.trim()) {
               const key = `${cat.name.toLowerCase().trim()}_${
                 cat.rubro || product.rubro || "comercio"
               }`;
-              if (!validCategories.has(key)) {
-                validCategories.set(key, {
+              if (!allCategories.has(key)) {
+                allCategories.set(key, {
                   name: cat.name.trim(),
                   rubro: cat.rubro || product.rubro || "comercio",
                 });
@@ -702,20 +695,14 @@ const ProductsPage = () => {
         }
       });
 
-      // 6. Convertir a array y ordenar
-      const categoriesArray = Array.from(validCategories.values()).sort(
-        (a, b) => a.name.localeCompare(b.name)
+      return Array.from(allCategories.values()).sort((a, b) =>
+        a.name.localeCompare(b.name)
       );
-
-      setGlobalCustomCategories(categoriesArray);
-      return categoriesArray;
     } catch (error) {
-      console.error("Error cargando categorías:", error);
-      showNotification("Error al cargar categorías", "error");
+      console.error("Error loading categories:", error);
       return [];
     }
   };
-
   useEffect(() => {
     if (editingProduct) {
       setIsSaveDisabled(!hasChanges(editingProduct, newProduct));
@@ -737,11 +724,10 @@ const ProductsPage = () => {
       try {
         const storedProducts = await db.products.toArray();
         if (isMounted) {
-          // Convertir y limpiar las categorías de cada producto
           const cleanedProducts = storedProducts.map((p) => ({
             ...p,
             id: Number(p.id),
-            // Asegurarse de que customCategories sea un array válido
+
             customCategories: (p.customCategories || []).filter(
               (cat) => cat.name && cat.name.trim()
             ),
@@ -790,7 +776,6 @@ const ProductsPage = () => {
   useEffect(() => {
     const initialize = async () => {
       await loadCustomCategories();
-      // Solo actualizar las categorías si no estamos editando un producto
       if (!editingProduct) {
         setNewProduct((prev) => ({
           ...prev,
@@ -824,97 +809,15 @@ const ProductsPage = () => {
         <h1 className="text-lg 2xl:text-xl font-semibold mb-2">Productos</h1>
 
         <div className="flex justify-between mb-2 w-full">
-          <div className="w-full flex items-center gap-2 ">
+          <div className="w-full flex items-center gap-2">
             <SearchBar onSearch={handleSearch} />
 
-            <div className="w-90">
-              <Select<FilterOption>
-                options={getFilterOptionsByRubro().map((group) => ({
-                  label: group.label,
-                  options: group.options.map((opt) => {
-                    if (typeof opt === "string") {
-                      return {
-                        value: opt,
-                        label: opt,
-                        groupType: group.type as keyof ProductFilters,
-                      };
-                    } else if ("value" in opt && "label" in opt) {
-                      return {
-                        ...opt,
-                        groupType: group.type as keyof ProductFilters,
-                      };
-                    } else {
-                      return {
-                        value: opt.name,
-                        label: opt.name,
-                        groupType: group.type as keyof ProductFilters,
-                        rubro: opt.rubro,
-                      };
-                    }
-                  }),
-                }))}
-                noOptionsMessage={() => "No se encontraron opciones"}
-                value={(() => {
-                  const firstFilterType = Object.keys(filters)[0] as
-                    | keyof ProductFilters
-                    | undefined;
-                  if (!firstFilterType) return null;
-
-                  const filterValue = filters[firstFilterType];
-                  if (!filterValue || !Array.isArray(filterValue)) return null;
-
-                  const foundGroup = getFilterOptionsByRubro().find(
-                    (group) => group.type === firstFilterType
-                  );
-                  if (!foundGroup) return null;
-
-                  const foundOption = foundGroup.options.find((opt) => {
-                    const optValue =
-                      typeof opt === "object"
-                        ? "value" in opt
-                          ? opt.value
-                          : opt.name
-                        : opt;
-                    return filterValue.includes(optValue);
-                  });
-
-                  if (!foundOption) return null;
-
-                  if (typeof foundOption === "string") {
-                    return {
-                      value: foundOption,
-                      label: foundOption,
-                      groupType: firstFilterType,
-                    };
-                  } else if ("value" in foundOption) {
-                    return {
-                      ...foundOption,
-                      groupType: firstFilterType,
-                    };
-                  } else {
-                    return {
-                      value: foundOption.name,
-                      label: foundOption.name,
-                      groupType: firstFilterType,
-                      rubro: foundOption.rubro,
-                    };
-                  }
-                })()}
-                onChange={(selectedOption) => {
-                  if (selectedOption) {
-                    const newFilters: ProductFilters = {
-                      [selectedOption.groupType]: [selectedOption.value],
-                    };
-                    setFilters(newFilters);
-                  } else {
-                    setFilters({});
-                  }
-                }}
-                placeholder="Filtrar por..."
-                isClearable
-                className="text-black"
-              />
-            </div>
+            <AdvancedFilterPanel
+              onApplyFilters={setFilters}
+              onApplySort={handleSort}
+              products={products}
+              rubro={rubro}
+            />
           </div>
           <div className="w-full flex justify-end items-center gap-2 ">
             <Button
@@ -939,37 +842,29 @@ const ProductsPage = () => {
             <table className=" table-auto w-full text-center border-collapse overflow-y-auto shadow-sm shadow-gray_l">
               <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b">
                 <tr>
-                  <th className="p-2 text-start text-sm 2xl:text-lg ">
+                  <th className="p-2 text-start text-sm 2xl:text-lg">
                     Producto
                   </th>
-                  <th className="text-sm 2xl:text-lg p-2">Ubicación</th>
-                  <th className="text-sm 2xl:text-lg p-2">Categoría</th>
+                  <th className="text-sm 2xl:text-lg p-2 cursor-pointer">
+                    Ubicación
+                  </th>
+                  <th className="text-sm 2xl:text-lg p-2 cursor-pointer">
+                    Categoría
+                  </th>
                   {rubro === "indumentaria" && (
                     <th className="text-sm 2xl:text-lg p-2">Talle</th>
                   )}
                   {rubro === "indumentaria" && (
-                    <th className="text-sm 2xl:text-lg p-2">Color</th>
+                    <th className="text-sm 2xl:text-lg p-2 ">Color</th>
                   )}
                   {rubro === "indumentaria" && (
-                    <th className="text-sm 2xl:text-lg p-2">Marca</th>
+                    <th className="text-sm 2xl:text-lg p-2 ">Marca</th>
                   )}
-                  <th
-                    onClick={toggleSortOrder}
-                    className="text-sm 2xl:text-lg cursor-pointer flex justify-center items-center p-2"
-                  >
-                    Stock
-                    <button className="ml-2 cursor-pointer">
-                      {sortOrder === "asc" ? (
-                        <SortAsc size={18} />
-                      ) : (
-                        <SortDesc size={18} />
-                      )}
-                    </button>
-                  </th>
-                  <th className="text-sm 2xl:text-lg p-2 ">Precio costo</th>
-                  <th className="text-sm 2xl:text-lg p-2 ">Precio venta</th>
+                  <th className="text-sm 2xl:text-lg p-2">Stock </th>
+                  <th className="text-sm 2xl:text-lg p-2">Precio costo</th>
+                  <th className="text-sm 2xl:text-lg p-2">Precio venta</th>
                   {rubro !== "indumentaria" && (
-                    <th className="text-sm 2xl:text-lg p-2 ">Vencimiento</th>
+                    <th className="text-sm 2xl:text-lg p-2">Vencimiento</th>
                   )}
                   <th className="text-sm 2xl:text-lg  p-2">Proveedor</th>
                   <th className="w-30 max-w-[4rem] 2xl:max-w-[10rem] text-sm 2xl:text-lg p-2">
@@ -1311,27 +1206,49 @@ const ProductsPage = () => {
                   Seleccionar categoría
                 </label>
                 <Select
-                  key={`category-select-${rubro}-${
-                    globalCustomCategories.length
-                  }-${JSON.stringify(newProduct.customCategories)}`}
-                  options={globalCustomCategories
-                    .filter((cat) => {
-                      if (rubro === "todos los rubros") return true;
+                  options={[
+                    ...globalCustomCategories
+                      .filter(
+                        (cat) =>
+                          cat.rubro === rubro ||
+                          cat.rubro === "todos los rubros"
+                      )
+                      .map((cat) => ({
+                        value: cat,
+                        label: cat.name,
+                      })),
 
-                      return (
-                        cat.rubro === rubro || cat.rubro === "todos los rubros"
-                      );
-                    })
-                    .map((cat) => ({
-                      value: cat,
-                      label: cat.name,
-                    }))}
-                  noOptionsMessage={() => "No se encontraron opciones"}
+                    ...(editingProduct?.category &&
+                    !globalCustomCategories.some(
+                      (c) =>
+                        c.name.toLowerCase() ===
+                          editingProduct.category?.toLowerCase() &&
+                        c.rubro === (editingProduct.rubro || rubro)
+                    )
+                      ? [
+                          {
+                            value: {
+                              name: editingProduct.category,
+                              rubro: editingProduct.rubro || rubro,
+                            },
+                            label: `${editingProduct.category}`,
+                          },
+                        ]
+                      : []),
+                  ]}
                   value={
                     newProduct.customCategories?.[0]
                       ? {
                           value: newProduct.customCategories[0],
                           label: newProduct.customCategories[0].name,
+                        }
+                      : editingProduct?.category
+                      ? {
+                          value: {
+                            name: editingProduct.category,
+                            rubro: editingProduct.rubro || rubro,
+                          },
+                          label: `${editingProduct.category} (heredada)`,
                         }
                       : null
                   }
@@ -1341,38 +1258,120 @@ const ProductsPage = () => {
                       customCategories: selectedOption
                         ? [selectedOption.value]
                         : [],
-                      customCategory: "",
+                      category: "", // Limpiar categoría heredada
                     }));
                   }}
                   placeholder="Seleccionar categoría..."
-                  className="w-full text-black"
+                  className="w-full text-gray_b"
                   formatOptionLabel={formatOptionLabel}
                   isClearable
                 />
               </div>
               {rubro === "indumentaria" ? (
-                <div className="w-full">
-                  <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
-                    Talle
-                  </label>
-                  <Select
-                    options={clothingSizes}
-                    noOptionsMessage={() => "No se encontraron opciones"}
-                    value={
-                      clothingSizes.find(
-                        (opt) => opt.value === newProduct.size
-                      ) || null
-                    }
-                    onChange={(selectedOption) => {
-                      setNewProduct({
-                        ...newProduct,
-                        size: selectedOption?.value || "",
-                      });
-                    }}
-                    className="text-black"
-                    placeholder="Seleccionar talle..."
-                  />
-                </div>
+                <>
+                  <div className="w-full">
+                    <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                      Talle
+                    </label>
+                    <Select
+                      options={clothingSizes}
+                      noOptionsMessage={() => "No se encontraron opciones"}
+                      value={
+                        clothingSizes.find(
+                          (opt) => opt.value === newProduct.size
+                        ) || null
+                      }
+                      onChange={(selectedOption) => {
+                        setNewProduct({
+                          ...newProduct,
+                          size: selectedOption?.value || "",
+                        });
+                      }}
+                      className="text-gray_b"
+                      placeholder="Seleccionar talle..."
+                    />
+                  </div>
+
+                  <div className="w-full">
+                    <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                      Color
+                    </label>
+                    <Select
+                      options={colorOptions}
+                      noOptionsMessage={() => "No se encontraron opciones"}
+                      value={
+                        newProduct.color
+                          ? {
+                              value: newProduct.color,
+                              label: newProduct.color,
+                            }
+                          : null
+                      }
+                      onChange={(selectedOption) => {
+                        setNewProduct({
+                          ...newProduct,
+                          color: selectedOption?.value || "",
+                        });
+                      }}
+                      placeholder="Seleccionar color..."
+                      isClearable
+                      className="text-gray_b"
+                    />
+                  </div>
+
+                  <div className="w-full">
+                    <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                      Marca
+                    </label>
+                    <div className="flex gap-2">
+                      <Select
+                        options={brandOptions}
+                        noOptionsMessage={() => "No se encontraron opciones"}
+                        value={
+                          newProduct.brand
+                            ? {
+                                value: newProduct.brand,
+                                label: newProduct.brand,
+                              }
+                            : null
+                        }
+                        onChange={(selectedOption) => {
+                          setNewProduct({
+                            ...newProduct,
+                            brand: selectedOption?.value || "",
+                          });
+                          setNewBrand("");
+                        }}
+                        placeholder="Seleccionar marca existente..."
+                        isClearable
+                        className="flex-1 text-gray_b min-w-90"
+                      />
+                      <div className="w-full -mt-6">
+                        <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                          {newProduct.brand === ""
+                            ? "Crear marca"
+                            : "Editar marca"}
+                        </label>
+                        <Input
+                          type="text"
+                          name="newBrand"
+                          placeholder="Nueva marca..."
+                          value={newBrand}
+                          onChange={(e) => {
+                            setNewBrand(e.target.value);
+                            if (e.target.value) {
+                              setNewProduct({
+                                ...newProduct,
+                                brand: e.target.value,
+                              });
+                            }
+                          }}
+                          className="flex-1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
               ) : (
                 <div className="w-full">
                   <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
@@ -1388,7 +1387,7 @@ const ProductsPage = () => {
                         unit: selectedOption?.value as Product["unit"],
                       });
                     }}
-                    className="text-black"
+                    className="text-gray_b"
                   />
                 </div>
               )}

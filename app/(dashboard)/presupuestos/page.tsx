@@ -1314,7 +1314,7 @@ const PresupuestosPage = () => {
                   onChange={handleCustomerSelect}
                   placeholder="Buscar cliente..."
                   isClearable
-                  className="text-black"
+                  className="text-gray_b"
                   classNamePrefix="react-select"
                   menuPosition="fixed"
                 />
@@ -1386,7 +1386,7 @@ const PresupuestosPage = () => {
                       });
                     }
                   }}
-                  className="min-w-40 text-black"
+                  className="min-w-40 text-gray_b"
                   classNamePrefix="react-select"
                   menuPosition="fixed"
                   isClearable={false}
@@ -1401,7 +1401,7 @@ const PresupuestosPage = () => {
                   options={productOptions}
                   noOptionsMessage={() => "No se encontraron opciones"}
                   placeholder="Buscar productos..."
-                  className="text-black"
+                  className="text-gray_b"
                   classNamePrefix="react-select"
                   onChange={handleProductSelect}
                   value={newBudget.items.map((item) => {
@@ -1509,7 +1509,7 @@ const PresupuestosPage = () => {
                                         );
                                       }
                                     }}
-                                    className="text-black"
+                                    className="text-gray_b"
                                     menuPosition="fixed"
                                   />
                                 )}

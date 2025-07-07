@@ -159,8 +159,6 @@ class MyDatabase extends Dexie {
           });
         const allProducts = await trans.table("products").toArray();
         const categoriesMap = new Map<string, { name: string; rubro: Rubro }>();
-
-        // Extraer categorías de productos
         allProducts.forEach((product: Product) => {
           if (product.customCategories && product.customCategories.length > 0) {
             product.customCategories.forEach(
@@ -178,9 +176,7 @@ class MyDatabase extends Dexie {
                 }
               }
             );
-          }
-          // Compatibilidad con versiones anteriores (campo 'category')
-          else if (product.category && product.category.trim()) {
+          } else if (product.category && product.category.trim()) {
             const key = `${product.category.toLowerCase().trim()}_${
               product.rubro || "comercio"
             }`;
@@ -203,7 +199,6 @@ class MyDatabase extends Dexie {
   }
 
   private setupHooks() {
-    // Hook para productos
     this.products.hook("creating", (_primKey, obj: Product) => {
       if (obj.name) obj.name = this.formatString(obj.name);
       if (obj.barcode) obj.barcode = this.formatString(obj.barcode);
@@ -218,7 +213,6 @@ class MyDatabase extends Dexie {
       return undefined;
     });
 
-    // Hook para clientes
     this.customers.hook("creating", (_primKey, obj: Customer) => {
       if (obj.name) obj.name = this.formatString(obj.name);
       if (obj.id) obj.id = obj.id.toLowerCase();
@@ -250,7 +244,6 @@ class MyDatabase extends Dexie {
       return undefined;
     });
 
-    // Hook para ventas
     this.sales.hook("creating", (_primKey, obj: Sale) => {
       if (obj.customerName)
         obj.customerName = this.formatString(obj.customerName);
@@ -265,7 +258,6 @@ class MyDatabase extends Dexie {
       return undefined;
     });
 
-    // Hook para presupuestos
     this.budgets.hook("creating", (_primKey, obj: Budget) => {
       if (obj.customerName)
         obj.customerName = this.formatString(obj.customerName);
@@ -291,7 +283,6 @@ class MyDatabase extends Dexie {
       .join(" ");
   }
 
-  // Métodos de búsqueda case-insensitive
   async findProductByName(name: string): Promise<Product[]> {
     const searchTerm = name.toLowerCase();
     return await this.products
