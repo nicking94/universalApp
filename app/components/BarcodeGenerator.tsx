@@ -28,16 +28,11 @@ const BarcodeGenerator = ({
 
   const handleCopiesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-
-    // Actualizar el valor mostrado
     setDisplayCopies(value);
-
-    // Actualizar el valor real solo si es un número válido
     const numValue = parseInt(value);
     if (!isNaN(numValue) && numValue >= 1) {
       setCopies(numValue);
     } else if (value === "") {
-      // Si el campo está vacío, mantener copies=1 internamente
       setCopies(1);
     }
   };
@@ -48,7 +43,6 @@ const BarcodeGenerator = ({
 
     setIsPrinting(true);
 
-    // Crear un iframe oculto para la impresión
     const printFrame = document.createElement("iframe");
     printFrame.style.position = "absolute";
     printFrame.style.width = "0";
@@ -60,10 +54,8 @@ const BarcodeGenerator = ({
 
     printFrame.onload = () => {
       try {
-        // Clonar el contenido del código de barras
         const printContent = barcodeRef.current?.cloneNode(true) as HTMLElement;
 
-        // Generar múltiples copias para tickets
         let ticketsHTML = "";
         for (let i = 0; i < copies; i++) {
           ticketsHTML += `
@@ -74,7 +66,6 @@ const BarcodeGenerator = ({
           `;
         }
 
-        // Estilos específicos para impresión en ticket de 80mm
         const styles = `
           <style>
             @page {
@@ -131,7 +122,6 @@ const BarcodeGenerator = ({
           </style>
         `;
 
-        // Agregar estilos y contenido al iframe
         printFrame.contentDocument?.open();
         printFrame.contentDocument?.write(`
           <html>
@@ -154,7 +144,6 @@ const BarcodeGenerator = ({
         `);
         printFrame.contentDocument?.close();
 
-        // Manejar el evento afterprint
         const handleAfterPrint = () => {
           document.body.removeChild(printFrame);
           setIsPrinting(false);

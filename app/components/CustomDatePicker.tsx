@@ -22,7 +22,7 @@ const CustomDatePicker: React.FC<DatePickerProps> = ({
   error,
   isClearable = false,
   label = "Fecha de vencimiento",
-  placeholderText = "Seleccionar fecha de vencimiento...",
+  placeholderText = "Seleccionar fecha de vencimiento",
 }) => {
   const [startDate, setStartDate] = useState<Date | null>(
     value ? parseISO(value) : null

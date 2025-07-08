@@ -9,11 +9,10 @@ import {
 } from "@react-pdf/renderer";
 import { Budget, BusinessData } from "../lib/types/types";
 
-// Paleta de colores profesional
 const COLORS = {
-  primary: "#2d3748", // Azul oscuro/gris
-  secondary: "#4a5568", // Gris medio
-  accent: "#4299e1", // Azul brillante
+  primary: "#2d3748",
+  secondary: "#4a5568",
+  accent: "#4299e1",
   lightGray: "#f7fafc",
   border: "#e2e8f0",
   text: "#1a202c",
@@ -206,7 +205,7 @@ const styles = StyleSheet.create({
 interface BudgetPDFProps {
   budget: Budget;
   businessData?: BusinessData;
-  logo?: string; // URL o base64 del logo
+  logo?: string;
 }
 
 const BudgetPDF: React.FC<BudgetPDFProps> = ({
@@ -244,14 +243,12 @@ const BudgetPDF: React.FC<BudgetPDFProps> = ({
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.container}>
-          {/* Marca de agua diagonal que cubre toda la página */}
           <View style={styles.watermarkContainer}>
             <Text style={styles.watermark}>
               {businessData?.name || "PRESUPUESTO"}
             </Text>
           </View>
 
-          {/* Encabezado */}
           <View style={styles.header}>
             <View style={styles.businessInfo}>
               {logo && <Image src={logo} style={styles.logo} />}
@@ -281,7 +278,6 @@ const BudgetPDF: React.FC<BudgetPDFProps> = ({
             </View>
           </View>
 
-          {/* Información del cliente */}
           <View style={styles.customerSection}>
             <Text style={styles.sectionTitle}>DATOS DEL CLIENTE</Text>
             <View style={styles.customerInfo}>
@@ -296,7 +292,6 @@ const BudgetPDF: React.FC<BudgetPDFProps> = ({
             </View>
           </View>
 
-          {/* Tabla de productos */}
           <View style={styles.table}>
             <View style={styles.tableHeader}>
               <Text style={styles.col1}>DESCRIPCIÓN</Text>
@@ -326,9 +321,7 @@ const BudgetPDF: React.FC<BudgetPDFProps> = ({
             ))}
           </View>
 
-          {/* Sección combinada de Totales y Condiciones de Pago */}
           <View style={styles.totalsAndPaymentSection}>
-            {/* Condiciones de Pago */}
             <View style={styles.paymentBox}>
               <Text style={styles.paymentTitle}>CONDICIONES DE PAGO</Text>
               <Text>
@@ -340,7 +333,6 @@ const BudgetPDF: React.FC<BudgetPDFProps> = ({
               <Text>Saldo restante: {formatCurrency(budget.remaining)}</Text>
             </View>
 
-            {/* Totales */}
             <View style={styles.totalsBox}>
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Subtotal:</Text>
@@ -353,7 +345,6 @@ const BudgetPDF: React.FC<BudgetPDFProps> = ({
             </View>
           </View>
 
-          {/* Notas */}
           {budget.notes && (
             <View style={styles.notesSection}>
               <Text style={styles.sectionTitle}>NOTAS</Text>
@@ -361,12 +352,10 @@ const BudgetPDF: React.FC<BudgetPDFProps> = ({
             </View>
           )}
 
-          {/* Estado */}
           <View style={styles.statusBadge}>
             <Text>ESTADO: {budget.status?.toUpperCase()}</Text>
           </View>
 
-          {/* Pie de página */}
           <View style={styles.footer}>
             <Text>
               {businessData?.name} - {businessData?.address} - Tel:{" "}

@@ -220,8 +220,6 @@ const CajaDiariaPage = () => {
     const today = new Date();
     const currentMonth = today.getMonth() + 1;
     const currentYear = today.getFullYear();
-
-    // Solo actualiza si el mes o año actual es diferente al seleccionado
     if (selectedMonth !== currentMonth || selectedYear !== currentYear) {
       setSelectedMonth(currentMonth);
       setSelectedYear(currentYear);
@@ -257,8 +255,6 @@ const CajaDiariaPage = () => {
       await checkAndCloseOldCashes();
       return;
     }
-
-    // Validar el monto inicial tanto para apertura como reapertura
     if (!initialAmount) {
       showNotification("Debe ingresar un monto inicial", "error");
       return;
@@ -271,13 +267,11 @@ const CajaDiariaPage = () => {
     }
 
     try {
-      // Si estamos reabriendo una caja cerrada
       if (currentDailyCash?.closed) {
         const updatedCash = {
           ...currentDailyCash,
           closed: false,
-          initialAmount: initialAmountNumber, // Usar el monto ingresado en el modal
-          // Resetear los campos de cierre
+          initialAmount: initialAmountNumber,
           closingAmount: undefined,
           cashIncome: undefined,
           cashExpense: undefined,
@@ -336,7 +330,6 @@ const CajaDiariaPage = () => {
       const dailyCash = await db.dailyCashes.get({ date: today });
 
       if (dailyCash) {
-        // Calcular solo ingresos en efectivo (EFECTIVO)
         const cashIncome = dailyCash.movements
           .filter((m) => m.type === "INGRESO" && m.paymentMethod === "EFECTIVO")
           .reduce((sum, m) => sum + m.amount, 0);
@@ -427,14 +420,11 @@ const CajaDiariaPage = () => {
 
         if (movement.type === "INGRESO") {
           summary[date].ingresos += amount;
-          // Sumar la ganancia neta (ya incluye productos + manual)
           summary[date].gananciaNeta += Number(movement.profit) || 0;
         } else {
           summary[date].egresos += amount;
         }
       });
-
-      // Ganancia bruta (ingresos - egresos)
       summary[date].ganancia = summary[date].ingresos - summary[date].egresos;
     });
 
@@ -529,7 +519,6 @@ const CajaDiariaPage = () => {
           amount: numericValue,
         };
 
-        // Solo ajustamos automáticamente si hay exactamente 2 métodos de pago
         if (updated.length === 2) {
           const otherIndex = index === 0 ? 1 : 0;
           const totalAmount = parseFloat(amount) || 0;
@@ -545,8 +534,6 @@ const CajaDiariaPage = () => {
           method: value as PaymentMethod,
         };
       }
-
-      // Actualizar el monto total directamente aquí
       const newTotal = updated.reduce((sum, m) => sum + (m.amount || 0), 0);
       setAmount(newTotal.toString());
 
@@ -559,8 +546,6 @@ const CajaDiariaPage = () => {
       if (prev.length >= paymentOptions.length) return prev;
 
       const totalAmount = parseFloat(amount) || 0;
-
-      // Solo distribuimos automáticamente si hay menos de 2 métodos
       if (prev.length < 2) {
         const newMethodCount = prev.length + 1;
         const share = totalAmount / newMethodCount;
@@ -581,12 +566,10 @@ const CajaDiariaPage = () => {
           },
         ];
 
-        // Actualizar el monto total (aunque debería ser el mismo)
         setAmount(totalAmount.toString());
 
         return newMethods;
       } else {
-        // Para el tercer método en adelante, agregamos con monto 0
         const newMethods = [
           ...prev,
           {
@@ -598,7 +581,6 @@ const CajaDiariaPage = () => {
           },
         ];
 
-        // El monto total no cambia al agregar un nuevo método
         return newMethods;
       }
     });
@@ -610,7 +592,6 @@ const CajaDiariaPage = () => {
       const updated = [...prev];
       updated.splice(index, 1);
 
-      // Solo sincronizamos automáticamente si hay 1 o 2 métodos después de eliminar
       if (updated.length <= 2) {
         const totalAmount = parseFloat(amount) || 0;
         const share = totalAmount / updated.length;
@@ -666,10 +647,8 @@ const CajaDiariaPage = () => {
   const DetailModal = () => {
     const filteredMovements = getFilteredMovements();
     const { totalIngresos, totalEgresos } = calculateFilteredTotals();
-    // En el componente DetailModal dentro de CajaDiariaPage.tsx
 
     const groupedMovements = filteredMovements.reduce((acc, movement) => {
-      // Si es un movimiento de presupuesto (tiene budgetId)
       if (movement.budgetId) {
         if (!acc[movement.budgetId]) {
           acc[movement.budgetId] = {
@@ -677,17 +656,12 @@ const CajaDiariaPage = () => {
             subMovements: [],
             isBudgetGroup: true,
             originalAmount: movement.amount,
-            amount: 0, // Inicializamos en 0 para calcular el total después
+            amount: 0,
           };
         }
 
-        // Agregamos el movimiento como submovimiento
         acc[movement.budgetId].subMovements!.push(movement);
-
-        // Sumamos al monto total del grupo
         acc[movement.budgetId].amount += movement.amount;
-
-        // Si es la venta principal, copiamos los items para mostrarlos
         if (!movement.isDeposit && movement.items) {
           acc[movement.budgetId].items = movement.items;
         }
@@ -695,7 +669,6 @@ const CajaDiariaPage = () => {
         return acc;
       }
 
-      // Para movimientos normales (no de presupuesto)
       if (movement.originalSaleId) {
         if (!acc[movement.originalSaleId]) {
           acc[movement.originalSaleId] = {
@@ -777,7 +750,7 @@ const CajaDiariaPage = () => {
                 option &&
                 setFilterType(option.value as "TODOS" | "INGRESO" | "EGRESO")
               }
-              className="min-w-40 text-gray_b"
+              className="text-gray_l min-w-40"
             />
           </div>
           <div>
@@ -796,7 +769,7 @@ const CajaDiariaPage = () => {
                 option &&
                 setFilterPaymentMethod(option.value as PaymentMethod | "TODOS")
               }
-              className="min-w-40 text-gray_b"
+              className="text-gray_l min-w-40"
             />
           </div>
         </div>
@@ -804,7 +777,7 @@ const CajaDiariaPage = () => {
         <div className="max-h-[50vh] overflow-y-auto">
           <table className="min-w-full divide-y divide-gray_l">
             <thead className="bg-gradient-to-bl from-blue_m to-blue_b text-white">
-              <tr>
+              <tr className="text-xs lg:text-md 2xl:text-lg">
                 <th className="p-2 text-left text-xs font-medium tracking-wider">
                   Tipo
                 </th>
@@ -1064,14 +1037,14 @@ const CajaDiariaPage = () => {
                   onChange={(option) =>
                     option && setSelectedMonth(option.value)
                   }
-                  className="min-w-40 text-gray_b"
+                  className="text-gray_l min-w-40"
                 />
                 <Select
                   options={yearOptions}
                   noOptionsMessage={() => "No se encontraron opciones"}
                   value={yearOptions.find((y) => y.value === selectedYear)}
                   onChange={(option) => option && setSelectedYear(option.value)}
-                  className="min-w-40 text-gray_b"
+                  className="text-gray_l min-w-40"
                 />
               </div>
               <div className="flex gap-2">
@@ -1125,16 +1098,14 @@ const CajaDiariaPage = () => {
               <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
                 <table className=" table-auto w-full text-center border-collapse overflow-y-auto shadow-sm shadow-gray_l">
                   <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b">
-                    <tr>
+                    <tr className="text-xs lg:text-md 2xl:text-lg">
                       <th className="text-sm 2xl:text-lg p-2 text-start">
                         Fecha
                       </th>
-                      <th className="text-sm 2xl:text-lg p-2">Ingresos</th>
-                      <th className="text-sm 2xl:text-lg p-2">Egresos</th>
-                      <th className="text-sm 2xl:text-lg p-2">Ganancia</th>
-                      <th className="text-sm 2xl:text-lg p-2">
-                        Estado de caja
-                      </th>{" "}
+                      <th className="p-2">Ingresos</th>
+                      <th className="p-2">Egresos</th>
+                      <th className="p-2">Ganancia</th>
+                      <th className="p-2">Estado de caja</th>{" "}
                       <th className="w-40 max-w-[10rem] text-sm 2xl:text-lg p-2">
                         Acciones
                       </th>
@@ -1239,7 +1210,7 @@ const CajaDiariaPage = () => {
                     onChange={(option) =>
                       option && setMovementType(option.value as MovementType)
                     }
-                    className="min-w-40 text-gray_b"
+                    className="text-gray_l min-w-40"
                   />
                 </div>
                 {movementType === "EGRESO" && (
@@ -1256,8 +1227,8 @@ const CajaDiariaPage = () => {
                       value={selectedSupplier}
                       onChange={(option) => setSelectedSupplier(option)}
                       isClearable
-                      placeholder="Seleccionar proveedor..."
-                      className="min-w-40 text-gray_b"
+                      placeholder="Seleccionar proveedor"
+                      className="text-gray_l min-w-40"
                     />
                   </div>
                 )}
@@ -1287,7 +1258,7 @@ const CajaDiariaPage = () => {
                         )
                       }
                       options={paymentOptions}
-                      className="min-w-40 text-gray_b"
+                      className="text-gray_l min-w-40"
                       classNamePrefix="react-select"
                     />
                     <InputCash
@@ -1335,7 +1306,7 @@ const CajaDiariaPage = () => {
                 label="Descripción"
                 type="text"
                 name="description"
-                placeholder="Ingrese una descripción..."
+                placeholder="Ingrese una descripción"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
@@ -1379,7 +1350,7 @@ const CajaDiariaPage = () => {
                 colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
                 onClick={() => {
                   setIsOpenCashModal(false);
-                  setInitialAmount(""); // Limpiar el campo al cancelar
+                  setInitialAmount("");
                 }}
               />
             </div>
@@ -1394,7 +1365,7 @@ const CajaDiariaPage = () => {
               }
               value={Number(initialAmount) || 0}
               onChange={(value) => setInitialAmount(value.toString())}
-              placeholder="Ingrese el monto inicial..."
+              placeholder="Ingrese el monto inicial"
             />
           </div>
         </Modal>
@@ -1410,7 +1381,7 @@ const CajaDiariaPage = () => {
               label="Ingrese el monto contado en efectivo"
               value={Number(actualCashCount) || 0}
               onChange={(value) => setActualCashCount(value.toString())}
-              placeholder="Ingrese el monto contado..."
+              placeholder="Ingrese el monto contado"
             />
           </div>
         </Modal>

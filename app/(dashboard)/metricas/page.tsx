@@ -68,33 +68,26 @@ const Metrics = () => {
   const [availableYears, setAvailableYears] = useState<number[]>([]);
 
   const unidadLegible: Record<Product["unit"], string> = {
-    // Unidades más comunes en retail y comercio general
-    "Unid.": "unidad",
+    A: "amperio",
+    Bulto: "bulto",
+    Caja: "caja",
+    Cajón: "cajón",
+    Ciento: "ciento",
+    Cm: "centímetro",
+    Docena: "docena",
+    Gr: "gramo",
     Kg: "kilogramo",
     L: "litro",
-    gr: "gramo",
-    ml: "mililitro",
-    docena: "docena",
-    m: "metro",
-
-    // Empaques y agrupaciones comerciales
-    Caja: "caja",
-    Bulto: "bulto",
-    Cajón: "cajón",
-    ciento: "ciento",
-
-    // Unidades de medida menos frecuentes pero aún relevantes
-    cm: "centímetro",
-    "m²": "metro cuadrado",
-    "m³": "metro cúbico",
-    mm: "milímetro",
-    pulg: "pulgada",
-    ton: "tonelada",
-
-    // Unidades especializadas (eléctricas, etc.)
+    M: "metro",
+    "M²": "metro cuadrado",
+    "M³": "metro cúbico",
+    Ml: "mililitro",
+    Mm: "milímetro",
+    Pulg: "pulgada",
+    Ton: "tonelada",
+    "Unid.": "unidad",
     V: "voltio",
     W: "vatio",
-    A: "amperio",
   };
   const filterByRubro = (
     movement: DailyCashMovement,
@@ -432,33 +425,26 @@ const Metrics = () => {
   }, [rubro]);
 
   const unitOptions: { value: Product["unit"]; label: string }[] = [
-    // Unidades más comunes en retail
-    { value: "Unid.", label: "Unidad" }, // Artículos unitarios (el más usado)
-    { value: "Kg", label: "Kilogramos" }, // Alimentos a granel
-    { value: "gr", label: "Gramos" }, // Productos pequeños (especias, etc.)
-    { value: "L", label: "Litros" }, // Líquidos (aceite, bebidas)
-    { value: "ml", label: "Mililitros" }, // Líquidos pequeños (perfumes, medicinas)
-    { value: "docena", label: "Docenas" }, // Huevos, frutas
-
-    // Empaques/agrupaciones comerciales
-    { value: "Caja", label: "Cajas" }, // Paquetes estándar
-    { value: "Bulto", label: "Bultos" }, // Materiales de construcción
-    { value: "Cajón", label: "Cajones" }, // Frutas, bebidas
-    { value: "ciento", label: "Cientos" }, // Flores, algunos alimentos
-
-    // Unidades de medida
-    { value: "m", label: "Metros" }, // Telas, cables
-    { value: "cm", label: "Centímetros" }, // Textiles, manualidades
-    { value: "m²", label: "Metros cuadrados" }, // Pisos, pintura
-    { value: "mm", label: "Milímetros" }, // Materiales técnicos
-    { value: "pulg", label: "Pulgadas" }, // Pantallas, tuberías
-    { value: "m³", label: "Metros cúbicos" }, // Materiales a granel
-
-    // Unidades especializadas
-    { value: "ton", label: "Toneladas" }, // Industria, construcción
-    { value: "V", label: "Voltios" }, // Electrónica
-    { value: "W", label: "Watts" }, // Energía/iluminación
-    { value: "A", label: "Amperios" }, // Uso técnico
+    { value: "A", label: "Amperios" },
+    { value: "Bulto", label: "Bultos" },
+    { value: "Cajón", label: "Cajones" },
+    { value: "Caja", label: "Cajas" },
+    { value: "Ciento", label: "Cientos" },
+    { value: "Cm", label: "Centímetros" },
+    { value: "Docena", label: "Docenas" },
+    { value: "Gr", label: "Gramos" },
+    { value: "Kg", label: "Kilogramos" },
+    { value: "L", label: "Litros" },
+    { value: "M", label: "Metros" },
+    { value: "M²", label: "Metros cuadrados" },
+    { value: "M³", label: "Metros cúbicos" },
+    { value: "Ml", label: "Mililitros" },
+    { value: "Mm", label: "Milímetros" },
+    { value: "Pulg", label: "Pulgadas" },
+    { value: "Ton", label: "Toneladas" },
+    { value: "Unid.", label: "Unidades" },
+    { value: "V", label: "Voltios" },
+    { value: "W", label: "Watts" },
   ];
 
   const monthlySummary = getConsistentSummary("month");
@@ -584,7 +570,7 @@ const Metrics = () => {
                     locale: es,
                   }),
                 }))}
-                className="text-gray_b min-w-40"
+                className="text-gray_l min-w-40"
                 classNamePrefix="select"
                 isSearchable={false}
               />
@@ -598,7 +584,7 @@ const Metrics = () => {
                 Año:
               </label>
               <Select
-                placeholder="Seleccionar año..."
+                placeholder="Seleccionar año"
                 noOptionsMessage={() => "No se encontraron opciones"}
                 options={availableYears.map((year) => ({
                   value: year,
@@ -613,7 +599,7 @@ const Metrics = () => {
                     setSelectedYear(selectedOption.value);
                   }
                 }}
-                className="text-gray_b min-w-40"
+                className="text-gray_l min-w-40"
                 classNamePrefix="react-select"
                 menuPosition="fixed"
               />
@@ -668,10 +654,10 @@ const Metrics = () => {
               <div className="flex bg-gradient-to-bl from-blue_m to-blue_b dark:bg-gray_m text-white items-center mb-2 px-2">
                 <h3 className="w-full p-2 font-medium text-md">
                   5 Productos por {unidadLegible[monthlyRankingUnit]} más
-                  vendidos este año
+                  vendidos este mes
                 </h3>
                 <Select
-                  placeholder="Seleccionar unidad..."
+                  placeholder="Seleccionar unidad"
                   noOptionsMessage={() => "No se encontraron opciones"}
                   options={unitOptions}
                   value={
@@ -687,7 +673,7 @@ const Metrics = () => {
                     }
                   }}
                   isDisabled={rubro === "indumentaria"}
-                  className={`text-gray_b min-w-40 dark:text-white ${
+                  className={`text-gray_l min-w-40 dark:text-white ${
                     rubro === "indumentaria"
                       ? "opacity-50 cursor-not-allowed"
                       : ""
@@ -770,7 +756,7 @@ const Metrics = () => {
                   vendidos este año
                 </h3>
                 <Select
-                  placeholder="Seleccionar unidad..."
+                  placeholder="Seleccionar unidad"
                   noOptionsMessage={() => "No se encontraron opciones"}
                   options={unitOptions}
                   value={
@@ -786,7 +772,7 @@ const Metrics = () => {
                     }
                   }}
                   isDisabled={rubro === "indumentaria"}
-                  className={`react-select-container text-gray_b min-w-40 dark:text-white ${
+                  className={`react-select-container text-gray_l min-w-40 dark:text-white ${
                     rubro === "indumentaria"
                       ? "opacity-50 cursor-not-allowed"
                       : ""

@@ -19,13 +19,13 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [userId, setUserId] = useState<number | null>(null); // Nuevo estado
+  const [userId, setUserId] = useState<number | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
       const authData = await db.auth.get(1);
       setIsAuthenticated(authData?.isAuthenticated || false);
-      setUserId(authData?.userId || null); // Establecer userId
+      setUserId(authData?.userId || null);
     };
 
     checkAuth();

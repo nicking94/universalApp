@@ -87,71 +87,49 @@ const VentasPage = () => {
   const [customerPhone, setCustomerPhone] = useState("");
   const [shouldRedirectToCash, setShouldRedirectToCash] = useState(false);
   const CONVERSION_FACTORS = {
-    // Masa (de menor a mayor)
-    gr: { base: "Kg", factor: 0.001 }, // 1000 gramos = 1 kilogramo
-    Kg: { base: "Kg", factor: 1 }, // Base de masa
-    ton: { base: "Kg", factor: 1000 }, // 1 tonelada = 1000 kilogramos
-
-    // Volumen (de menor a mayor)
-    ml: { base: "L", factor: 0.001 }, // 1000 mililitros = 1 litro
-    L: { base: "L", factor: 1 }, // Base de volumen
-
-    // Longitud (de menor a mayor)
-    mm: { base: "m", factor: 0.001 }, // 1000 milímetros = 1 metro
-    cm: { base: "m", factor: 0.01 }, // 100 centímetros = 1 metro
-    pulg: { base: "m", factor: 0.0254 }, // 1 pulgada = 0.0254 metros
-    m: { base: "m", factor: 1 }, // Base de longitud
-
-    // Unidades contables
-    Unid: { base: "Unid", factor: 1 }, // Base para unidades
-    docena: { base: "Unid", factor: 12 }, // 1 docena = 12 unidades
-    ciento: { base: "Unid", factor: 100 }, // 1 ciento = 100 unidades
-
-    // Empaques (no convertibles)
+    Gr: { base: "Kg", factor: 0.001 },
+    Kg: { base: "Kg", factor: 1 },
+    Ton: { base: "Kg", factor: 1000 },
+    Ml: { base: "L", factor: 0.001 },
+    L: { base: "L", factor: 1 },
+    Mm: { base: "M", factor: 0.001 },
+    Cm: { base: "M", factor: 0.01 },
+    Pulg: { base: "M", factor: 0.0254 },
+    M: { base: "M", factor: 1 },
+    "Unid.": { base: "Unid.", factor: 1 },
+    Docena: { base: "Unid.", factor: 12 },
+    Ciento: { base: "Unid.", factor: 100 },
     Bulto: { base: "Bulto", factor: 1 },
     Caja: { base: "Caja", factor: 1 },
     Cajón: { base: "Cajón", factor: 1 },
-
-    // Área/Volumen (no convertibles)
-    m2: { base: "m²", factor: 1 }, // Metros cuadrados
-    m3: { base: "m³", factor: 1 }, // Metros cúbicos
-
-    // Unidades eléctricas (no convertibles)
-    V: { base: "V", factor: 1 }, // Voltios
-    A: { base: "A", factor: 1 }, // Amperios
-    W: { base: "W", factor: 1 }, // Watts
+    "M²": { base: "M²", factor: 1 },
+    "M³": { base: "M³", factor: 1 },
+    V: { base: "V", factor: 1 },
+    A: { base: "A", factor: 1 },
+    W: { base: "W", factor: 1 },
   } as const;
 
   const unitOptions: UnitOption[] = [
-    // Unidades más frecuentes (uso diario en retail)
-    { value: "Unid.", label: "Unidad", convertible: false }, // Artículos unitarios
-    { value: "Kg", label: "Kilogramo", convertible: true }, // Alimentos, productos a granel
-    { value: "gr", label: "Gramo", convertible: true }, // Productos pequeños
-    { value: "L", label: "Litro", convertible: true }, // Líquidos
-    { value: "ml", label: "Mililitro", convertible: true }, // Líquidos pequeños
-
-    // Unidades de medida comunes
-    { value: "m", label: "Metro", convertible: true }, // Telas, materiales
-    { value: "cm", label: "Centímetro", convertible: true }, // Manualidades, construcción
-    { value: "docena", label: "Docena", convertible: false }, // Huevos, frutas
-
-    // Empaques y agrupaciones comerciales
-    { value: "Caja", label: "Caja", convertible: false }, // Paquetes estándar
-    { value: "Bulto", label: "Bulto", convertible: false }, // Materiales de construcción
-    { value: "Cajón", label: "Cajón", convertible: false }, // Bebidas, frutas
-
-    // Unidades menos frecuentes
-    { value: "mm", label: "Milímetro", convertible: true }, // Uso técnico
-    { value: "pulg", label: "Pulgada", convertible: true }, // Pantallas, tuberías
-    { value: "m²", label: "Metro cuadrado", convertible: false }, // Pisos, pintura
-    { value: "m³", label: "Metro cúbico", convertible: false }, // Materiales a granel
-    { value: "ciento", label: "Ciento", convertible: false }, // Flores, algunos alimentos
-    { value: "ton", label: "Tonelada", convertible: true }, // Industria, construcción
-
-    // Unidades especializadas (últimas por frecuencia)
-    { value: "V", label: "Voltio", convertible: false }, // Electrónica
-    { value: "W", label: "Watt", convertible: false }, // Energía/iluminación
-    { value: "A", label: "Amperio", convertible: false }, // Uso técnico
+    { value: "Unid.", label: "Unidad", convertible: false },
+    { value: "Kg", label: "Kilogramo", convertible: true },
+    { value: "Gr", label: "Gramo", convertible: true },
+    { value: "L", label: "Litro", convertible: true },
+    { value: "Ml", label: "Mililitro", convertible: true },
+    { value: "M", label: "Metro", convertible: true },
+    { value: "Cm", label: "Centímetro", convertible: true },
+    { value: "Docena", label: "Docena", convertible: false },
+    { value: "Caja", label: "Caja", convertible: false },
+    { value: "Bulto", label: "Bulto", convertible: false },
+    { value: "Cajón", label: "Cajón", convertible: false },
+    { value: "Mm", label: "Milímetro", convertible: true },
+    { value: "Pulg", label: "Pulgada", convertible: true },
+    { value: "M²", label: "Metro cuadrado", convertible: false },
+    { value: "M³", label: "Metro cúbico", convertible: false },
+    { value: "Ciento", label: "Ciento", convertible: false },
+    { value: "Ton", label: "Tonelada", convertible: true },
+    { value: "V", label: "Voltio", convertible: false },
+    { value: "W", label: "Watt", convertible: false },
+    { value: "A", label: "Amperio", convertible: false },
   ];
   const getCompatibleUnits = (productUnit: string): UnitOption[] => {
     const productUnitInfo =
@@ -246,7 +224,6 @@ const VentasPage = () => {
     availableUnit: string;
   } => {
     try {
-      // Convertir stock y cantidad solicitada a la unidad base para comparación
       const stockInBase = convertToBaseUnit(
         Number(product.stock),
         product.unit
@@ -263,7 +240,6 @@ const VentasPage = () => {
           availableUnit: requestedUnit,
         };
       } else {
-        // Calcular cuánto se puede ofrecer en la unidad solicitada
         const availableInRequestedUnit = convertFromBaseUnit(
           stockInBase,
           requestedUnit
@@ -306,16 +282,12 @@ const VentasPage = () => {
           }`
       );
     }
-
-    // Convertir a unidades base para el cálculo
     const soldInBase = convertToBaseUnit(soldQuantity, unit);
     const currentStockInBase = convertToBaseUnit(
       Number(product.stock),
       product.unit
     );
     const newStockInBase = currentStockInBase - soldInBase;
-
-    // Convertir de vuelta a la unidad original del producto
     const newStock = convertFromBaseUnit(newStockInBase, product.unit);
 
     return parseFloat(newStock.toFixed(3));
@@ -402,15 +374,12 @@ const VentasPage = () => {
 
       const movements: DailyCashMovement[] = [];
       const totalSaleAmount = sale.total;
-
-      // Calcular ganancia total (productos + manual)
       const totalProfit = calculateTotalProfit(
         sale.products,
         sale.manualAmount || 0,
         sale.manualProfitPercentage || 0
       );
 
-      // Distribuir la ganancia proporcionalmente entre los métodos de pago
       sale.paymentMethods.forEach((payment) => {
         const paymentRatio = payment.amount / totalSaleAmount;
 
@@ -630,8 +599,6 @@ const VentasPage = () => {
       const productsTotal = calculateCombinedTotal(prev.products || []);
       const manualAmount = prev.manualAmount || 0;
       const total = productsTotal + manualAmount;
-
-      // Solo distribuimos automáticamente si hay menos de 2 métodos
       if (prev.paymentMethods.length < 2) {
         const newMethodCount = prev.paymentMethods.length + 1;
         const share = total / newMethodCount;
@@ -910,7 +877,6 @@ const VentasPage = () => {
     const currentMonth = today.getMonth() + 1;
     const currentYear = today.getFullYear();
 
-    // Solo actualiza si el mes o año actual es diferente al seleccionado
     if (selectedMonth !== currentMonth || selectedYear !== currentYear) {
       setSelectedMonth(currentMonth);
       setSelectedYear(currentYear);
@@ -1060,7 +1026,7 @@ const VentasPage = () => {
               stock: Number(product.stock),
               price: Number(product.price),
               basePrice:
-                Number(product.price) / convertToBaseUnit(1, product.unit), // Precio por unidad base
+                Number(product.price) / convertToBaseUnit(1, product.unit),
               costPrice: Number(product.costPrice),
             }
           );
@@ -1133,12 +1099,8 @@ const VentasPage = () => {
           if (!isCompatible) return p;
 
           const newUnit = selectedOption.value as Product["unit"];
-
-          // Si no tenemos basePrice, lo calculamos (para productos existentes)
           const basePrice =
             p.basePrice ?? p.price / convertToBaseUnit(1, p.unit);
-
-          // Calculamos el nuevo precio basado en el precio base y la nueva unidad
           const newPrice = basePrice * convertToBaseUnit(1, newUnit);
 
           return {
@@ -1146,7 +1108,7 @@ const VentasPage = () => {
             unit: newUnit,
             quantity: currentQuantity,
             price: parseFloat(newPrice.toFixed(2)),
-            basePrice: basePrice, // Mantenemos el precio base original
+            basePrice: basePrice,
           };
         }
         return p;
@@ -1251,22 +1213,14 @@ const VentasPage = () => {
           <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
             <table className="table-auto w-full text-center border-collapse overflow-y-auto shadow-sm shadow-gray_l">
               <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b">
-                <tr>
+                <tr className="text-xs lg:text-md 2xl:text-lg">
                   <th className="text-sm 2xl:text-lg p-2 text-start ">
                     Productos
                   </th>
-                  {rubro === "indumentaria" && (
-                    <th className="text-sm 2xl:text-lg p-2">Talle</th>
-                  )}
-
-                  {rubro === "indumentaria" && (
-                    <th className="text-sm 2xl:text-lg p-2">Color</th>
-                  )}
-
-                  <th className=" text-sm 2xl:text-lg p-2 ">Fecha</th>
-                  <th className="text-sm 2xl:text-lg p-2 ">Forma De Pago</th>
-                  <th className="text-sm 2xl:text-lg p-2">Total</th>
-                  <th className="w-40 max-w-[5rem] 2xl:max-w-[10rem] text-sm 2xl:text-lg p-2">
+                  <th className="p-2 ">Fecha</th>
+                  <th className="p-2">Forma De Pago</th>
+                  <th className="p-2">Total</th>
+                  <th className="w-40 max-w-[5rem] 2xl:max-w-[10rem] p-2">
                     Acciones
                   </th>
                 </tr>
@@ -1305,25 +1259,15 @@ const VentasPage = () => {
                                 .map((p) => getDisplayProductName(p, rubro))
                                 .join(" | ")}
                         </td>
-                        {rubro === "indumentaria" && (
-                          <td className="p-2 border border-gray_xl">
-                            {products.map((p) => p.size || "-").join(", ")}
-                          </td>
-                        )}
 
-                        {rubro === "indumentaria" && (
-                          <td className="p-2 border border-gray_xl">
-                            {products.map((p) => p.color || "-").join(", ")}
-                          </td>
-                        )}
                         <td className="p-2 border border-gray_xl">
                           {format(saleDate, "dd/MM/yyyy", { locale: es })}
                         </td>
 
                         <td className="w-55 p-2 border border-gray_xl">
                           {sale.credit ? (
-                            <span className="text-orange-500 font-semibold">
-                              VENTA FIADA
+                            <span className="uppercase text-orange-600 font-semibold">
+                              Cuenta corriente
                             </span>
                           ) : (
                             <>
@@ -1353,8 +1297,8 @@ const VentasPage = () => {
                         </td>
                         <td className=" p-2 border border-gray_xl font-semibold">
                           {sale.credit ? (
-                            <span className="text-orange-500">
-                              FIADO - $
+                            <span className="text-orange-600">
+                              $
                               {total.toLocaleString("es-AR", {
                                 minimumFractionDigits: 2,
                               })}
@@ -1387,10 +1331,7 @@ const VentasPage = () => {
                   })
                 ) : (
                   <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
-                    <td
-                      colSpan={rubro === "indumentaria" ? 7 : 6}
-                      className="py-4 text-center"
-                    >
+                    <td colSpan={5} className="py-4 text-center">
                       <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
                         <ShoppingCart size={64} className="mb-4 text-gray_m" />
                         <p className="text-gray_m">Todavía no hay ventas.</p>
@@ -1513,7 +1454,7 @@ const VentasPage = () => {
                       Productos
                     </label>
                     <Select
-                      placeholder="Seleccionar productos..."
+                      placeholder="Seleccionar productos"
                       noOptionsMessage={() => "No se encontraron opciones"}
                       isMulti
                       options={productOptions}
@@ -1524,7 +1465,7 @@ const VentasPage = () => {
                         isDisabled: false,
                       }))}
                       onChange={handleProductSelect}
-                      className="text-gray_b"
+                      className="text-gray_l"
                       classNamePrefix="react-select"
                       menuPosition="fixed"
                       styles={{
@@ -1549,7 +1490,7 @@ const VentasPage = () => {
                   <div className=" max-h-[16rem] overflow-y-auto ">
                     <table className="table-auto w-full shadow">
                       <thead className=" bg-gradient-to-bl from-blue_m to-blue_b text-white text-sm 2xl:text-lg">
-                        <tr className="text-sm">
+                        <tr className="text-xs lg:text-md 2xl:text-lg">
                           <th className="p-2">Producto</th>
                           <th className="p-2 text-center">Unidad</th>
                           <th className="p-2 text-center">Cantidad</th>
@@ -1599,7 +1540,7 @@ const VentasPage = () => {
                                         product.quantity
                                       );
                                     }}
-                                    className="text-gray_b"
+                                    className="text-gray_l"
                                     menuPosition="fixed"
                                     styles={{
                                       menuPortal: (base) => ({
@@ -1878,7 +1819,7 @@ const VentasPage = () => {
                     onChange={handleCreditChange}
                     className="cursor-pointer"
                   />
-                  <label>Registrar Fiado</label>
+                  <label>Registrar Cuenta corriente</label>
                 </div>
 
                 {isCredit && (
@@ -1900,9 +1841,9 @@ const VentasPage = () => {
                           setCustomerPhone(customer?.phone || "");
                         }
                       }}
-                      placeholder="Buscar cliente..."
+                      placeholder="Buscar cliente"
                       isClearable
-                      className="text-gray_b"
+                      className="text-gray_l"
                       classNamePrefix="react-select"
                       menuPosition="fixed"
                       styles={{
@@ -1912,7 +1853,7 @@ const VentasPage = () => {
                     <div className="flex items-center space-x-4 mt-4">
                       <Input
                         label="Nuevo cliente"
-                        placeholder="Nombre del cliente..."
+                        placeholder="Nombre del cliente"
                         value={customerName}
                         onChange={(e) => {
                           setCustomerName(e.target.value);
@@ -1926,7 +1867,7 @@ const VentasPage = () => {
 
                       <Input
                         label="Teléfono del cliente"
-                        placeholder="Teléfono del cliente..."
+                        placeholder="Teléfono del cliente"
                         value={customerPhone}
                         onChange={(e) => setCustomerPhone(e.target.value)}
                       />

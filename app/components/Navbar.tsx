@@ -36,13 +36,13 @@ const Navbar: React.FC<NavbarProps> = ({
           <Image className="rounded-full w-8 h-8" src={logo} alt="User Logo" />
           <h1 className="text-lg italic">
             Universal App <span className="text-[.8rem]">v.{APP_VERSION}</span>{" "}
-            | {rubro}
+            | <span className="text-sm">{rubro}</span>
           </h1>
         </div>
 
         <div className="flex items-center space-x-6 ">
-          <div className=" flex items-center space-x-4 p-1  ">
-            <p className="dark:text-white italic text-md font-normal text-gray_m border-b-1 border-blue_l ">
+          <div className="flex items-center space-x-2  p-1">
+            <p className="w-full min-w-23 dark:text-white italic text-md font-normal text-gray_m border-b-1 border-blue_l ">
               Rubro actual:
             </p>
             <Select
@@ -59,7 +59,7 @@ const Navbar: React.FC<NavbarProps> = ({
                   );
                 }
               }}
-              className="min-w-40 text-gray_b"
+              className="text-gray_l min-w-40"
               isSearchable={false}
             />
           </div>

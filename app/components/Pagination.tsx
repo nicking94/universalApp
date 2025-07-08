@@ -48,7 +48,7 @@ const Pagination: React.FC<
     async (e: React.ChangeEvent<HTMLSelectElement>) => {
       const newItemsPerPage = Number(e.target.value);
       setItemsPerPage(newItemsPerPage);
-      setCurrentPage(1); // Reset to first page when changing items per page
+      setCurrentPage(1);
 
       if (userId) {
         try {
@@ -93,7 +93,7 @@ const Pagination: React.FC<
       <div className="flex items-center gap-2">
         <label
           htmlFor="items-per-page"
-          className="text-sm text-gray_m dark:text-gray_l"
+          className="text-sm text-gray_m dark:text-gray_xl"
         >
           {text}
         </label>
@@ -130,8 +130,8 @@ const Pagination: React.FC<
               aria-label="Página anterior"
               className={`cursor-pointer p-2 rounded-md ${
                 currentPage === 1
-                  ? "text-gray_m "
-                  : "text-gray_b hover:bg-blue_xl"
+                  ? "text-gray_m dark:text-gray_xl "
+                  : "text-gray_b dark:text-gray_xl hover:bg-blue_xl dark:hover:bg-gray_m"
               }`}
             >
               <ChevronLeft size={20} aria-hidden="true" />
@@ -150,7 +150,7 @@ const Pagination: React.FC<
           )}
           {currentPage > 3 && (
             <li>
-              <span className="px-2 text-gray_m">...</span>
+              <span className="px-2 text-gray_m dark:text-gray_xl">...</span>
             </li>
           )}
 
@@ -178,7 +178,7 @@ const Pagination: React.FC<
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 aria-label={`Ir a página ${currentPage + 1}`}
-                className="cursor-pointer bg-blue_xl text-gray_l px-3 py-1 rounded-md text-sm font-medium "
+                className="cursor-pointer bg-blue_xl text-gray_l  px-3 py-1 rounded-md text-sm font-medium "
               >
                 {currentPage + 1}
               </button>
@@ -186,7 +186,7 @@ const Pagination: React.FC<
           )}
           {currentPage < totalPages - 2 && (
             <li>
-              <span className="px-2 text-gray_m">...</span>
+              <span className="px-2 text-gray_m dark:text-gray_xl">...</span>
             </li>
           )}
 
@@ -195,7 +195,7 @@ const Pagination: React.FC<
               <button
                 onClick={() => handlePageChange(totalPages)}
                 aria-label="Ir a última página"
-                className="cursor-pointer bg-blue_xl px-3 py-1 rounded-md text-sm font-medium text-gray_l "
+                className="cursor-pointer bg-blue_xl px-3 py-1 rounded-md text-sm font-medium text-gray_l dark:text-gray_xl"
               >
                 {totalPages}
               </button>
@@ -208,8 +208,8 @@ const Pagination: React.FC<
               aria-label="Página siguiente"
               className={`cursor-pointer p-2 rounded-md ${
                 currentPage === totalPages
-                  ? "text-gray_m "
-                  : "text-gray_b hover:bg-blue_xl"
+                  ? "text-gray_m dark:text-gray_xl"
+                  : "text-gray_b dark:text-gray_xl hover:bg-blue_xl dark:hover:bg-gray_m"
               }`}
             >
               <ChevronRight size={20} aria-hidden="true" />
@@ -218,7 +218,7 @@ const Pagination: React.FC<
         </ul>
       </nav>
 
-      <div className="text-sm text-gray_m dark:text-gray_l">
+      <div className="text-sm text-gray_m dark:text-gray_xl">
         {text2}: <span className="font-medium">{totalItems}</span>
       </div>
     </div>

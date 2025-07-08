@@ -55,7 +55,7 @@ export const PaginationProvider: React.FC<{ children: ReactNode }> = ({
   }, []);
 
   useEffect(() => {
-    if (isLoading) return; // No guardar durante la carga inicial
+    if (isLoading) return;
 
     const savePreferences = async () => {
       try {

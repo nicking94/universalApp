@@ -22,6 +22,13 @@ export const systemActualizations: Actualization[] = [
       "- Agregado nuevo selector de filtros y ordenamiento en la sección de productos\n- Corrección de errores.",
     date: new Date().toISOString(),
   },
+  {
+    id: 3,
+    title: `Versión 1.4.3`,
+    message:
+      "- Cambiado el nombre de FIADOS a CUENTAS CORRIENTES\n- Agregado el campo TEMPORADA en el rubro de INDUMENTARIA\n- Mejoras visuales.",
+    date: new Date().toISOString(),
+  },
 ];
 
 export const getUnshownActualizations = async (): Promise<Actualization[]> => {

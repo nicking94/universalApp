@@ -95,62 +95,49 @@ const PresupuestosPage = () => {
   const router = useRouter();
 
   const CONVERSION_FACTORS = {
-    // Masa (de menor a mayor)
-    gr: { base: "Kg", factor: 0.001 },
-    Kg: { base: "Kg", factor: 1 },
-    ton: { base: "Kg", factor: 1000 },
-
-    // Volumen (de menor a mayor)
-    ml: { base: "L", factor: 0.001 },
-    L: { base: "L", factor: 1 },
-
-    // Longitud (de menor a mayor)
-    mm: { base: "m", factor: 0.001 },
-    cm: { base: "m", factor: 0.01 },
-    pulg: { base: "m", factor: 0.0254 },
-    m: { base: "m", factor: 1 },
-
-    // Unidades contables
-    Unid: { base: "Unid", factor: 1 },
-    docena: { base: "Unid", factor: 12 },
-    ciento: { base: "Unid", factor: 100 },
-
-    // Empaques (no convertibles)
-    Bulto: { base: "Bulto", factor: 1 },
-    Caja: { base: "Caja", factor: 1 },
-    Cajón: { base: "Cajón", factor: 1 },
-
-    // Área/Volumen (no convertibles)
-    m2: { base: "m²", factor: 1 },
-    m3: { base: "m³", factor: 1 },
-
-    // Unidades eléctricas (no convertibles)
-    V: { base: "V", factor: 1 },
     A: { base: "A", factor: 1 },
+    Bulto: { base: "Bulto", factor: 1 },
+    Cajón: { base: "Cajón", factor: 1 },
+    Caja: { base: "Caja", factor: 1 },
+    Ciento: { base: "Unid.", factor: 100 },
+    Cm: { base: "M", factor: 0.01 },
+    Docena: { base: "Unid.", factor: 12 },
+    Gr: { base: "Kg", factor: 0.001 },
+    Kg: { base: "Kg", factor: 1 },
+    L: { base: "L", factor: 1 },
+    M: { base: "M", factor: 1 },
+    "M²": { base: "M²", factor: 1 },
+    "M³": { base: "M³", factor: 1 },
+    Ml: { base: "L", factor: 0.001 },
+    Mm: { base: "M", factor: 0.001 },
+    Pulg: { base: "M", factor: 0.0254 },
+    Ton: { base: "Kg", factor: 1000 },
+    "Unid.": { base: "Unid.", factor: 1 },
+    V: { base: "V", factor: 1 },
     W: { base: "W", factor: 1 },
   } as const;
 
   const unitOptions: UnitOption[] = [
-    { value: "Unid.", label: "Unidad", convertible: false },
-    { value: "Kg", label: "Kilogramo", convertible: true },
-    { value: "gr", label: "Gramo", convertible: true },
-    { value: "L", label: "Litro", convertible: true },
-    { value: "ml", label: "Mililitro", convertible: true },
-    { value: "m", label: "Metro", convertible: true },
-    { value: "cm", label: "Centímetro", convertible: true },
-    { value: "docena", label: "Docena", convertible: false },
-    { value: "Caja", label: "Caja", convertible: false },
+    { value: "A", label: "Amperio", convertible: false },
     { value: "Bulto", label: "Bulto", convertible: false },
     { value: "Cajón", label: "Cajón", convertible: false },
-    { value: "mm", label: "Milímetro", convertible: true },
-    { value: "pulg", label: "Pulgada", convertible: true },
-    { value: "m²", label: "Metro cuadrado", convertible: false },
-    { value: "m³", label: "Metro cúbico", convertible: false },
-    { value: "ciento", label: "Ciento", convertible: false },
-    { value: "ton", label: "Tonelada", convertible: true },
+    { value: "Caja", label: "Caja", convertible: false },
+    { value: "Ciento", label: "Ciento", convertible: false },
+    { value: "Cm", label: "Centímetro", convertible: true },
+    { value: "Docena", label: "Docena", convertible: false },
+    { value: "Gr", label: "Gramo", convertible: true },
+    { value: "Kg", label: "Kilogramo", convertible: true },
+    { value: "L", label: "Litro", convertible: true },
+    { value: "M", label: "Metro", convertible: true },
+    { value: "M²", label: "Metro cuadrado", convertible: false },
+    { value: "M³", label: "Metro cúbico", convertible: false },
+    { value: "Ml", label: "Mililitro", convertible: true },
+    { value: "Mm", label: "Milímetro", convertible: true },
+    { value: "Pulg", label: "Pulgada", convertible: true },
+    { value: "Ton", label: "Tonelada", convertible: true },
+    { value: "Unid.", label: "Unidad", convertible: false },
     { value: "V", label: "Voltio", convertible: false },
     { value: "W", label: "Watt", convertible: false },
-    { value: "A", label: "Amperio", convertible: false },
   ];
 
   const convertToBaseUnit = (quantity: number, fromUnit: string): number => {
@@ -234,8 +221,6 @@ const PresupuestosPage = () => {
   useEffect(() => {
     const fetchBudgets = async () => {
       const allBudgets = await db.budgets.toArray();
-
-      // Primero filtrar por búsqueda
       const searched = allBudgets.filter(
         (budget) =>
           budget.customerName
@@ -367,8 +352,6 @@ const PresupuestosPage = () => {
         ? parseFloat(budgetToConvert.deposit)
         : 0;
       const totalToPay = budgetToConvert.total - deposit;
-
-      // Verificar que el pago coincida con el total a pagar (sin la seña)
       if (
         Math.abs(
           paymentMethods.reduce((sum, m) => sum + m.amount, 0) - totalToPay
@@ -380,8 +363,6 @@ const PresupuestosPage = () => {
         );
         return;
       }
-
-      // Actualizar stock
       for (const item of budgetToConvert.items) {
         const product = await db.products.get(item.productId);
         if (product) {
@@ -393,22 +374,17 @@ const PresupuestosPage = () => {
           await db.products.update(item.productId, { stock: updatedStock });
         }
       }
-
-      // Calcular la ganancia total correctamente
       const totalProfit = budgetToConvert.items.reduce((sum, item) => {
         const product = products.find((p) => p.id === item.productId);
         if (!product) return sum;
-
-        // Modificación clave: Usar directamente el precio y cantidad sin conversión adicional
         const precioConDescuento =
           item.price * (1 - (item.discount || 0) / 100);
-        const costPriceInItemUnit = product.costPrice; // Usar el costo directamente
+        const costPriceInItemUnit = product.costPrice;
         const gananciaPorUnidad = precioConDescuento - costPriceInItemUnit;
 
         return sum + gananciaPorUnidad * item.quantity;
       }, 0);
 
-      // Crear la venta
       const sale: Sale = {
         id: Date.now(),
         products: budgetToConvert.items.map((item) => ({
@@ -436,7 +412,6 @@ const PresupuestosPage = () => {
 
       await db.sales.add(sale);
 
-      // Registrar en caja diaria
       const today = getLocalDateString();
       const dailyCash = await db.dailyCashes.get({ date: today });
 
@@ -463,7 +438,6 @@ const PresupuestosPage = () => {
           });
         });
 
-        // 2. Actualizar el movimiento de la seña para asignarle su parte del profit
         const depositMovementIndex = dailyCash.movements.findIndex((m) =>
           m.description?.includes(
             `Presupuesto de ${budgetToConvert.customerName}`
@@ -501,13 +475,11 @@ const PresupuestosPage = () => {
         }
       }
 
-      // Marcar presupuesto como cobrado
       await db.budgets.update(budgetToConvert.id, {
         convertedToSale: true,
         status: "cobrado",
       });
 
-      // Actualizar estados
       setBudgets((prev) =>
         prev.map((b) =>
           b.id === budgetToConvert.id
@@ -589,15 +561,13 @@ const PresupuestosPage = () => {
 
       const updatedItems = prevState.items.map((item) => {
         if (item.productId === productId) {
-          // Modificación clave aquí: No multiplicar por convertToBaseUnit
-          const newPrice = product.price; // Usar el precio directamente
-
+          const newPrice = product.price;
           return {
             ...item,
             quantity,
             unit,
             price: parseFloat(newPrice.toFixed(2)),
-            basePrice: product.price, // Almacenar el precio base sin conversión
+            basePrice: product.price,
           };
         }
         return item;
@@ -641,8 +611,6 @@ const PresupuestosPage = () => {
             item.basePrice ||
             product.price / convertToBaseUnit(1, product.unit);
           const newPrice = basePrice * convertToBaseUnit(1, newUnit);
-
-          // Convertir la cantidad a la nueva unidad
           const newQuantity = convertUnit(currentQuantity, item.unit, newUnit);
 
           return {
@@ -650,7 +618,7 @@ const PresupuestosPage = () => {
             unit: newUnit,
             quantity: parseFloat(newQuantity.toFixed(3)),
             price: parseFloat(newPrice.toFixed(2)),
-            basePrice: basePrice, // Mantener el basePrice original
+            basePrice: basePrice,
           };
         }
         return item;
@@ -793,7 +761,6 @@ const PresupuestosPage = () => {
         }
       }
 
-      // Actualizar la lista de presupuestos inmediatamente
       const allBudgets = await db.budgets.toArray();
       const filtered = allBudgets.filter((budget) => {
         if (rubro === "todos los rubros") return true;
@@ -1044,20 +1011,17 @@ const PresupuestosPage = () => {
         <div className="flex flex-col justify-between h-[calc(100vh-200px)]">
           <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
             <table className="w-full table-auto divide-y divide-gray_xl">
-              <thead className="bg-gradient-to-bl from-blue_m to-blue_b text-white">
-                <tr>
+              <thead className="bg-gradient-to-bl from-blue_m to-blue_b text-white text-sm 2xl:text-lg">
+                <tr className="text-xs lg:text-md 2xl:text-lg">
                   <th className="p-2 text-start">Cliente</th>
                   <th className="p-2 text-center">Teléfono</th>
-                  <th className="p-2 text-center">Total</th>
-                  <th className="p-2 text-center">Seña</th>
-                  <th className="p-2 text-center">Saldo restante</th>
                   <th className="p-2 text-center">Fecha Presupuesto</th>
                   <th className="p-2 text-center">Fecha Expiración</th>
                   <th className="p-2 text-center">Estado</th>
-                  <th className="p-2 text-center w-40 max-w-10">Acciones</th>
+                  <th className="p-2 text-center w-40 max-w-40">Acciones</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray_xl text-gray_b">
+              <tbody className="bg-white text-gray_b divide-y divide-gray_xl ">
                 {currentBudgets.length > 0 ? (
                   currentBudgets.map((budget) => (
                     <tr key={budget.id}>
@@ -1067,16 +1031,7 @@ const PresupuestosPage = () => {
                       <td className="p-2 border border-gray_xl text-center ">
                         {budget.customerPhone || "-"}
                       </td>
-                      <td className="p-2 border border-gray_xl text-center">
-                        <div className="flex flex-col items-center">
-                          ${budget.total.toFixed(2)}
-                        </div>
-                      </td>
-                      <td className="p-2 border border-gray_xl text-center">
-                        {budget.deposit
-                          ? `$${parseFloat(budget.deposit).toFixed(2)}`
-                          : "-"}
-                      </td>
+
                       <td className="p-2 border border-gray_xl text-center">
                         {budget.status === "cobrado" ? (
                           <div className="flex flex-col items-center">
@@ -1211,8 +1166,8 @@ const PresupuestosPage = () => {
                   ))
                 ) : (
                   <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
-                    <td colSpan={9} className="py-4 text-center w-full">
-                      <div className="flex flex-col items-center justify-center text-gray_m dark:text-white w-full">
+                    <td colSpan={6} className="py-4 text-center">
+                      <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
                         <FileText size={64} className="mb-4 text-gray_m" />
                         <p className="text-gray_m">
                           {searchQuery
@@ -1312,9 +1267,9 @@ const PresupuestosPage = () => {
                   noOptionsMessage={() => "No se encontraron opciones"}
                   value={selectedCustomer}
                   onChange={handleCustomerSelect}
-                  placeholder="Buscar cliente..."
+                  placeholder="Buscar cliente"
                   isClearable
-                  className="text-gray_b"
+                  className="text-gray_l"
                   classNamePrefix="react-select"
                   menuPosition="fixed"
                 />
@@ -1328,7 +1283,7 @@ const PresupuestosPage = () => {
                 onChange={(e) =>
                   setNewBudget({ ...newBudget, customerName: e.target.value })
                 }
-                placeholder="Ingrese el nombre del cliente..."
+                placeholder="Ingrese el nombre del cliente"
                 required
                 disabled={!!selectedCustomer}
               />
@@ -1341,7 +1296,7 @@ const PresupuestosPage = () => {
                     customerPhone: e.target.value,
                   })
                 }
-                placeholder="Ingrese el teléfono..."
+                placeholder="Ingrese el teléfono"
                 disabled={!!selectedCustomer}
               />
             </div>
@@ -1386,7 +1341,7 @@ const PresupuestosPage = () => {
                       });
                     }
                   }}
-                  className="min-w-40 text-gray_b"
+                  className="text-gray_l min-w-40"
                   classNamePrefix="react-select"
                   menuPosition="fixed"
                   isClearable={false}
@@ -1400,8 +1355,8 @@ const PresupuestosPage = () => {
                   isMulti
                   options={productOptions}
                   noOptionsMessage={() => "No se encontraron opciones"}
-                  placeholder="Buscar productos..."
-                  className="text-gray_b"
+                  placeholder="Buscar productos"
+                  className="text-gray_l"
                   classNamePrefix="react-select"
                   onChange={handleProductSelect}
                   value={newBudget.items.map((item) => {
@@ -1426,9 +1381,9 @@ const PresupuestosPage = () => {
                     }),
                     control: (provided) => ({
                       ...provided,
-                      maxHeight: "70px", // Altura para dispositivos móviles por defecto
+                      maxHeight: "70px",
                       "@media (max-width: 1024px)": {
-                        maxHeight: "200px", // Altura para pantallas grandes
+                        maxHeight: "200px",
                       },
                       overflowY: "auto",
                     }),
@@ -1442,29 +1397,29 @@ const PresupuestosPage = () => {
 
               {newBudget.items.length > 0 && (
                 <div className="border border-gray_xl rounded-lg overflow-hidden">
-                  <div className="overflow-y-auto max-h-[13vh] 2xl:max-h-[26vh]">
+                  <div className="overflow-y-auto max-h-[15vh] 2xl:max-h-[26vh]">
                     <table className="min-w-full divide-y divide-gray-200 text-gray_b">
                       <thead className="bg-gradient-to-r from-blue_b to-blue_m text-white">
-                        <tr>
-                          <th className="p-2 text-left text-xs font-medium uppercase tracking-wider">
+                        <tr className="text-xs lg:text-md 2xl:text-lg">
+                          <th className="p-2 text-left text-xs font-medium  tracking-wider">
                             Producto
                           </th>
-                          <th className="p-2 text-center text-xs font-medium uppercase tracking-wider">
+                          <th className="p-2 text-center text-xs font-medium  tracking-wider">
                             Unidad
                           </th>
-                          <th className="p-2 text-center text-xs font-medium uppercase tracking-wider">
+                          <th className="p-2 text-center text-xs font-medium  tracking-wider">
                             Cantidad
                           </th>
-                          <th className="p-2 text-center text-xs font-medium uppercase tracking-wider">
+                          <th className="w-40 max-w-40 p-2 text-center text-xs font-medium  tracking-wider">
                             Descuento (%)
                           </th>
-                          <th className="p-2 text-center text-xs font-medium uppercase tracking-wider">
+                          <th className="p-2 text-center text-xs font-medium  tracking-wider">
                             Precio Unit.
                           </th>
-                          <th className=" p-2 text-center text-xs font-medium uppercase tracking-wider">
+                          <th className=" p-2 text-center text-xs font-medium  tracking-wider">
                             Subtotal
                           </th>
-                          <th className=" p-2 text-center text-xs font-medium uppercase tracking-wider">
+                          <th className=" p-2 text-center text-xs font-medium  tracking-wider">
                             Acciones
                           </th>
                         </tr>
@@ -1509,7 +1464,7 @@ const PresupuestosPage = () => {
                                         );
                                       }
                                     }}
-                                    className="text-gray_b"
+                                    className="text-gray_l"
                                     menuPosition="fixed"
                                   />
                                 )}
@@ -1666,7 +1621,7 @@ const PresupuestosPage = () => {
                             }
                           }
                         }}
-                        placeholder="Ingrese el monto de la seña..."
+                        placeholder="Ingrese el monto de la seña"
                       />
                       <div className="w-full">
                         <label className="block text-sm font-medium text-gray_m  mb-1">

@@ -37,12 +37,8 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
     const generateEscPosCommands = (): Uint8Array => {
       const commands: number[] = [];
       commands.push(0x1b, 0x40);
-
-      // Configuración básica
       commands.push(0x1b, 0x52, 0x08);
       commands.push(0x1b, 0x74, 0x10);
-
-      // Encabezado
       commands.push(0x1b, 0x21, 0x08);
       pushText(commands, `${businessData?.name || "Mi Negocio"}\n`);
       commands.push(0x1b, 0x21, 0x00);
@@ -51,16 +47,13 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
       pushText(commands, `Tel: ${businessData?.phone || "N/A"}\n`);
       pushText(commands, `CUIT: ${businessData?.cuit || "N/A"}\n\n`);
 
-      // Línea separadora
       commands.push(0x1b, 0x61, 0x01);
       pushText(commands, "------------------------------\n");
       commands.push(0x1b, 0x61, 0x00);
 
-      // Detalles del ticket
       pushText(commands, `TICKET #${sale.id}\n`);
       pushText(commands, `${fecha}\n\n`);
 
-      // Productos
       sale.products.forEach((product) => {
         const productName = getDisplayProductName(product, rubro);
         const truncatedName =
@@ -91,7 +84,6 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
         pushText(commands, `Subtotal: ${formatCurrency(subtotal)}\n\n`);
       });
 
-      // Totales y pagos
       commands.push(0x1b, 0x61, 0x01);
       pushText(commands, "------------------------------\n");
       commands.push(0x1b, 0x61, 0x02);
@@ -118,7 +110,6 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
         }
       }
 
-      // Pie de página
       commands.push(0x1b, 0x61, 0x01);
       pushText(commands, "\n¡GRACIAS POR SU COMPRA!\n");
       pushText(commands, "Conserve este ticket\n");

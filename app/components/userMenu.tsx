@@ -1,4 +1,3 @@
-// components/UserMenu.tsx
 "use client";
 import { Sun, Moon, LogOut, Settings, HelpCircle, Ticket } from "lucide-react";
 import { useState, useRef, useEffect } from "react";

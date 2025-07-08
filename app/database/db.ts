@@ -48,7 +48,7 @@ class MyDatabase extends Dexie {
 
   constructor() {
     super("MyDatabase");
-    this.version(17)
+    this.version(18)
       .stores({
         theme: "id",
         products: "++id, name, barcode, stock, rubro",
@@ -94,6 +94,7 @@ class MyDatabase extends Dexie {
           .table("products")
           .toCollection()
           .modify((product: Product) => {
+            product.season = "";
             product.lot = "";
             product.location = "";
             if (product.name) product.name = this.formatString(product.name);

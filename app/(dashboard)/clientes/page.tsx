@@ -91,8 +91,6 @@ const ClientesPage = () => {
   useEffect(() => {
     const fetchCustomers = async () => {
       const allCustomers = await db.customers.toArray();
-
-      // Ordenar alfabéticamente por nombre
       const sortedCustomers = [...allCustomers].sort((a, b) =>
         a.name.localeCompare(b.name)
       );
@@ -223,7 +221,7 @@ const ClientesPage = () => {
 
       if (customerSales.length > 0) {
         showNotification(
-          "No se puede eliminar el cliente porque tiene fiados pendientes de pago",
+          "No se puede eliminar el cliente porque tiene una cuenta corriente pendiente de pago",
           "error"
         );
         return;
@@ -300,8 +298,6 @@ const ClientesPage = () => {
               })
             )
           );
-
-          // Actualizar presupuestos
           if (editingBudget) {
             const updatedBudget = {
               ...editingBudget,
@@ -367,11 +363,11 @@ const ClientesPage = () => {
           <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
             <table className="table-auto w-full text-center border-collapse shadow-sm shadow-gray_l">
               <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-sm 2xl:text-lg">
-                <tr>
+                <tr className="text-xs lg:text-md 2xl:text-lg">
                   <th className="p-2 text-start">Nombre</th>
                   <th className="p-2">Teléfono</th>
                   <th className="p-2">Fecha de Registro</th>
-                  <th className="p-2 w-40 max-w-[10rem]">Acciones</th>
+                  <th className="p-2 w-40 max-w-40">Acciones</th>
                 </tr>
               </thead>
               <tbody
@@ -463,7 +459,6 @@ const ClientesPage = () => {
           )}
         </div>
 
-        {/* Modal para agregar/editar cliente */}
         <Modal
           isOpen={isModalOpen}
           onClose={() => {
@@ -507,7 +502,7 @@ const ClientesPage = () => {
                 onChange={(e) =>
                   setNewCustomer({ ...newCustomer, name: e.target.value })
                 }
-                placeholder="Ingrese el nombre completo..."
+                placeholder="Ingrese el nombre completo"
               />
               <Input
                 label="Teléfono (opcional)"
@@ -515,7 +510,7 @@ const ClientesPage = () => {
                 onChange={(e) =>
                   setNewCustomer({ ...newCustomer, phone: e.target.value })
                 }
-                placeholder="Ingrese el número de teléfono..."
+                placeholder="Ingrese el número de teléfono"
               />
             </div>
           </div>
@@ -620,7 +615,7 @@ const ClientesPage = () => {
                       <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
                         <table className="w-full border-collapse ">
                           <thead className="bg-gradient-to-bl from-blue_m to-blue_b text-white">
-                            <tr>
+                            <tr className="text-xs lg:text-md 2xl:text-lg">
                               <th className="p-2 border text-left">
                                 Descripción
                               </th>
@@ -674,7 +669,7 @@ const ClientesPage = () => {
               {customerBudgets.length > 0 ? (
                 <table className="w-full table-auto divide-y divide-gray_xl">
                   <thead className="bg-gradient-to-bl from-blue_m to-blue_b text-white">
-                    <tr>
+                    <tr className="text-xs lg:text-md 2xl:text-lg">
                       <th className="p-2 text-start">Fecha</th>
                       <th className="p-2">Total</th>
                       <th className="p-2">Estado</th>
@@ -733,7 +728,6 @@ const ClientesPage = () => {
           )}
         </Modal>
 
-        {/* Modal para confirmar eliminación de presupuesto */}
         <Modal
           isOpen={isDeleteBudgetModalOpen}
           onClose={() => setIsDeleteBudgetModalOpen(false)}
@@ -772,7 +766,6 @@ const ClientesPage = () => {
           )}
         </Modal>
 
-        {/* Modal para confirmar eliminación de cliente */}
         <Modal
           isOpen={isDeleteModalOpen}
           onClose={() => setIsDeleteModalOpen(false)}

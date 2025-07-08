@@ -7,7 +7,6 @@ const UpdatesManager = () => {
   useEffect(() => {
     const checkForUpdates = async () => {
       try {
-        // Verificar todas las actualizaciones del sistema
         for (const actualization of systemActualizations) {
           const existing = await db.notifications
             .where("actualizationId")

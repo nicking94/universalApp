@@ -39,7 +39,6 @@ const clothingSizes: ClothingSizeOption[] = [
   { value: "XL", label: "XL" },
   { value: "XXL", label: "XXL" },
   { value: "XXXL", label: "XXXL" },
-
   { value: "34", label: "34" },
   { value: "36", label: "36" },
   { value: "38", label: "38" },
@@ -47,7 +46,6 @@ const clothingSizes: ClothingSizeOption[] = [
   { value: "42", label: "42" },
   { value: "44", label: "44" },
   { value: "46", label: "46" },
-
   { value: "unico", label: "Único" },
   { value: "kids", label: "Kids" },
   { value: "prematuro", label: "Prematuro" },
@@ -115,6 +113,7 @@ const ProductsPage = () => {
   const [isCategoryDeleteModalOpen, setIsCategoryDeleteModalOpen] =
     useState(false);
   const [newBrand, setNewBrand] = useState("");
+  const [newColor, setNewColor] = useState("");
 
   const handleSort = (sort: {
     field: keyof Product;
@@ -125,18 +124,18 @@ const ProductsPage = () => {
   const unitOptions: UnitOption[] = [
     { value: "Unid.", label: "Unidad", convertible: false },
     { value: "Kg", label: "Kilogramo", convertible: true },
-    { value: "gr", label: "Gramo", convertible: true },
+    { value: "Gr", label: "Gramo", convertible: true },
     { value: "L", label: "Litro", convertible: true },
-    { value: "ml", label: "Mililitro", convertible: true },
-    { value: "mm", label: "Milímetro", convertible: true },
-    { value: "cm", label: "Centímetro", convertible: true },
-    { value: "m", label: "Metro", convertible: true },
-    { value: "m²", label: "Metro cuadrado", convertible: true },
-    { value: "m³", label: "Metro cúbico", convertible: true },
-    { value: "pulg", label: "Pulgada", convertible: true },
-    { value: "docena", label: "Docena", convertible: false },
-    { value: "ciento", label: "Ciento", convertible: false },
-    { value: "ton", label: "Tonelada", convertible: true },
+    { value: "Ml", label: "Mililitro", convertible: true },
+    { value: "Mm", label: "Milímetro", convertible: true },
+    { value: "Cm", label: "Centímetro", convertible: true },
+    { value: "M", label: "Metro", convertible: true },
+    { value: "M²", label: "Metro cuadrado", convertible: true },
+    { value: "M³", label: "Metro cúbico", convertible: true },
+    { value: "Pulg", label: "Pulgada", convertible: true },
+    { value: "Docena", label: "Docena", convertible: false },
+    { value: "Ciento", label: "Ciento", convertible: false },
+    { value: "Ton", label: "Tonelada", convertible: true },
     { value: "V", label: "Voltio", convertible: false },
     { value: "A", label: "Amperio", convertible: false },
     { value: "W", label: "Watt", convertible: false },
@@ -148,11 +147,18 @@ const ProductsPage = () => {
   const selectedUnit =
     unitOptions.find((opt) => opt.value === newProduct.unit) ?? null;
 
+  const seasonOptions = [
+    { value: "todo el año", label: "Todo el año" },
+    { value: "invierno", label: "Invierno" },
+    { value: "otoño", label: "Otoño" },
+    { value: "primavera", label: "Primavera" },
+    { value: "verano", label: "Verano" },
+  ];
+
   const checkProductLimit = async (rubro: Rubro) => {
     const products = await db.products.where("rubro").equals(rubro).count();
     return products >= 20;
   };
-  // En el componente ProductsPage, modifica la función sortedProducts:
   const sortedProducts = useMemo(() => {
     let filtered = [...products];
 
@@ -187,19 +193,18 @@ const ProductsPage = () => {
       });
     }
 
-    // Ordenar por estado de expiración primero
     filtered.sort((a, b) => {
       const today = startOfDay(new Date());
 
       const getExpirationStatus = (product: Product) => {
-        if (!product.expiration) return 3; // Sin fecha van al final
+        if (!product.expiration) return 3;
 
         const expDate = startOfDay(parseISO(product.expiration));
         const diffDays = differenceInDays(expDate, today);
 
-        if (diffDays < 0) return 0; // Expirados primero
-        if (diffDays === 0) return 1; // Vencen hoy
-        return 2; // Por vencer
+        if (diffDays < 0) return 0;
+        if (diffDays === 0) return 1;
+        return 2;
       };
 
       const statusA = getExpirationStatus(a);
@@ -212,7 +217,6 @@ const ProductsPage = () => {
             compareResult = a.name.localeCompare(b.name);
             break;
           case "price":
-            // Convertir a número antes de comparar
             compareResult = Number(a.price) - Number(b.price);
             break;
           case "stock":
@@ -325,7 +329,7 @@ const ProductsPage = () => {
             e.stopPropagation();
             handleDeleteCategoryClick(value);
           }}
-          className="text-red-500 hover:text-red-700 ml-2 cursor-pointer p-1 rounded-full hover:bg-red-100"
+          className="text-red_b hover:text-red_m ml-2 cursor-pointer p-1 rounded-full hover:bg-red_l"
           title="Eliminar categoría"
         >
           <Trash size={16} />
@@ -418,7 +422,8 @@ const ProductsPage = () => {
         (originalProduct.category !== updatedProduct.category ||
           originalProduct.color !== updatedProduct.color ||
           originalProduct.size !== updatedProduct.size ||
-          originalProduct.brand !== updatedProduct.brand))
+          originalProduct.brand !== updatedProduct.brand)) ||
+      originalProduct.season !== updatedProduct.season
     );
   };
 
@@ -488,7 +493,7 @@ const ProductsPage = () => {
       }
     }
     if (!newProduct.customCategories?.length && !newProduct.customCategory) {
-      showNotification("Por favor, seleccione o cree una categoría", "error");
+      showNotification("Por favor, complete todos los campos", "error");
       return;
     }
 
@@ -513,7 +518,6 @@ const ProductsPage = () => {
             category: newProduct.category,
           }
         : {
-            // Ninguna de las dos
             customCategories: [],
             category: "",
           }),
@@ -611,6 +615,7 @@ const ProductsPage = () => {
 
     setEditingProduct(product);
     setNewBrand(product.brand || "");
+    setNewColor(product.color || "");
 
     let categoriesToSet = (product.customCategories || []).map((cat) => ({
       name: cat.name,
@@ -643,15 +648,10 @@ const ProductsPage = () => {
   };
   const loadCustomCategories = async () => {
     try {
-      // Obtener categorías almacenadas
       const storedCategories = await db.customCategories.toArray();
-
-      // Obtener categorías de productos existentes
       const allProducts = await db.products.toArray();
-
       const allCategories = new Map<string, { name: string; rubro: Rubro }>();
 
-      // Agregar categorías almacenadas
       storedCategories.forEach((cat) => {
         if (cat.name?.trim()) {
           const key = `${cat.name.toLowerCase().trim()}_${cat.rubro}`;
@@ -662,9 +662,7 @@ const ProductsPage = () => {
         }
       });
 
-      // Agregar categorías de productos
       allProducts.forEach((product) => {
-        // Incluir categoría principal si existe
         if (product.category?.trim()) {
           const key = `${product.category.toLowerCase().trim()}_${
             product.rubro
@@ -677,7 +675,6 @@ const ProductsPage = () => {
           }
         }
 
-        // Incluir customCategories
         if (product.customCategories?.length) {
           product.customCategories.forEach((cat) => {
             if (cat.name?.trim()) {
@@ -841,33 +838,27 @@ const ProductsPage = () => {
           <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
             <table className=" table-auto w-full text-center border-collapse overflow-y-auto shadow-sm shadow-gray_l">
               <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b">
-                <tr>
-                  <th className="p-2 text-start text-sm 2xl:text-lg">
-                    Producto
-                  </th>
-                  <th className="text-sm 2xl:text-lg p-2 cursor-pointer">
-                    Ubicación
-                  </th>
-                  <th className="text-sm 2xl:text-lg p-2 cursor-pointer">
-                    Categoría
-                  </th>
+                <tr className="text-xs lg:text-md 2xl:text-lg">
+                  <th className="p-2 text-start">Producto</th>
+                  <th className="p-2">Stock </th>
+                  <th className="p-2 cursor-pointer">Ubicación</th>
+
                   {rubro === "indumentaria" && (
-                    <th className="text-sm 2xl:text-lg p-2">Talle</th>
+                    <>
+                      <th className="p-2 cursor-pointer">Categoría</th>
+                      <th className="p-2">Talle</th>
+                      <th className="p-2">Color</th>
+                      <th className="p-2">Marca</th>
+                      <th className="p-2">Temporada</th>
+                    </>
                   )}
-                  {rubro === "indumentaria" && (
-                    <th className="text-sm 2xl:text-lg p-2 ">Color</th>
-                  )}
-                  {rubro === "indumentaria" && (
-                    <th className="text-sm 2xl:text-lg p-2 ">Marca</th>
-                  )}
-                  <th className="text-sm 2xl:text-lg p-2">Stock </th>
-                  <th className="text-sm 2xl:text-lg p-2">Precio costo</th>
-                  <th className="text-sm 2xl:text-lg p-2">Precio venta</th>
+                  <th className="p-2">Precio costo</th>
+                  <th className="p-2">Precio venta</th>
                   {rubro !== "indumentaria" && (
-                    <th className="text-sm 2xl:text-lg p-2">Vencimiento</th>
+                    <th className="p-2">Vencimiento</th>
                   )}
-                  <th className="text-sm 2xl:text-lg  p-2">Proveedor</th>
-                  <th className="w-30 max-w-[4rem] 2xl:max-w-[10rem] text-sm 2xl:text-lg p-2">
+                  <th className="p-2">Proveedor</th>
+                  <th className="w-30 max-w-[4rem] 2xl:max-w-[10rem] p-2">
                     Acciones
                   </th>
                 </tr>
@@ -917,19 +908,19 @@ const ProductsPage = () => {
                             <div className="flex items-center gap-2 h-full">
                               {expiredToday && (
                                 <AlertTriangle
-                                  className="text-yellow-300 dark:text-yellow-500"
+                                  className="text-yellow_m dark:text-yellow_b"
                                   size={18}
                                 />
                               )}
                               {isExpiringSoon && (
                                 <AlertTriangle
-                                  className="text-yellow-800"
+                                  className="text-yellow_b"
                                   size={18}
                                 />
                               )}
                               {isExpired && (
                                 <AlertTriangle
-                                  className="text-red_m dark:text-yellow-500"
+                                  className="text-red_m dark:text-yellow_m"
                                   size={18}
                                 />
                               )}
@@ -938,25 +929,6 @@ const ProductsPage = () => {
                               </span>
                             </div>
                           </td>
-                          <td className="p-2 border border-gray_xl">
-                            {product.location || "-"}
-                          </td>
-                          <td className="p-2 border border-gray_xl capitalize">
-                            {product.customCategories?.[0]?.name || "-"}
-                          </td>
-                          {rubro === "indumentaria" && (
-                            <>
-                              <td className="p-2 border border-gray_xl">
-                                {product.size || "-"}
-                              </td>
-                              <td className="p-2 border border-gray_xl capitalize">
-                                {product.color || "-"}
-                              </td>
-                              <td className="p-2 border border-gray_xl capitalize">
-                                {product.brand || "-"}
-                              </td>
-                            </>
-                          )}
                           <td
                             className={`${
                               !isNaN(Number(product.stock)) &&
@@ -970,6 +942,31 @@ const ProductsPage = () => {
                               ? `${product.stock} ${product.unit}`
                               : "Agotado"}
                           </td>
+                          <td className="p-2 border border-gray_xl">
+                            {product.location || "-"}
+                          </td>
+
+                          {rubro === "indumentaria" && (
+                            <>
+                              <td className="p-2 border border-gray_xl capitalize">
+                                {product.customCategories?.[0]?.name || "-"}
+                              </td>
+                              <td className="p-2 border border-gray_xl">
+                                {product.size || "-"}
+                              </td>
+                              <td className="p-2 border border-gray_xl capitalize">
+                                {product.color || "-"}
+                              </td>
+
+                              <td className="p-2 border border-gray_xl capitalize">
+                                {product.brand || "-"}
+                              </td>
+                              <td className="p-2 border border-gray_xl capitalize">
+                                {product.season || "-"}
+                              </td>
+                            </>
+                          )}
+
                           <td className=" p-2 border border-gray_xl">
                             {formatCurrency(product.costPrice)}
                           </td>
@@ -1049,7 +1046,7 @@ const ProductsPage = () => {
                 ) : (
                   <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
                     <td
-                      colSpan={rubro === "indumentaria" ? 11 : 9}
+                      colSpan={rubro === "indumentaria" ? 12 : 9}
                       className="py-4 text-center"
                     >
                       <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
@@ -1133,7 +1130,6 @@ const ProductsPage = () => {
                     }}
                   />
                   <Button
-                    minwidth="min-w-[9rem]"
                     text="Generar código"
                     colorText="text-white"
                     colorTextHover="text-white"
@@ -1144,9 +1140,9 @@ const ProductsPage = () => {
                 </div>
               </div>
               <div className="w-full flex items-center space-x-2">
-                <div>
+                <div className="w-full">
                   <Input
-                    label="Lote (opcional)"
+                    label="Lote"
                     type="text"
                     name="lot"
                     placeholder="Nro. de lote"
@@ -1155,25 +1151,50 @@ const ProductsPage = () => {
                   />
                 </div>
                 <Input
-                  label="Nombre del producto"
+                  label="Nombre del producto*"
                   type="text"
                   name="name"
-                  placeholder="Nombre del producto..."
+                  placeholder="Nombre del producto"
                   value={newProduct.name}
                   onChange={handleInputChange}
                 />
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <div className="w-full">
+              <div className="flex items-center space-x-2 w-full">
                 <Input
-                  label="Ubicación (opcional)"
+                  label="Ubicación"
                   type="text"
                   name="location"
                   placeholder="Ej: Estante 2, Piso 1"
                   value={newProduct.location || ""}
                   onChange={handleInputChange}
                 />
+                <div className="w-full">
+                  <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                    Temporada
+                  </label>
+                  <Select
+                    options={seasonOptions}
+                    noOptionsMessage={() => "No se encontraron opciones"}
+                    value={
+                      newProduct.season
+                        ? seasonOptions.find(
+                            (opt) => opt.value === newProduct.season
+                          )
+                        : null
+                    }
+                    onChange={(selectedOption) => {
+                      setNewProduct({
+                        ...newProduct,
+                        season: selectedOption?.value || "",
+                      });
+                    }}
+                    placeholder="Temporada"
+                    className="text-gray_l"
+                    isClearable
+                  />
+                </div>
               </div>
               {!editingProduct && (
                 <div className="w-full">
@@ -1184,7 +1205,7 @@ const ProductsPage = () => {
                     <Input
                       type="text"
                       name="customCategory"
-                      placeholder="Nueva categoría..."
+                      placeholder="Nueva categoría"
                       value={newProduct.customCategory || ""}
                       onChange={handleInputChange}
                     />
@@ -1200,7 +1221,7 @@ const ProductsPage = () => {
                 </div>
               )}
             </div>
-            <div className="w-full grid grid-cols-2 gap-4">
+            <div className="w-full grid grid-cols-2 gap-x-4 gap-y-2  ">
               <div className="w-full">
                 <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
                   Seleccionar categoría
@@ -1236,6 +1257,7 @@ const ProductsPage = () => {
                         ]
                       : []),
                   ]}
+                  noOptionsMessage={() => "No se encontraron opciones"}
                   value={
                     newProduct.customCategories?.[0]
                       ? {
@@ -1258,10 +1280,10 @@ const ProductsPage = () => {
                       customCategories: selectedOption
                         ? [selectedOption.value]
                         : [],
-                      category: "", // Limpiar categoría heredada
+                      category: "",
                     }));
                   }}
-                  placeholder="Seleccionar categoría..."
+                  placeholder="Seleccionar categoría"
                   className="w-full text-gray_b"
                   formatOptionLabel={formatOptionLabel}
                   isClearable
@@ -1287,8 +1309,8 @@ const ProductsPage = () => {
                           size: selectedOption?.value || "",
                         });
                       }}
-                      className="text-gray_b"
-                      placeholder="Seleccionar talle..."
+                      className="text-gray_l"
+                      placeholder="Seleccionar talle"
                     />
                   </div>
 
@@ -1296,29 +1318,58 @@ const ProductsPage = () => {
                     <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
                       Color
                     </label>
-                    <Select
-                      options={colorOptions}
-                      noOptionsMessage={() => "No se encontraron opciones"}
-                      value={
-                        newProduct.color
-                          ? {
-                              value: newProduct.color,
-                              label: newProduct.color,
+                    <div className="flex gap-2">
+                      <Select
+                        options={colorOptions}
+                        noOptionsMessage={() => "No se encontraron opciones"}
+                        value={
+                          newProduct.color
+                            ? {
+                                value: newProduct.color,
+                                label: newProduct.color,
+                              }
+                            : null
+                        }
+                        onChange={(selectedOption) => {
+                          setNewProduct({
+                            ...newProduct,
+                            color: selectedOption?.value || "",
+                          });
+                          setNewColor("");
+                        }}
+                        placeholder="Color existente"
+                        isClearable
+                        className="w-full text-gray_b"
+                      />
+                      <div className="w-full -mt-6">
+                        <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                          {newProduct.color === ""
+                            ? "Crear color"
+                            : "Editar color"}
+                        </label>
+                        <Input
+                          type="text"
+                          name="newColor"
+                          placeholder={
+                            newProduct.color === ""
+                              ? "Nuevo color"
+                              : "Editar color"
+                          }
+                          value={newColor}
+                          onChange={(e) => {
+                            setNewColor(e.target.value);
+                            if (e.target.value) {
+                              setNewProduct({
+                                ...newProduct,
+                                color: e.target.value,
+                              });
                             }
-                          : null
-                      }
-                      onChange={(selectedOption) => {
-                        setNewProduct({
-                          ...newProduct,
-                          color: selectedOption?.value || "",
-                        });
-                      }}
-                      placeholder="Seleccionar color..."
-                      isClearable
-                      className="text-gray_b"
-                    />
+                          }}
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
                   </div>
-
                   <div className="w-full">
                     <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
                       Marca
@@ -1342,9 +1393,9 @@ const ProductsPage = () => {
                           });
                           setNewBrand("");
                         }}
-                        placeholder="Seleccionar marca existente..."
+                        placeholder="Marca existente"
                         isClearable
-                        className="flex-1 text-gray_b min-w-90"
+                        className="w-full text-gray_b"
                       />
                       <div className="w-full -mt-6">
                         <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
@@ -1355,7 +1406,11 @@ const ProductsPage = () => {
                         <Input
                           type="text"
                           name="newBrand"
-                          placeholder="Nueva marca..."
+                          placeholder={
+                            newProduct.brand === ""
+                              ? "Nueva marca"
+                              : "Editar marca"
+                          }
                           value={newBrand}
                           onChange={(e) => {
                             setNewBrand(e.target.value);
@@ -1366,7 +1421,7 @@ const ProductsPage = () => {
                               });
                             }
                           }}
-                          className="flex-1"
+                          className="w-full"
                         />
                       </div>
                     </div>
@@ -1375,7 +1430,7 @@ const ProductsPage = () => {
               ) : (
                 <div className="w-full">
                   <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
-                    Unidad
+                    Unidad*
                   </label>
                   <Select
                     options={unitOptions}
@@ -1387,7 +1442,7 @@ const ProductsPage = () => {
                         unit: selectedOption?.value as Product["unit"],
                       });
                     }}
-                    className="text-gray_b"
+                    className="text-gray_l"
                   />
                 </div>
               )}
@@ -1396,7 +1451,7 @@ const ProductsPage = () => {
             <div className="flex items-center space-x-4">
               <div className="w-full flex items-center space-x-4">
                 <InputCash
-                  label="Precio de costo"
+                  label="Precio de costo*"
                   value={newProduct.costPrice}
                   onChange={(value) =>
                     setNewProduct({ ...newProduct, costPrice: value })
@@ -1404,7 +1459,7 @@ const ProductsPage = () => {
                 />
 
                 <InputCash
-                  label="Precio de venta"
+                  label="Precio de venta*"
                   value={newProduct.price}
                   onChange={(value) =>
                     setNewProduct({ ...newProduct, price: value })
@@ -1424,10 +1479,10 @@ const ProductsPage = () => {
                 />
 
                 <Input
-                  label="Stock"
+                  label="Stock*"
                   type="number"
                   name="stock"
-                  placeholder="Stock..."
+                  placeholder="Stock"
                   value={newProduct.stock.toString()}
                   onChange={handleInputChange}
                 />
@@ -1435,10 +1490,10 @@ const ProductsPage = () => {
             ) : (
               <div className="w-full">
                 <Input
-                  label="Stock"
+                  label="Stock*"
                   type="number"
                   name="stock"
-                  placeholder="Stock..."
+                  placeholder="Stock"
                   value={newProduct.stock.toString()}
                   onChange={handleInputChange}
                 />
@@ -1620,7 +1675,6 @@ const ProductsPage = () => {
                 )
               );
 
-              // Actualiza en la base de datos
               db.products.update(selectedProductForBarcode.id, {
                 barcode: newBarcode,
               });

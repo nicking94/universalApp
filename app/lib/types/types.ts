@@ -131,26 +131,26 @@ export type Product = {
   expiration?: string;
   quantity: number;
   unit:
-    | "Unid." // Artículos unitarios (el más usado en retail)
-    | "Kg" // Alimentos a granel
-    | "gr" // Productos pequeños (especias, etc.)
-    | "L" // Líquidos (aceite, bebidas)
-    | "ml" // Líquidos pequeños (perfumes, medicinas)
-    | "docena" // Huevos, frutas
-    | "Caja" // Paquetes estándar
-    | "Bulto" // Materiales de construcción
-    | "Cajón" // Frutas, bebidas
-    | "m" // Telas, cables
-    | "cm" // Textiles, manualidades
-    | "mm" // Materiales técnicos
-    | "m²" // Pisos, pintura
-    | "pulg" // Pantallas, tuberías
-    | "ciento" // Flores, algunos alimentos
-    | "ton" // Industria, construcción
-    | "m³" // Materiales a granel
-    | "V" // Electrónica (voltios)
-    | "W" // Energía (watts)
-    | "A";
+    | "A"
+    | "Bulto"
+    | "Cajón"
+    | "Caja"
+    | "Ciento"
+    | "Cm"
+    | "Docena"
+    | "Gr"
+    | "Kg"
+    | "L"
+    | "M"
+    | "M²"
+    | "M³"
+    | "Ml"
+    | "Mm"
+    | "Pulg"
+    | "Ton"
+    | "Unid."
+    | "V"
+    | "W";
   barcode?: string;
   description?: string;
   category?: string;
@@ -167,6 +167,7 @@ export type Product = {
     name: string;
     rubro: Rubro;
   }[];
+  season?: string;
 };
 export type ProductDisplayInfo = {
   name: string;
@@ -406,7 +407,6 @@ export type TicketProps = {
 };
 export type ProductFilter = {
   field: keyof Product;
-
   value: string | number;
 };
 

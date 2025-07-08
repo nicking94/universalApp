@@ -162,8 +162,6 @@ const ProveedoresPage = () => {
           .primaryKeys();
 
         const productIds = productKeys.map(([, productId]) => productId);
-
-        // Filtrar productos por rubro del proveedor
         const filteredProducts = allProducts.filter(
           (p) =>
             productIds.includes(p.id) &&
@@ -184,8 +182,6 @@ const ProveedoresPage = () => {
   const fetchSuppliers = useCallback(async () => {
     try {
       const allSuppliers = await db.suppliers.toArray();
-
-      // Ordenar alfabéticamente por nombre de empresa
       const sortedSuppliers = [...allSuppliers].sort((a, b) =>
         a.companyName.localeCompare(b.companyName)
       );
@@ -308,7 +304,7 @@ const ProveedoresPage = () => {
         const updatedSupplier = {
           ...editingSupplier,
           ...supplierData,
-          rubro: rubro === "todos los rubros" ? "comercio" : rubro, // Asegurar que el rubro se actualice
+          rubro: rubro === "todos los rubros" ? "comercio" : rubro,
         };
         await db.suppliers.update(editingSupplier.id, updatedSupplier);
         setSuppliers(
@@ -401,13 +397,13 @@ const ProveedoresPage = () => {
           <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
             <table className="w-full text-center border-collapse shadow-sm shadow-gray_l">
               <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-sm 2xl:text-lg">
-                <tr>
+                <tr className="text-xs lg:text-md 2xl:text-lg">
                   <th className="p-2 text-left">Empresa</th>
                   <th className="p-2">Proveedores</th>
                   <th className="p-2">Última Visita</th>
                   <th className="p-2">Próxima Visita</th>
                   <th className="p-2">Productos</th>
-                  <th className="w-40 max-w-[10rem] p-2">Acciones</th>
+                  <th className="w-40 max-w-40 p-2">Acciones</th>
                 </tr>
               </thead>
               <tbody className={`bg-white text-gray_b divide-y divide-gray_xl`}>

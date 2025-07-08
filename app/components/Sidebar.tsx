@@ -30,7 +30,7 @@ const menuItems = [
   { label: "Ventas", href: "/ventas", icon: <ShoppingCart /> },
   { label: "Productos", href: "/productos", icon: <Package /> },
   { label: "Clientes", href: "/clientes", icon: <Users /> },
-  { label: "Fiados", href: "/fiados", icon: <Wallet /> },
+  { label: "Cuentas Corrientes", href: "/cuentascorrientes", icon: <Wallet /> },
   { label: "Proveedores", href: "/proveedores", icon: <Truck /> },
   { label: "Presupuestos", href: "/presupuestos", icon: <ClipboardList /> },
   { label: "Métricas", href: "/metricas", icon: <LineChart /> },
@@ -49,7 +49,6 @@ const Sidebar: React.FC<SidebarProps> = ({ items = menuItems }) => {
   const [activeItem, setActiveItem] = useState<string>("");
 
   const handleItemClick = (label: string, href?: string, target?: string) => {
-    // Siempre establecer el ítem como activo, no alternar
     setActiveItem(label);
 
     if (href) {

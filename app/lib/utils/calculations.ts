@@ -1,19 +1,15 @@
 import { Product } from "../types/types";
 
 const CONVERSION_FACTORS = {
-  // Masa
   gr: { base: "Kg", factor: 0.001 },
   Kg: { base: "Kg", factor: 1 },
   ton: { base: "Kg", factor: 1000 },
-  // Volumen
   ml: { base: "L", factor: 0.001 },
   L: { base: "L", factor: 1 },
-  // Longitud
   mm: { base: "m", factor: 0.001 },
   cm: { base: "m", factor: 0.01 },
   m: { base: "m", factor: 1 },
   pulg: { base: "m", factor: 0.0254 },
-  // Unidades comerciales
   Unid: { base: "Unid", factor: 1 },
   docena: { base: "Unid", factor: 12 },
   ciento: { base: "Unid", factor: 100 },
@@ -27,7 +23,6 @@ const CONVERSION_FACTORS = {
   W: { base: "W", factor: 1 },
 } as const;
 
-// Función para convertir a unidad base
 export const convertToBaseUnit = (
   quantity: number,
   fromUnit: string
@@ -37,7 +32,6 @@ export const convertToBaseUnit = (
   return unitInfo ? quantity * unitInfo.factor : quantity;
 };
 
-// Función para convertir desde unidad base
 export const convertFromBaseUnit = (
   quantity: number,
   toUnit: string
@@ -47,7 +41,6 @@ export const convertFromBaseUnit = (
   return unitInfo ? quantity / unitInfo.factor : quantity;
 };
 
-// Función para convertir entre unidades
 export const convertUnit = (
   quantity: number,
   fromUnit: string,
@@ -62,9 +55,7 @@ export const convertUnit = (
   if (!fromInfo || !toInfo) return quantity;
   if (fromInfo.base !== toInfo.base) return quantity;
 
-  // Convertir a unidad base primero
   const inBase = quantity * fromInfo.factor;
-  // Convertir a unidad destino
   return inBase / toInfo.factor;
 };
 export const calculateTotalProfit = (
@@ -79,8 +70,6 @@ export const calculateTotalProfit = (
   const manualProfit = (manualAmount * manualProfitPercentage) / 100;
   return parseFloat((productsProfit + manualProfit).toFixed(2));
 };
-
-// Función para calcular precio con descuento
 export const calculatePrice = (
   product: Product,
   quantity: number,
@@ -98,23 +87,18 @@ export const calculatePrice = (
   }
 };
 
-// Función para calcular ganancia (versión mejorada)
 export const calculateProfit = (
   product: Product,
   quantity: number,
   unit: string
 ): number => {
   try {
-    // Convertir a unidad base para cálculo consistente
     const quantityInBaseUnit = convertToBaseUnit(quantity, unit);
     const costInBaseUnit =
       convertToBaseUnit(1, product.unit) * (product.costPrice || 0);
     const priceInBaseUnit = convertToBaseUnit(1, product.unit) * product.price;
-
     const profitPerBaseUnit = priceInBaseUnit - costInBaseUnit;
     const profitWithoutDiscount = profitPerBaseUnit * quantityInBaseUnit;
-
-    // Aplicar descuento si existe
     const discount = product.discount || 0;
     const discountAmount =
       (product.price * quantityInBaseUnit * discount) / 100;
@@ -126,7 +110,6 @@ export const calculateProfit = (
   }
 };
 
-// Función para verificar disponibilidad de stock
 export const checkStockAvailability = (
   product: Product,
   requestedQuantity: number,

@@ -25,14 +25,12 @@ const CustomerNotes = ({
   const fetchNotes = async () => {
     try {
       if (customerId) {
-        // Notas de cliente registrado
         const customerNotes = await db.notes
           .where("customerId")
           .equals(customerId)
           .sortBy("createdAt");
         setNotes(customerNotes.reverse());
       } else {
-        // Buscar en presupuestos por nombre de cliente
         const budgetNotes = await db.budgets
           .where("customerName")
           .equals(customerName)
@@ -119,7 +117,7 @@ const CustomerNotes = ({
                 ? setEditingNote({ ...editingNote, content: value })
                 : setNewNote(value)
             }
-            placeholder="Escribe una nueva nota..."
+            placeholder="Escribe una nueva nota"
           />
           <div className="flex justify-end">
             {editingNote ? (

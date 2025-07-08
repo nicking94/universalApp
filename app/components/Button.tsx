@@ -55,7 +55,7 @@ const Button: React.FC<ButtonProps> = ({
       title={title}
       className={`${colorText} ${colorTextHover} ${width} ${minwidth} ${height} ${px} ${py} ${colorBg} ${colorBgHover} ${
         disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
-      } flex items-center justify-center text-xs 2xl:text-sm gap-2 rounded transition-all duration-300 font-normal uppercase shadow shadow-blue_m`}
+      } flex items-center justify-center text-xs 2xl:text-sm gap-2 rounded transition-all duration-300 font-normal uppercase shadow shadow-blue_l`}
     >
       {icon && iconPosition === "left" && <span>{icon}</span>}
       {text && <span>{text}</span>}

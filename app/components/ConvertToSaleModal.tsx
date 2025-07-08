@@ -26,7 +26,6 @@ export const ConvertToSaleModal = ({
   budget,
   onConfirm,
 }: ConvertToSaleModalProps) => {
-  // Calcular el total a pagar (total - seña)
   const totalToPay =
     budget.total - (budget.deposit ? parseFloat(budget.deposit) : 0);
 
@@ -137,7 +136,6 @@ export const ConvertToSaleModal = ({
 
   const handleConfirm = () => {
     if (!validatePaymentMethods()) {
-      // Mostrar error si los montos no coinciden
       return;
     }
     onConfirm(paymentMethods);
@@ -173,17 +171,17 @@ export const ConvertToSaleModal = ({
           <div className="max-h-40 overflow-y-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <tr className="text-xs lg:text-md 2xl:text-lg">
+                  <th className="px-2 py-1 text-left text-xs font-medium text-gray_l uppercase tracking-wider">
                     Producto
                   </th>
-                  <th className="px-2 py-1 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 py-1 text-center text-xs font-medium text-gray_l uppercase tracking-wider">
                     Cantidad
                   </th>
-                  <th className="px-2 py-1 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 py-1 text-center text-xs font-medium text-gray_l uppercase tracking-wider">
                     Descuento (%)
                   </th>
-                  <th className="px-2 py-1 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 py-1 text-right text-xs font-medium text-gray_l uppercase tracking-wider">
                     Subtotal
                   </th>
                 </tr>
