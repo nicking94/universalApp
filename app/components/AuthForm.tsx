@@ -50,7 +50,7 @@ const AuthForm: React.FC<AuthFormProps> = ({
       onSubmit={handleSubmit}
       className="bg-blue_xl text-gray_b flex flex-col justify-center w-[35%] xl:w-[25%] p-10 space-y-6 shadow-2xl shadow-blue_b z-40"
     >
-      <div className="flex justify-center">
+      <div className="hidden  justify-center">
         <Image src={Logo} alt="logo" width={100} height={100} />
       </div>
       <h2 className="font-semibold text-3xl 2xl:text-4xl text-center text-gray_b">
@@ -67,13 +67,13 @@ const AuthForm: React.FC<AuthFormProps> = ({
           onChange={handleChange}
           required
           placeholder="Escribe tu nombre de usuario"
-          className="placeholder:text-gray_l outline-none p-2 border-[1px] border-blue_l rounded-sm focus:border-blue_b transition-colors duration-300"
+          className="placeholder:text-gray_l outline-none p-2 border-[1px] border-blue_l rounded-sm  transition-colors duration-300"
         />
       </div>
 
-      <div className="text-gray_l">
+      <div>
         <label htmlFor="password">Contraseña</label>
-        <div className="relative border-[1px] border-blue_l rounded-sm focus:border-blue_b transition-colors duration-300">
+        <div className="relative border-[1px] border-blue_l rounded-sm  transition-colors duration-300">
           <input
             type={showPassword ? "text" : "password"}
             id="password"

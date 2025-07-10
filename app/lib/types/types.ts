@@ -120,7 +120,7 @@ export type ProductTableProps = {
   onDelete: (id: number) => void;
   onEdit: (product: Product) => void;
 };
-export type Rubro = "todos los rubros" | "comercio" | "indumentaria" | "";
+export type Rubro = "Todos los rubros" | "comercio" | "indumentaria" | "";
 
 export type Product = {
   id: number;

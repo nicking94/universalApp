@@ -301,7 +301,7 @@ const VentasPage = () => {
   const productOptions = useMemo(() => {
     return products
       .filter(
-        (product) => rubro === "todos los rubros" || product.rubro === rubro
+        (product) => rubro === "Todos los rubros" || product.rubro === rubro
       )
       .map((product) => {
         const stock = Number(product.stock);
@@ -349,7 +349,7 @@ const VentasPage = () => {
         : true;
 
       const matchesRubro =
-        rubro === "todos los rubros" ||
+        rubro === "Todos los rubros" ||
         sale.products.some((product) => product.rubro === rubro);
 
       return matchesMonth && matchesYear && matchesRubro;
@@ -784,7 +784,7 @@ const VentasPage = () => {
           phone: customerPhone,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          rubro: rubro === "todos los rubros" ? undefined : rubro,
+          rubro: rubro === "Todos los rubros" ? undefined : rubro,
         };
         await db.customers.add(newCustomer);
         setCustomers([...customers, newCustomer]);
@@ -901,7 +901,7 @@ const VentasPage = () => {
       const allCustomers = await db.customers.toArray();
 
       const filtered =
-        rubro === "todos los rubros"
+        rubro === "Todos los rubros"
           ? allCustomers
           : allCustomers.filter((customer) => customer.rubro === rubro);
 

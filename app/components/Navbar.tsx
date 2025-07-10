@@ -10,7 +10,7 @@ import NotificationIcon from "./Notifications/NotificationIcon";
 import { APP_VERSION } from "../lib/constants/constants";
 
 const rubroOptions = [
-  { value: "todos los rubros", label: "todos los rubros" },
+  { value: "Todos los rubros", label: "Todos los rubros" },
   { value: "comercio", label: "Comercio" },
   { value: "indumentaria", label: "Indumentaria" },
 ];
@@ -53,7 +53,7 @@ const Navbar: React.FC<NavbarProps> = ({
                 if (selectedOption) {
                   setRubro(
                     selectedOption.value as
-                      | "todos los rubros"
+                      | "Todos los rubros"
                       | "comercio"
                       | "indumentaria"
                   );

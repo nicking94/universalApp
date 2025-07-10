@@ -178,7 +178,7 @@ const PresupuestosPage = () => {
   };
 
   const productOptions: readonly ProductOption[] = products
-    .filter((p) => rubro === "todos los rubros" || p.rubro === rubro)
+    .filter((p) => rubro === "Todos los rubros" || p.rubro === rubro)
     .map((p) => ({
       value: p.id,
       label: `${p.name}${p.size ? ` (${p.size})` : ""}${
@@ -203,7 +203,7 @@ const PresupuestosPage = () => {
       setCustomers(allCustomers);
 
       const filteredCustomers =
-        rubro === "todos los rubros"
+        rubro === "Todos los rubros"
           ? allCustomers
           : allCustomers.filter((c) => c.rubro === rubro);
 
@@ -232,7 +232,7 @@ const PresupuestosPage = () => {
       );
 
       const filtered =
-        rubro === "todos los rubros"
+        rubro === "Todos los rubros"
           ? searched
           : searched.filter((budget) => budget.rubro === rubro);
 
@@ -717,7 +717,7 @@ const PresupuestosPage = () => {
           .total,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        rubro: rubro === "todos los rubros" ? "comercio" : rubro,
+        rubro: rubro === "Todos los rubros" ? "comercio" : rubro,
       };
 
       await db.budgets.add(budgetToAdd);
@@ -763,7 +763,7 @@ const PresupuestosPage = () => {
 
       const allBudgets = await db.budgets.toArray();
       const filtered = allBudgets.filter((budget) => {
-        if (rubro === "todos los rubros") return true;
+        if (rubro === "Todos los rubros") return true;
         return budget.rubro === rubro;
       });
       setBudgets(allBudgets);

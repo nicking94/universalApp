@@ -162,7 +162,7 @@ const ProductsPage = () => {
   const sortedProducts = useMemo(() => {
     let filtered = [...products];
 
-    if (rubro !== "todos los rubros") {
+    if (rubro !== "Todos los rubros") {
       filtered = filtered.filter((product) => product.rubro === rubro);
     }
     if (searchQuery) {
@@ -779,7 +779,7 @@ const ProductsPage = () => {
           rubro: rubro,
           customCategories: (prev.customCategories || [])
             .filter(
-              (cat) => cat.rubro === rubro || cat.rubro === "todos los rubros"
+              (cat) => cat.rubro === rubro || cat.rubro === "Todos los rubros"
             )
             .map((cat) => ({
               name: cat.name,
@@ -841,17 +841,17 @@ const ProductsPage = () => {
                 <tr className="text-xs lg:text-md 2xl:text-lg">
                   <th className="p-2 text-start">Producto</th>
                   <th className="p-2">Stock </th>
+                  <th className="p-2 cursor-pointer">Categoría</th>
                   <th className="p-2 cursor-pointer">Ubicación</th>
 
                   {rubro === "indumentaria" && (
                     <>
-                      <th className="p-2 cursor-pointer">Categoría</th>
                       <th className="p-2">Talle</th>
                       <th className="p-2">Color</th>
                       <th className="p-2">Marca</th>
-                      <th className="p-2">Temporada</th>
                     </>
                   )}
+                  <th className="p-2">Temporada</th>
                   <th className="p-2">Precio costo</th>
                   <th className="p-2">Precio venta</th>
                   {rubro !== "indumentaria" && (
@@ -942,15 +942,15 @@ const ProductsPage = () => {
                               ? `${product.stock} ${product.unit}`
                               : "Agotado"}
                           </td>
+                          <td className="p-2 border border-gray_xl capitalize">
+                            {product.customCategories?.[0]?.name || "-"}
+                          </td>
                           <td className="p-2 border border-gray_xl">
                             {product.location || "-"}
                           </td>
 
                           {rubro === "indumentaria" && (
                             <>
-                              <td className="p-2 border border-gray_xl capitalize">
-                                {product.customCategories?.[0]?.name || "-"}
-                              </td>
                               <td className="p-2 border border-gray_xl">
                                 {product.size || "-"}
                               </td>
@@ -961,11 +961,11 @@ const ProductsPage = () => {
                               <td className="p-2 border border-gray_xl capitalize">
                                 {product.brand || "-"}
                               </td>
-                              <td className="p-2 border border-gray_xl capitalize">
-                                {product.season || "-"}
-                              </td>
                             </>
                           )}
+                          <td className="p-2 border border-gray_xl capitalize">
+                            {product.season || "-"}
+                          </td>
 
                           <td className=" p-2 border border-gray_xl">
                             {formatCurrency(product.costPrice)}
@@ -982,7 +982,7 @@ const ProductsPage = () => {
                                     "dd/MM/yyyy",
                                     { locale: es }
                                   )
-                                : "Sin fecha"}
+                                : "-"}
                               {isExpiringSoon && (
                                 <span className=" ml-2 text-red_m">
                                   (Por vencer)
@@ -1001,7 +1001,7 @@ const ProductsPage = () => {
                             </td>
                           )}
                           <td className="p-2 border border-gray_xl">
-                            {productSuppliers[product.id] || "Sin asignar"}
+                            {productSuppliers[product.id] || "-"}
                           </td>
 
                           <td className="p-2 flex justify-center gap-2">
@@ -1046,7 +1046,7 @@ const ProductsPage = () => {
                 ) : (
                   <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
                     <td
-                      colSpan={rubro === "indumentaria" ? 12 : 9}
+                      colSpan={rubro === "indumentaria" ? 12 : 10}
                       className="py-4 text-center"
                     >
                       <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
@@ -1232,7 +1232,7 @@ const ProductsPage = () => {
                       .filter(
                         (cat) =>
                           cat.rubro === rubro ||
-                          cat.rubro === "todos los rubros"
+                          cat.rubro === "Todos los rubros"
                       )
                       .map((cat) => ({
                         value: cat,
@@ -1612,28 +1612,30 @@ const ProductsPage = () => {
               <div className="mt-4 p-4 bg-blue_xl dark:bg-gray_b rounded-lg">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <div>
-                    <p className="text-sm font-medium text-gray_m dark:text-gray_m">
+                    <p className="text-sm font-medium text-gray_m dark:text-gray_xl">
                       Producto
                     </p>
-                    <p className="text-lg font-semibold">
+                    <p className="text-2xl font-semibold">
                       {getDisplayProductName(scannedProduct)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray_m dark:text-gray_m">
+                    <p className="text-sm font-medium text-gray_m dark:text-gray_xl">
                       Precio
                     </p>
-                    <p className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+                    <p className="text-lg font-semibold text-blue_b dark:text-blue_l">
                       {formatCurrency(scannedProduct.price)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray_m dark:text-gray_m">
+                    <p className="text-sm font-medium text-gray_m dark:text-gray_xl">
                       Stock
                     </p>
                     <p
                       className={`text-lg font-semibold ${
-                        scannedProduct.stock > 0 ? "text-green_b" : "text-red_b"
+                        scannedProduct.stock > 0
+                          ? "text-green_b dark:text-green_m"
+                          : "text-red_b dark:text-red_m"
                       }`}
                     >
                       {scannedProduct.stock} {scannedProduct.unit}
@@ -1653,9 +1655,11 @@ const ProductsPage = () => {
                       </p>
                     </div>
                   ) : (
-                    <p className="text-xs text-gray_l">
-                      Sin fecha de vencimiento
-                    </p>
+                    <div className="flex items-center ">
+                      <p className="text-md text-gray_l dark:text-gray_xl">
+                        Sin fecha de vencimiento
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>

@@ -70,7 +70,7 @@ const ProveedoresPage = () => {
           .primaryKeys(),
       ]);
       const filteredProducts = allProducts.filter(
-        (product) => rubro === "todos los rubros" || product.rubro === rubro
+        (product) => rubro === "Todos los rubros" || product.rubro === rubro
       );
 
       const assignedProductIds = assignedProductKeys.map(
@@ -98,16 +98,11 @@ const ProveedoresPage = () => {
     if (!selectedSupplierForProducts) return;
 
     try {
-      console.log(
-        `Assigning product ${product.id} to supplier ${selectedSupplierForProducts.id}`
-      );
-
       await db.supplierProducts.add({
         supplierId: selectedSupplierForProducts.id,
         productId: product.id,
       });
 
-      console.log("Assignment successful");
       await fetchSupplierProductCounts();
       setAssignedProducts((prev) => [...prev, product]);
       setAvailableProducts((prev) => prev.filter((p) => p.id !== product.id));
@@ -144,11 +139,6 @@ const ProveedoresPage = () => {
   const fetchSupplierProductCounts = useCallback(
     async (currentSuppliers?: Supplier[]) => {
       const suppliersToUse = currentSuppliers || suppliers;
-      console.log(
-        "Fetching product counts for",
-        suppliersToUse.length,
-        "suppliers"
-      );
 
       if (suppliersToUse.length === 0) return;
 
@@ -165,7 +155,7 @@ const ProveedoresPage = () => {
         const filteredProducts = allProducts.filter(
           (p) =>
             productIds.includes(p.id) &&
-            (rubro === "todos los rubros" ||
+            (rubro === "Todos los rubros" ||
               p.rubro === rubro ||
               (supplier.rubro &&
                 supplier.rubro.toLowerCase() === rubro.toLowerCase()))
@@ -186,7 +176,7 @@ const ProveedoresPage = () => {
         a.companyName.localeCompare(b.companyName)
       );
 
-      if (rubro === "todos los rubros") {
+      if (rubro === "Todos los rubros") {
         return sortedSuppliers;
       }
 
@@ -195,7 +185,6 @@ const ProveedoresPage = () => {
         return supplier.rubro.toLowerCase() === rubro.toLowerCase();
       });
 
-      console.log(`Found ${filtered.length} suppliers for rubro ${rubro}`);
       return filtered;
     } catch (error) {
       console.error("Error fetching suppliers:", error);
@@ -297,14 +286,14 @@ const ProveedoresPage = () => {
         nextVisit: nextVisit || undefined,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        rubro: rubro === "todos los rubros" ? "comercio" : rubro,
+        rubro: rubro === "Todos los rubros" ? "comercio" : rubro,
       };
 
       if (editingSupplier) {
         const updatedSupplier = {
           ...editingSupplier,
           ...supplierData,
-          rubro: rubro === "todos los rubros" ? "comercio" : rubro,
+          rubro: rubro === "Todos los rubros" ? "comercio" : rubro,
         };
         await db.suppliers.update(editingSupplier.id, updatedSupplier);
         setSuppliers(

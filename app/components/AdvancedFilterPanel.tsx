@@ -8,7 +8,7 @@ import {
   Rubro,
 } from "../lib/types/types";
 import Button from "./Button";
-import { FaFilter } from "react-icons/fa";
+import { FaFilter, FaTimes } from "react-icons/fa";
 
 interface SortOption {
   value: {
@@ -49,6 +49,31 @@ const AdvancedFilterPanel: React.FC<AdvancedFilterPanelProps> = ({
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [selectedSort, setSelectedSort] = useState<SortOption | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+  const [prevRubro, setPrevRubro] = useState<Rubro>(rubro);
+
+  const clearAllFilters = () => {
+    setSelectedCategory(null);
+    setSelectedSize(null);
+    setSelectedColors(null);
+    setSelectedSeason(null);
+    setSelectedBrands(null);
+    setSelectedSort(null);
+    onApplyFilters([]);
+    onApplySort({ field: "name", direction: "asc" });
+  };
+  useEffect(() => {
+    if (rubro !== prevRubro) {
+      setSelectedCategory(null);
+      setSelectedSize(null);
+      setSelectedColors(null);
+      setSelectedSeason(null);
+      setSelectedBrands(null);
+      setSelectedSort(null);
+      onApplyFilters([]);
+      onApplySort({ field: "name", direction: "asc" });
+      setPrevRubro(rubro);
+    }
+  }, [rubro, prevRubro, onApplyFilters, onApplySort]);
 
   useEffect(() => {
     const newFilters: ProductFilters = [];
@@ -57,6 +82,13 @@ const AdvancedFilterPanel: React.FC<AdvancedFilterPanelProps> = ({
       newFilters.push({
         field: "customCategories",
         value: selectedCategory.value.name,
+      });
+    }
+
+    if (selectedSeason) {
+      newFilters.push({
+        field: "season",
+        value: selectedSeason.value.name,
       });
     }
 
@@ -77,12 +109,6 @@ const AdvancedFilterPanel: React.FC<AdvancedFilterPanelProps> = ({
         newFilters.push({
           field: "brand",
           value: selectedBrands.value.name,
-        });
-      }
-      if (selectedSeason) {
-        newFilters.push({
-          field: "season",
-          value: selectedSeason.value.name,
         });
       }
     }
@@ -132,7 +158,11 @@ const AdvancedFilterPanel: React.FC<AdvancedFilterPanelProps> = ({
     const uniqueValues = Array.from(
       new Set(
         products
-          .filter((p) => p.rubro === rubro && p[field])
+          .filter(
+            (p) =>
+              (rubro === "Todos los rubros" ? true : p.rubro === rubro) &&
+              p[field]
+          )
           .map((p) => String(p[field]))
       )
     ).sort((a, b) => a.localeCompare(b));
@@ -149,7 +179,7 @@ const AdvancedFilterPanel: React.FC<AdvancedFilterPanelProps> = ({
   const categoryOptions = useMemo(() => {
     return products
       .filter((p) => {
-        if (rubro === "todos los rubros") {
+        if (rubro === "Todos los rubros") {
           return true;
         }
         return p.rubro === rubro;
@@ -197,8 +227,7 @@ const AdvancedFilterPanel: React.FC<AdvancedFilterPanelProps> = ({
   const sizeOptions = rubro === "indumentaria" ? getUniqueValues("size") : [];
   const colorOptions = rubro === "indumentaria" ? getUniqueValues("color") : [];
   const brandOptions = rubro === "indumentaria" ? getUniqueValues("brand") : [];
-  const seasonOptionsDynamic =
-    rubro === "indumentaria" ? getUniqueValues("season") : [];
+  const seasonOptionsDynamic = getUniqueValues("season");
 
   const sortOptions: SortOption[] = [
     { value: { field: "name", direction: "asc" }, label: "Nombre (A-Z)" },
@@ -263,12 +292,22 @@ const AdvancedFilterPanel: React.FC<AdvancedFilterPanelProps> = ({
           <div
             className={`w-full bg-white dark:bg-gray_b p-4 rounded-lg shadow-lg min-h-[15vh] flex flex-col shadow-gray_xl dark:shadow-gray_m`}
           >
-            <div className="flex-grow w-full">
-              <p className="text-sm text-gray_l mb-2">Filtrar Por:</p>
+            <div className="flex-grow w-full p-2">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm text-gray_l mb-2">Filtrar Por:</p>
+                <p
+                  onClick={clearAllFilters}
+                  className="flex items-center gap-2 cursor-pointer text-blue_b dark:text-blue_l hover:text-blue_m dark:hover:text-blue_xl text-sm font-medium"
+                >
+                  Limpiar Filtros
+                  <FaTimes size={16} />
+                </p>
+              </div>
+
               <div
                 className={` ${
                   rubro !== "indumentaria"
-                    ? "flex justify-center"
+                    ? "grid grid-cols-2 gap-4"
                     : "grid grid-cols-3 2xl:grid-cols-5 gap-4"
                 } `}
               >
@@ -278,9 +317,28 @@ const AdvancedFilterPanel: React.FC<AdvancedFilterPanelProps> = ({
                   </label>
                   <Select<CategoryOption>
                     options={categoryOptions}
+                    noOptionsMessage={() => "No hay opciones"}
                     value={selectedCategory}
                     onChange={handleSelectChange(setSelectedCategory)}
                     placeholder="Categoría"
+                    isClearable
+                    className="text-sm text-gray_l react-select-container"
+                    styles={{
+                      menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                    Temporadas
+                  </label>
+                  <Select<CategoryOption>
+                    options={seasonOptionsDynamic}
+                    noOptionsMessage={() => "No hay opciones"}
+                    value={selectedSeason}
+                    onChange={handleSelectChange(setSelectedSeason)}
+                    placeholder="Temporada"
                     isClearable
                     className="text-sm text-gray_l react-select-container"
                     styles={{
@@ -293,26 +351,11 @@ const AdvancedFilterPanel: React.FC<AdvancedFilterPanelProps> = ({
                   <>
                     <div>
                       <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
-                        Temporadas
-                      </label>
-                      <Select<CategoryOption>
-                        options={seasonOptionsDynamic}
-                        value={selectedSeason}
-                        onChange={handleSelectChange(setSelectedSeason)}
-                        placeholder="Temporada"
-                        isClearable
-                        className="text-sm text-gray_l react-select-container"
-                        styles={{
-                          menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
                         Talles
                       </label>
                       <Select<CategoryOption>
                         options={sizeOptions}
+                        noOptionsMessage={() => "No hay opciones"}
                         value={selectedSize}
                         onChange={handleSelectChange(setSelectedSize)}
                         placeholder="Talle"
@@ -330,6 +373,7 @@ const AdvancedFilterPanel: React.FC<AdvancedFilterPanelProps> = ({
                       </label>
                       <Select<CategoryOption>
                         options={colorOptions}
+                        noOptionsMessage={() => "No hay opciones"}
                         value={selectedColors}
                         onChange={handleSelectChange(setSelectedColors)}
                         placeholder="Color"
@@ -347,6 +391,7 @@ const AdvancedFilterPanel: React.FC<AdvancedFilterPanelProps> = ({
                       </label>
                       <Select<CategoryOption>
                         options={brandOptions}
+                        noOptionsMessage={() => "No hay opciones"}
                         value={selectedBrands}
                         onChange={handleSelectChange(setSelectedBrands)}
                         placeholder="Marca"
@@ -369,7 +414,10 @@ const AdvancedFilterPanel: React.FC<AdvancedFilterPanelProps> = ({
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
                 colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
-                onClick={() => setIsFiltersOpen(false)}
+                onClick={() => {
+                  setIsFiltersOpen(false);
+                  clearAllFilters();
+                }}
               />
             </div>
           </div>

@@ -48,7 +48,7 @@ class MyDatabase extends Dexie {
 
   constructor() {
     super("MyDatabase");
-    this.version(18)
+    this.version(19)
       .stores({
         theme: "id",
         products: "++id, name, barcode, stock, rubro",
@@ -126,7 +126,7 @@ class MyDatabase extends Dexie {
             } else {
               const formattedRubro = this.formatString(supplier.rubro) as Rubro;
               supplier.rubro = [
-                "todos los rubros",
+                "Todos los rubros",
                 "comercio",
                 "indumentaria",
               ].includes(formattedRubro)

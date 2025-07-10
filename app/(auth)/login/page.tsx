@@ -6,6 +6,7 @@ import Notification from "@/app/components/Notification";
 import { AuthData } from "@/app/lib/types/types";
 import { TRIAL_CREDENTIALS, USERS } from "@/app/lib/constants/constants";
 import { db } from "../../database/db";
+import Common from "@/app/components/LoginScreens/Common";
 
 const LoginPage = () => {
   const router = useRouter();
@@ -55,7 +56,6 @@ const LoginPage = () => {
           });
         }
       }
-      console.log("USERS from env:", USERS);
 
       const adminUser = await db.users.get(2);
       if (!adminUser || adminUser.username !== "administrador") {
@@ -223,59 +223,7 @@ const LoginPage = () => {
         acceptedTerms={acceptedTerms}
         onTermsCheckboxChange={setAcceptedTerms}
       />
-      <div className="w-[65%] xl:w-[75%]  flex flex-col justify-center bg-gradient-to-bl from-blue_m to-blue_xl">
-        <div className="bg-gradient-to-bl from-blue_xl to-blue_xl flex justify-center text-center relative">
-          <div
-            className="shadow-lg shadow-yellow-100 rounded-full w-75 h-75 z-10 space-y-2 flex flex-col items-center justify-center text-center relative overflow-visible"
-            style={{
-              background:
-                "radial-gradient(circle at center, #fef9c3 0%, #fef3c7 40%, #fde68a 90%)",
-
-              transition: "all 0.3s ease-out",
-            }}
-          >
-            <h1 className="italic text-4xl font-medium text-blue_b">
-              Contacto
-            </h1>
-            <p className="text-lg text-blue_b italic">
-              Email: universalweb94@gmail.com
-            </p>
-            <a
-              href="https://wa.me/5492613077147"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="border-b-2 border-blue_xl cursor-pointer hover:text-blue-500 transition-colors duration-300"
-            >
-              <p className="text-lg text-blue_b italic hover:scale-105 transition-all duration-300">
-                Whatsapp: +54 26130771477
-              </p>
-            </a>
-
-            <div className="absolute inset-0 pointer-events-none">
-              {Array.from({ length: 12 }).map((_, i) => {
-                const rotation = i * 30;
-                const delay = `${i * 0.8}s`;
-                return (
-                  <div
-                    key={i}
-                    className="absolute w-[0.15rem] h-37 bottom-[50%] left-[50%] origin-bottom -translate-x-1/2 ray-pulse rounded-full "
-                    style={
-                      {
-                        "--rotation": `${rotation}deg`,
-                        "--delay": delay,
-                        transform: `rotate(${rotation}deg) translateY(-100%)`,
-                        background:
-                          "linear-gradient(to bottom, rgba(254, 230, 165, 0.7), rgba(254, 220, 125, 0.9))",
-                        transition: "all 0.3s ease-out",
-                      } as React.CSSProperties
-                    }
-                  />
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
+      <Common />
 
       <Notification
         isOpen={isOpenNotification}

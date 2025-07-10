@@ -11,7 +11,7 @@ const getDisplayProductName = (
   let displayName = lot ? `[L-${lot}] ${productName}` : productName;
 
   const shouldDisplayDetails =
-    showSizeAndColor || rubro?.toLowerCase() === "todos los rubros";
+    showSizeAndColor || rubro?.toLowerCase() === "Todos los rubros";
 
   if (!shouldDisplayDetails || !isProductObject) {
     return displayName;

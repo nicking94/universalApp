@@ -65,16 +65,10 @@ const ClientesPage = () => {
     const fetchCustomerBudgets = async () => {
       if (selectedCustomer) {
         try {
-          console.log(
-            "Buscando presupuestos para cliente:",
-            selectedCustomer.id
-          );
           const budgets = await db.budgets
             .where("customerId")
             .equals(selectedCustomer.id)
             .toArray();
-
-          console.log("Presupuestos encontrados:", budgets);
           if (selectedCustomer) {
             setCustomerBudgets(budgets);
           }
@@ -96,7 +90,7 @@ const ClientesPage = () => {
       );
 
       const filtered = sortedCustomers.filter((customer) => {
-        if (rubro === "todos los rubros") return true;
+        if (rubro === "Todos los rubros") return true;
         return customer.rubro === rubro;
       });
 
@@ -161,7 +155,7 @@ const ClientesPage = () => {
         ...newCustomer,
         id: generateCustomerId(newCustomer.name),
         name: newCustomer.name.trim(),
-        rubro: rubro === "todos los rubros" ? undefined : rubro,
+        rubro: rubro === "Todos los rubros" ? undefined : rubro,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -273,7 +267,7 @@ const ClientesPage = () => {
         ...editingCustomer,
         name: newCustomer.name.trim(),
         phone: newCustomer.phone,
-        rubro: rubro === "todos los rubros" ? undefined : rubro,
+        rubro: rubro === "Todos los rubros" ? undefined : rubro,
         updatedAt: new Date().toISOString(),
       };
 

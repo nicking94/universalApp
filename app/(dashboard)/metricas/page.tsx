@@ -93,7 +93,7 @@ const Metrics = () => {
     movement: DailyCashMovement,
     currentRubro: Rubro
   ): boolean => {
-    if (currentRubro === "todos los rubros") return true;
+    if (currentRubro === "Todos los rubros") return true;
     if (movement.type === "INGRESO") {
       if (movement.items) {
         return movement.items.some((item) => {
@@ -306,7 +306,7 @@ const Metrics = () => {
 
               if (
                 product &&
-                (rubro === "todos los rubros" || product.rubro === rubro) &&
+                (rubro === "Todos los rubros" || product.rubro === rubro) &&
                 itemUnit === selectedUnit
               ) {
                 const existing = productMap.get(item.productId) || {

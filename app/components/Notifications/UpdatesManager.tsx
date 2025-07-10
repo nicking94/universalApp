@@ -23,9 +23,6 @@ const UpdatesManager = () => {
               actualizationId: actualization.id,
               isDeleted: false,
             });
-            console.log(
-              `Notificación de actualización ${actualization.id} creada`
-            );
           }
         }
       } catch (error) {
