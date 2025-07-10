@@ -60,7 +60,7 @@ const FiadosPage = () => {
         .toLowerCase()
         .includes(searchQuery.toLowerCase());
       const matchesRubro =
-        rubro === "todos los rubros" ||
+        rubro === "Todos los rubros" ||
         sale.products.some((product) => product.rubro === rubro);
 
       return matchesSearch && matchesRubro;
@@ -146,7 +146,7 @@ const FiadosPage = () => {
     const customerSales = creditSales.filter(
       (sale) =>
         sale.customerName === customerName &&
-        (rubro === "todos los rubros" ||
+        (rubro === "Todos los rubros" ||
           sale.products.some((p) => p.rubro === rubro))
     );
 
