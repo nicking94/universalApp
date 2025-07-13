@@ -196,39 +196,57 @@ const ProductsPage = () => {
     filtered.sort((a, b) => {
       const today = startOfDay(new Date());
 
+      // Función para determinar el estado de expiración
       const getExpirationStatus = (product: Product) => {
-        if (!product.expiration) return 3;
+        if (!product.expiration) return 3; // Sin vencimiento
 
         const expDate = startOfDay(parseISO(product.expiration));
         const diffDays = differenceInDays(expDate, today);
 
-        if (diffDays < 0) return 0;
-        if (diffDays === 0) return 1;
-        return 2;
+        if (diffDays < 0) return 0; // Expirado
+        if (diffDays === 0) return 1; // Vence hoy
+        if (diffDays <= 7) return 2; // Por vencer (en los próximos 7 días)
+        return 3; // Sin vencimiento cercano
       };
 
       const statusA = getExpirationStatus(a);
       const statusB = getExpirationStatus(b);
 
-      if (statusA === statusB) {
-        let compareResult = 0;
-        switch (sortConfig.field) {
-          case "name":
-            compareResult = a.name.localeCompare(b.name);
-            break;
-          case "price":
-            compareResult = Number(a.price) - Number(b.price);
-            break;
-          case "stock":
-            compareResult = a.stock - b.stock;
-            break;
-          default:
-            compareResult = 0;
-        }
-        return sortConfig.direction === "asc" ? compareResult : -compareResult;
+      // Primero ordenar por estado de expiración
+      if (statusA !== statusB) {
+        return statusA - statusB;
+      }
+      let compareResult = 0;
+      const field = sortConfig.field;
+      const direction = sortConfig.direction;
+
+      switch (field) {
+        case "name":
+          compareResult = a.name.localeCompare(b.name);
+          break;
+        case "price":
+          compareResult = Number(a.price) - Number(b.price);
+          break;
+        case "stock":
+          compareResult = a.stock - b.stock;
+          break;
+        case "expiration":
+          if (!a.expiration && !b.expiration) compareResult = 0;
+          else if (!a.expiration) compareResult = 1;
+          else if (!b.expiration) compareResult = -1;
+          else {
+            const dateA = parseISO(a.expiration);
+            const dateB = parseISO(b.expiration);
+            compareResult = dateA.getTime() - dateB.getTime();
+          }
+          break;
+        default:
+          const valueA = String(a[field] || "");
+          const valueB = String(b[field] || "");
+          compareResult = valueA.localeCompare(valueB);
       }
 
-      return statusA - statusB;
+      return direction === "asc" ? compareResult : -compareResult;
     });
 
     return filtered;
@@ -1191,7 +1209,7 @@ const ProductsPage = () => {
                       });
                     }}
                     placeholder="Temporada"
-                    className="text-gray_l"
+                    className="text-gray_m"
                     isClearable
                   />
                 </div>
@@ -1309,7 +1327,7 @@ const ProductsPage = () => {
                           size: selectedOption?.value || "",
                         });
                       }}
-                      className="text-gray_l"
+                      className="text-gray_m"
                       placeholder="Seleccionar talle"
                     />
                   </div>
@@ -1442,7 +1460,7 @@ const ProductsPage = () => {
                         unit: selectedOption?.value as Product["unit"],
                       });
                     }}
-                    className="text-gray_l"
+                    className="text-gray_m"
                   />
                 </div>
               )}

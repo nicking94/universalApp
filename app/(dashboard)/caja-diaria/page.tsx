@@ -750,7 +750,7 @@ const CajaDiariaPage = () => {
                 option &&
                 setFilterType(option.value as "TODOS" | "INGRESO" | "EGRESO")
               }
-              className="text-gray_l min-w-40"
+              className="text-gray_m min-w-40"
             />
           </div>
           <div>
@@ -769,7 +769,7 @@ const CajaDiariaPage = () => {
                 option &&
                 setFilterPaymentMethod(option.value as PaymentMethod | "TODOS")
               }
-              className="text-gray_l min-w-40"
+              className="text-gray_m min-w-40"
             />
           </div>
         </div>
@@ -1037,14 +1037,14 @@ const CajaDiariaPage = () => {
                   onChange={(option) =>
                     option && setSelectedMonth(option.value)
                   }
-                  className="text-gray_l min-w-40"
+                  className="text-gray_m min-w-40"
                 />
                 <Select
                   options={yearOptions}
                   noOptionsMessage={() => "No se encontraron opciones"}
                   value={yearOptions.find((y) => y.value === selectedYear)}
                   onChange={(option) => option && setSelectedYear(option.value)}
-                  className="text-gray_l min-w-40"
+                  className="text-gray_m min-w-40"
                 />
               </div>
               <div className="flex gap-2">
@@ -1210,7 +1210,7 @@ const CajaDiariaPage = () => {
                     onChange={(option) =>
                       option && setMovementType(option.value as MovementType)
                     }
-                    className="text-gray_l min-w-40"
+                    className="text-gray_m min-w-40"
                   />
                 </div>
                 {movementType === "EGRESO" && (
@@ -1228,7 +1228,7 @@ const CajaDiariaPage = () => {
                       onChange={(option) => setSelectedSupplier(option)}
                       isClearable
                       placeholder="Seleccionar proveedor"
-                      className="text-gray_l min-w-40"
+                      className="text-gray_m min-w-40"
                     />
                   </div>
                 )}
@@ -1258,7 +1258,7 @@ const CajaDiariaPage = () => {
                         )
                       }
                       options={paymentOptions}
-                      className="text-gray_l min-w-40"
+                      className="text-gray_m min-w-40"
                       classNamePrefix="react-select"
                     />
                     <InputCash

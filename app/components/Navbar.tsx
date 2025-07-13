@@ -59,7 +59,7 @@ const Navbar: React.FC<NavbarProps> = ({
                   );
                 }
               }}
-              className="text-gray_l min-w-40"
+              className="text-gray_m min-w-40"
               isSearchable={false}
             />
           </div>

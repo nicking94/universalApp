@@ -1465,7 +1465,7 @@ const VentasPage = () => {
                         isDisabled: false,
                       }))}
                       onChange={handleProductSelect}
-                      className="text-gray_l"
+                      className="text-gray_m"
                       classNamePrefix="react-select"
                       menuPosition="fixed"
                       styles={{
@@ -1540,7 +1540,7 @@ const VentasPage = () => {
                                         product.quantity
                                       );
                                     }}
-                                    className="text-gray_l"
+                                    className="text-gray_m"
                                     menuPosition="fixed"
                                     styles={{
                                       menuPortal: (base) => ({
@@ -1843,7 +1843,7 @@ const VentasPage = () => {
                       }}
                       placeholder="Buscar cliente"
                       isClearable
-                      className="text-gray_l"
+                      className="text-gray_m"
                       classNamePrefix="react-select"
                       menuPosition="fixed"
                       styles={{

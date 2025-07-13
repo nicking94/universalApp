@@ -1015,6 +1015,7 @@ const PresupuestosPage = () => {
                 <tr className="text-xs lg:text-md 2xl:text-lg">
                   <th className="p-2 text-start">Cliente</th>
                   <th className="p-2 text-center">Teléfono</th>
+                  <th className="p-2 text-center">Total</th>
                   <th className="p-2 text-center">Fecha Presupuesto</th>
                   <th className="p-2 text-center">Fecha Expiración</th>
                   <th className="p-2 text-center">Estado</th>
@@ -1269,7 +1270,7 @@ const PresupuestosPage = () => {
                   onChange={handleCustomerSelect}
                   placeholder="Buscar cliente"
                   isClearable
-                  className="text-gray_l"
+                  className="text-gray_m"
                   classNamePrefix="react-select"
                   menuPosition="fixed"
                 />
@@ -1341,7 +1342,7 @@ const PresupuestosPage = () => {
                       });
                     }
                   }}
-                  className="text-gray_l min-w-40"
+                  className="text-gray_m min-w-40"
                   classNamePrefix="react-select"
                   menuPosition="fixed"
                   isClearable={false}
@@ -1356,7 +1357,7 @@ const PresupuestosPage = () => {
                   options={productOptions}
                   noOptionsMessage={() => "No se encontraron opciones"}
                   placeholder="Buscar productos"
-                  className="text-gray_l"
+                  className="text-gray_m"
                   classNamePrefix="react-select"
                   onChange={handleProductSelect}
                   value={newBudget.items.map((item) => {
@@ -1464,7 +1465,7 @@ const PresupuestosPage = () => {
                                         );
                                       }
                                     }}
-                                    className="text-gray_l"
+                                    className="text-gray_m"
                                     menuPosition="fixed"
                                   />
                                 )}

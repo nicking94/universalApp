@@ -232,7 +232,7 @@ const CuentasCorrientesPage = () => {
         movements.push({
           id: Date.now(),
           amount: payment.amount,
-          description: `Cuenta corriente de ${sale.products.length} productos`,
+          description: `Cuenta corriente de ${sale.customerName}`,
           type: "INGRESO",
           date: new Date().toISOString(),
           paymentMethod: payment.method,
@@ -986,7 +986,7 @@ const CuentasCorrientesPage = () => {
                       )
                     }
                     options={paymentOptions}
-                    className="text-gray_l min-w-40"
+                    className="text-gray_m min-w-40"
                     classNamePrefix="react-select"
                   />
                   <InputCash
