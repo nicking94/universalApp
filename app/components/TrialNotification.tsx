@@ -2,12 +2,14 @@
 import { useEffect, useState } from "react";
 import { db } from "../database/db";
 import { TRIAL_CREDENTIALS } from "../lib/constants/constants";
+import { Tags, BadgePercent, Zap, AlertTriangle } from "lucide-react";
 
 const TrialNotification = () => {
   const [userId, setUserId] = useState<number | null>(null);
   const [isDemoUser, setIsDemoUser] = useState<boolean>(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [daysLeft, setDaysLeft] = useState<number | null>(null);
+  const [discountDate, setDiscountDate] = useState<string>("");
 
   const checkAuthState = async () => {
     try {
@@ -69,6 +71,19 @@ const TrialNotification = () => {
 
       setDaysLeft(remainingDays);
       await db.appState.put({ id: 1, lastActiveDate: now });
+
+      // Calcular la fecha de descuento basada en la fecha de primer acceso (startDate)
+      const discountEndDate = new Date(startDate);
+      discountEndDate.setDate(startDate.getDate() + 3); // Siempre 3 días después del primer acceso
+      const formattedDiscountDate = discountEndDate.toLocaleDateString(
+        "es-ES",
+        {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        }
+      );
+      setDiscountDate(formattedDiscountDate);
     } catch (error) {
       console.error("Error calculando días:", error);
       setDaysLeft(null);
@@ -108,12 +123,49 @@ const TrialNotification = () => {
     if (!daysLeft) return "";
 
     if (daysLeft === 0) {
-      return "¡Periodo de prueba finalizado! La sesión se cerrará automáticamente";
+      return (
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4" />
+          <span>
+            ¡Periodo de prueba finalizado! La sesión se cerrará automáticamente
+          </span>
+        </div>
+      );
     }
     if (daysLeft === 1) {
-      return "¡Último día de prueba!";
+      return (
+        <div className="flex items-center gap-2">
+          <Zap className="w-4 h-4 animate-bounce" />
+          <span>¡Último día de prueba!</span>
+        </div>
+      );
     }
-    return `Días restantes de prueba: ${daysLeft}`;
+    return (
+      <div className="flex items-center gap-2">
+        <Tags className="w-4 h-4" />
+        <span>Días restantes de prueba: {daysLeft}</span>
+      </div>
+    );
+  };
+
+  const getDiscountMessage = () => {
+    if (!daysLeft || !discountDate) return "";
+
+    const now = new Date();
+    const discountEndDate = new Date(
+      discountDate.split("/").reverse().join("-")
+    );
+
+    if (now > discountEndDate) {
+      return `Descuento vencido, puedes seguir navegando la demo por ${daysLeft} días`;
+    }
+    return (
+      <div className="flex items-center gap-2">
+        <BadgePercent className="w-5 h-5 text-red-500 animate-pulse" />
+        <span className="font-bold">20% OFF</span>
+        <span>hasta el {discountDate}</span>
+      </div>
+    );
   };
 
   if (!isAuthenticated || !isDemoUser || daysLeft === null) {
@@ -121,10 +173,17 @@ const TrialNotification = () => {
   }
 
   return (
-    <div
-      className={`animate-pulse fixed top-0 left-4/7 transform -translate-x-1/2 px-4 2xl:px-6 py-1 rounded-md shadow-lg z-99 text-xs font-medium ${getNotificationStyle()}`}
-    >
-      {getNotificationMessage()}
+    <div className="fixed top-0 left-4/7 transform -translate-x-1/2 z-99 flex flex-col items-center">
+      <div
+        className={`animate-pulse px-4 2xl:px-6 py-1 rounded-md shadow-lg text-xs font-medium ${getNotificationStyle()}`}
+      >
+        {getNotificationMessage()}
+      </div>
+      {daysLeft > 0 && (
+        <div className="mt-3 px-4 py-1 bg-blue_xl text-blue_b shadow-md shadow-blue_l border-blue_l rounded-md text-md font-medium flex items-center">
+          {getDiscountMessage()}
+        </div>
+      )}
     </div>
   );
 };
