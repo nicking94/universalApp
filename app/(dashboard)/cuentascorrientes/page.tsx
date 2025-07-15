@@ -9,6 +9,7 @@ import Modal from "@/app/components/Modal";
 import Button from "@/app/components/Button";
 import Notification from "@/app/components/Notification";
 import {
+  ChequeFilter,
   CreditSale,
   Customer,
   DailyCashMovement,
@@ -17,7 +18,7 @@ import {
   PaymentSplit,
 } from "@/app/lib/types/types";
 import SearchBar from "@/app/components/SearchBar";
-import { Info, Plus, Trash, Wallet } from "lucide-react";
+import { CheckCircle, Info, Plus, Trash, Wallet } from "lucide-react";
 import Pagination from "@/app/components/Pagination";
 import InputCash from "@/app/components/InputCash";
 import { useRubro } from "@/app/context/RubroContext";
@@ -53,6 +54,13 @@ const CuentasCorrientesPage = () => {
     sales: CreditSale[];
   } | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [isChequesModalOpen, setIsChequesModalOpen] = useState(false);
+  const [currentCustomerCheques, setCurrentCustomerCheques] = useState<
+    Payment[]
+  >([]);
+  const [chequeFilter, setChequeFilter] = useState<
+    "todos" | "pendiente" | "cobrado"
+  >("todos");
 
   const filteredSales = creditSales
     .filter((sale) => {
@@ -94,6 +102,7 @@ const CuentasCorrientesPage = () => {
     { value: "EFECTIVO", label: "Efectivo" },
     { value: "TRANSFERENCIA", label: "Transferencia" },
     { value: "TARJETA", label: "Tarjeta" },
+    { value: "CHEQUE", label: "Cheque" },
   ];
 
   const uniqueCustomers = Object.keys(salesByCustomer);
@@ -144,10 +153,7 @@ const CuentasCorrientesPage = () => {
 
   const calculateCustomerBalance = (customerName: string) => {
     const customerSales = creditSales.filter(
-      (sale) =>
-        sale.customerName === customerName &&
-        (rubro === "Todos los rubros" ||
-          sale.products.some((p) => p.rubro === rubro))
+      (sale) => sale.customerName === customerName
     );
 
     const customerPayments = payments.filter((p) =>
@@ -155,19 +161,30 @@ const CuentasCorrientesPage = () => {
     );
 
     const totalSales = customerSales.reduce((sum, sale) => sum + sale.total, 0);
-    const totalPayments = customerPayments.reduce(
-      (sum, p) => sum + p.amount,
-      0
-    );
+
+    // Solo contar pagos no eliminados (cheques cobrados y otros métodos)
+    const totalPayments = customerPayments.reduce((sum, p) => {
+      if (p.method === "CHEQUE" && p.checkStatus !== "cobrado") {
+        return sum; // No sumar cheques pendientes
+      }
+      return sum + p.amount;
+    }, 0);
 
     return totalSales - totalPayments;
   };
 
   const calculateRemainingBalance = (sale: CreditSale) => {
     if (!sale) return 0;
-    const totalPayments = payments
-      .filter((p) => p.saleId === sale.id)
-      .reduce((sum, p) => sum + p.amount, 0);
+
+    const salePayments = payments.filter((p) => p.saleId === sale.id);
+
+    const totalPayments = salePayments.reduce((sum, p) => {
+      // No contar cheques pendientes como pago
+      if (p.method === "CHEQUE" && p.checkStatus !== "cobrado") {
+        return sum;
+      }
+      return sum + p.amount;
+    }, 0);
 
     return sale.total - totalPayments;
   };
@@ -283,19 +300,110 @@ const CuentasCorrientesPage = () => {
   const handleSearch = (query: string) => {
     setSearchQuery(query);
   };
+  const handleMarkCheckAsPaid = async (checkId: number) => {
+    try {
+      // Actualizar el pago en la tabla payments
+      await db.payments.update(checkId, { checkStatus: "cobrado" });
 
+      // Actualizar la información del cheque en la venta correspondiente
+      const payment = await db.payments.get(checkId);
+      if (payment) {
+        await db.sales.update(payment.saleId, {
+          "chequeInfo.status": "cobrado",
+        } as Partial<CreditSale>);
+      }
+
+      // Actualizar el estado local
+      const updatedPayments = await db.payments.toArray();
+      const updatedSales = await db.sales.toArray();
+
+      setPayments(updatedPayments);
+      setCreditSales(updatedSales.filter((s) => s.credit) as CreditSale[]);
+      setCurrentCustomerCheques(
+        currentCustomerCheques.map((c) =>
+          c.id === checkId ? { ...c, checkStatus: "cobrado" } : c
+        )
+      );
+
+      showNotification("Cheque marcado como cobrado", "success");
+    } catch (error) {
+      console.error("Error al actualizar estado del cheque:", error);
+      showNotification("Error al actualizar cheque", "error");
+    }
+  };
+  const handleDeleteCheck = async (checkId: number) => {
+    try {
+      // Obtener el cheque antes de eliminarlo
+      const cheque = await db.payments.get(checkId);
+      if (!cheque) {
+        showNotification("Cheque no encontrado", "error");
+        return;
+      }
+
+      // Eliminar el cheque
+      await db.payments.delete(checkId);
+
+      // Actualizar la información del cheque en la venta correspondiente
+
+      if (cheque.saleId) {
+        const sale = await db.sales.get(cheque.saleId);
+        if (sale && sale.chequeInfo) {
+          await db.sales.update(cheque.saleId, {
+            paid: false, // Marcar como no pagada ya que eliminamos un pago
+            chequeInfo: undefined, // Usar undefined en lugar de null
+          } as Partial<CreditSale>);
+        }
+      }
+
+      // Actualizar el estado local
+      const updatedPayments = await db.payments.toArray();
+      const updatedSales = (await db.sales.toArray()).filter(
+        (s) => s.credit
+      ) as CreditSale[];
+
+      setPayments(updatedPayments);
+      setCreditSales(updatedSales);
+
+      // Actualizar los cheques del cliente en el modal
+      setCurrentCustomerCheques(
+        currentCustomerCheques.filter((c) => c.id !== checkId)
+      );
+
+      // Si estamos viendo la info del cliente, actualizarla
+      if (currentCustomerInfo) {
+        const customerSales = updatedSales.filter(
+          (s) => s.customerName === currentCustomerInfo.name
+        );
+
+        setCurrentCustomerInfo({
+          ...currentCustomerInfo,
+          balance:
+            customerSales.reduce((total, sale) => total + sale.total, 0) -
+            updatedPayments
+              .filter((p) => customerSales.some((s) => s.id === p.saleId))
+              .reduce((sum, p) => sum + p.amount, 0),
+          sales: customerSales,
+        });
+      }
+
+      showNotification("Cheque eliminado correctamente", "success");
+    } catch (error) {
+      console.error("Error al eliminar cheque:", error);
+      showNotification("Error al eliminar cheque", "error");
+    }
+  };
   const handleDeleteCustomerCredits = async () => {
     if (!customerToDelete) return;
 
     try {
-      const customer = customers.find(
-        (c) => c.name === customerToDelete.toLowerCase()
-      );
+      // Modificar la búsqueda para que coincida con el formato de la base de datos
+      const customer = customers.find((c) => c.name === customerToDelete);
 
       if (!customer) {
         showNotification("Cliente no encontrado", "error");
         return;
       }
+
       const salesToDelete = creditSales
         .filter((sale) => sale.customerName === customerToDelete)
         .map((sale) => sale.id);
@@ -368,6 +476,7 @@ const CuentasCorrientesPage = () => {
           const newPayment: Payment = {
             id: Date.now() + Math.random(),
             saleId: currentCreditSale.id,
+            saleDate: currentCreditSale.date,
             amount: method.amount,
             date: new Date().toISOString(),
             method: method.method,
@@ -491,6 +600,34 @@ const CuentasCorrientesPage = () => {
     });
   };
 
+  const handleOpenChequesModal = async (customerName: string) => {
+    try {
+      // Obtener todos los cheques del cliente
+      const customerCheques = await db.payments
+        .where("method")
+        .equals("CHEQUE")
+        .and((p) => p.customerName === customerName)
+        .toArray();
+
+      // Obtener información adicional de las ventas relacionadas
+      const chequesWithDetails = await Promise.all(
+        customerCheques.map(async (cheque) => {
+          const sale = await db.sales.get(cheque.saleId);
+          return {
+            ...cheque,
+            saleDate: sale?.date || "",
+            products: sale?.products || [],
+          };
+        })
+      );
+
+      setCurrentCustomerCheques(chequesWithDetails);
+      setIsChequesModalOpen(true);
+    } catch (error) {
+      console.error("Error al cargar cheques:", error);
+      showNotification("Error al cargar cheques del cliente", "error");
+    }
+  };
   const handleOpenInfoModal = (sale: CreditSale) => {
     const customerSales = creditSales.filter(
       (cs) => cs.customerName === sale.customerName
@@ -562,6 +699,19 @@ const CuentasCorrientesPage = () => {
                         <td className="p-2 border border-gray_xl">
                           <div className="flex justify-center items-center h-full gap-2">
                             <Button
+                              icon={<Wallet size={20} />}
+                              colorText="text-gray_b"
+                              colorTextHover="hover:text-white"
+                              colorBg="bg-transparent"
+                              px="px-2"
+                              py="py-1"
+                              minwidth="min-w-0"
+                              onClick={() =>
+                                handleOpenChequesModal(customerName)
+                              }
+                              title="Ver cheques"
+                            />
+                            <Button
                               icon={<Info size={20} />}
                               iconPosition="left"
                               colorText="text-gray_b"
@@ -616,7 +766,126 @@ const CuentasCorrientesPage = () => {
             />
           )}
         </div>
+        <Modal
+          isOpen={isChequesModalOpen}
+          onClose={() => setIsChequesModalOpen(false)}
+          title={`Cheques de ${currentCustomerInfo?.name || "Cliente"}`}
+          minheight="min-h-[50vh]"
+          buttons={
+            <div className="flex justify-end">
+              <Button
+                text="Cerrar"
+                colorText="text-gray_b dark:text-white"
+                colorTextHover="hover:dark:text-white"
+                colorBg="bg-transparent dark:bg-gray_m"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                onClick={() => setIsChequesModalOpen(false)}
+              />
+            </div>
+          }
+        >
+          <div className="space-y-4">
+            <div className="flex items-center gap-4 mb-4">
+              <label className="text-sm font-medium">Filtrar por estado:</label>
+              <select
+                value={chequeFilter}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                  setChequeFilter(e.target.value as ChequeFilter)
+                }
+                className="border border-gray_xl rounded p-1"
+              >
+                <option value="todos">Todos</option>
+                <option value="pendiente">Pendientes</option>
+                <option value="cobrado">Cobrados</option>
+              </select>
+            </div>
 
+            <div className="max-h-[60vh] overflow-y-auto">
+              <table className="w-full border-collapse">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="p-2 border text-left">Monto</th>
+                    <th className="p-2 border">Fecha</th>
+
+                    <th className="p-2 border">Estado</th>
+                    <th className="p-2 border">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentCustomerCheques
+                    .filter(
+                      (cheque) =>
+                        chequeFilter === "todos" ||
+                        cheque.checkStatus === chequeFilter
+                    )
+                    .map((cheque, index) => (
+                      <tr key={index} className="border-b">
+                        <td className="p-2 border text-left">
+                          {cheque.amount.toLocaleString("es-AR", {
+                            style: "currency",
+                            currency: "ARS",
+                          })}
+                        </td>
+                        <td className="p-2 border text-center">
+                          {format(new Date(cheque.date), "dd/MM/yyyy")}
+                        </td>
+
+                        <td className="p-2 border text-center">
+                          <span
+                            className={`px-2 py-1 rounded text-xs ${
+                              cheque.checkStatus === "cobrado"
+                                ? "bg-green-100 text-green-800"
+                                : cheque.checkStatus === "pendiente"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {cheque.checkStatus || "pendiente"}
+                          </span>
+                        </td>
+                        <td className="p-2 border text-center">
+                          <div className="flex justify-center items-center gap-2">
+                            {cheque.checkStatus === "pendiente" && (
+                              <>
+                                <Button
+                                  icon={<CheckCircle size={16} />}
+                                  onClick={() =>
+                                    handleMarkCheckAsPaid(cheque.id)
+                                  }
+                                  colorText="text-white"
+                                  colorTextHover="hover:text-white"
+                                  colorBg="bg-green_b"
+                                  colorBgHover="hover:bg-green_m"
+                                  minwidth="min-w-0"
+                                  title="Marcar como cobrado"
+                                />
+
+                                <Button
+                                  icon={<Trash size={20} />}
+                                  iconPosition="left"
+                                  colorText="text-gray_b"
+                                  colorTextHover="hover:text-white"
+                                  colorBg="bg-transparent"
+                                  colorBgHover="hover:bg-red_m"
+                                  px="px-2"
+                                  py="py-1"
+                                  minwidth="min-w-0"
+                                  onClick={() => {
+                                    handleDeleteCheck(cheque.id);
+                                  }}
+                                  title="Eliminar cheque"
+                                />
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </Modal>
         <Modal
           isOpen={isInfoModalOpen}
           onClose={() => setIsInfoModalOpen(false)}
@@ -630,6 +899,7 @@ const CuentasCorrientesPage = () => {
                 colorBg="bg-transparent dark:bg-gray_m"
                 colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
                 onClick={() => setIsInfoModalOpen(false)}
+                hotkey="Escape"
               />
             </div>
           }
@@ -665,15 +935,14 @@ const CuentasCorrientesPage = () => {
 
               <div className="mt-4 grid grid-cols-3 gap-4">
                 <div className="bg-blue_m dark:bg-gray_m p-3 rounded-lg shadow text-white text-lg font-semibold">
-                  <p>Saldo pendiente</p>
+                  <p>Total </p>
                   <p>
-                    {(currentCustomerInfo?.balance ?? 0).toLocaleString(
-                      "es-AR",
-                      {
+                    {currentCustomerInfo?.sales
+                      .reduce((sum, sale) => sum + sale.total, 0)
+                      .toLocaleString("es-AR", {
                         style: "currency",
                         currency: "ARS",
-                      }
-                    )}
+                      })}
                   </p>
                 </div>
                 <div className="bg-blue_m dark:bg-gray_m p-3 rounded-lg shadow text-white text-lg font-semibold">
@@ -692,16 +961,16 @@ const CuentasCorrientesPage = () => {
                       })}
                   </p>
                 </div>
-
                 <div className="bg-blue_m dark:bg-gray_m p-3 rounded-lg shadow text-white text-lg font-semibold">
-                  <p>Total</p>
+                  <p>Saldo pendiente</p>
                   <p>
-                    {currentCustomerInfo?.sales
-                      .reduce((sum, sale) => sum + sale.total, 0)
-                      .toLocaleString("es-AR", {
+                    {(currentCustomerInfo?.balance ?? 0).toLocaleString(
+                      "es-AR",
+                      {
                         style: "currency",
                         currency: "ARS",
-                      })}
+                      }
+                    )}
                   </p>
                 </div>
               </div>
@@ -735,23 +1004,34 @@ const CuentasCorrientesPage = () => {
                     <div
                       key={sale.id}
                       className={`mb-4 p-4 rounded-lg shadow-sm ${
-                        isPaid
+                        isPaid &&
+                        (!sale.chequeInfo ||
+                          sale.chequeInfo.status === "cobrado")
                           ? "bg-green_xl dark:bg-green_l shadow-green_l border-t border-green_l"
-                          : "bg-red_xl dark:bg-red_l shadow-red_l border-t border-red_l "
+                          : "bg-red_xl dark:bg-red_l shadow-red_l border-t border-red_l"
                       }`}
                     >
                       <div className="flex justify-between items-center mb-3 ">
                         <div className="flex items-center space-x-2">
-                          <div
-                            className={`w-3 h-3 rounded-full ${
-                              isPaid ? "bg-green_m" : "bg-red_m"
-                            }`}
-                          ></div>
                           <span className="text-gray_b font-semibold">
                             {format(new Date(sale.date), "dd/MM/yyyy", {
                               locale: es,
                             })}
                           </span>
+                          {sale.chequeInfo && (
+                            <div
+                              className={` p-2 rounded-md ${
+                                sale.chequeInfo.status === "cobrado"
+                                  ? " text-green-800"
+                                  : " text-yellow-800"
+                              }`}
+                            >
+                              <p className="font-semibold ">
+                                Pago con Cheque -{" "}
+                                {sale.chequeInfo.status.toUpperCase()}
+                              </p>
+                            </div>
+                          )}
                         </div>
 
                         <div className="mt-2">
@@ -846,7 +1126,7 @@ const CuentasCorrientesPage = () => {
                               : "bg-white dark:bg-red_b"
                           }`}
                         >
-                          <p>Saldo:</p>
+                          <p>Saldo pendiente:</p>
                           <p
                             className={
                               isPaid
@@ -1051,6 +1331,7 @@ const CuentasCorrientesPage = () => {
                 colorBg="bg-red_m border-b-1 dark:bg-blue_b"
                 colorBgHover="hover:bg-red_b hover:dark:bg-blue_m"
                 onClick={handleDeleteCustomerCredits}
+                hotkey="Enter"
               />
               <Button
                 text="No"
@@ -1059,6 +1340,7 @@ const CuentasCorrientesPage = () => {
                 colorBg="bg-transparent dark:bg-gray_m"
                 colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
                 onClick={() => setIsDeleteModalOpen(false)}
+                hotkey="Escape"
               />
             </>
           }

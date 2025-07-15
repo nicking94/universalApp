@@ -21,7 +21,7 @@ const Input: React.FC<InputProps & { icon?: React.ReactNode }> = ({
     <div className="w-full">
       {label && (
         <label
-          className={`${colorLabel} block text-sm font-semibold mb-1`}
+          className={`${colorLabel} block text-sm font-semibold `}
           htmlFor={name}
         >
           {label}

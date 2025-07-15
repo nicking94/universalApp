@@ -8,7 +8,7 @@ import { useState } from "react";
 import ImportFileButton from "@/app/components/ImportFileButton";
 import { format } from "date-fns";
 import Notification from "@/app/components/Notification";
-import { Product } from "@/app/lib/types/types";
+import { Payment, Product, Sale } from "@/app/lib/types/types";
 
 export default function ImportExportPage() {
   const [loading, setLoading] = useState(false);
@@ -85,7 +85,27 @@ export default function ImportExportPage() {
 
     const text = await file.text();
     const data = JSON.parse(text);
+    if (data.sales && data.payments) {
+      const paymentMap = new Map();
+      data.payments.forEach((payment: Payment) => {
+        paymentMap.set(payment.saleId, payment);
+      });
 
+      data.sales = data.sales.map((sale: Sale) => {
+        const payment = paymentMap.get(sale.id);
+        if (payment && payment.method === "CHEQUE") {
+          return {
+            ...sale,
+            chequeInfo: {
+              amount: payment.amount,
+              status: payment.checkStatus,
+              date: payment.date,
+            },
+          };
+        }
+        return sale;
+      });
+    }
     if (data.products && Array.isArray(data.products)) {
       data.products = data.products.map((product: Product) => {
         if (

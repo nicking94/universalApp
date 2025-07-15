@@ -48,17 +48,18 @@ class MyDatabase extends Dexie {
 
   constructor() {
     super("MyDatabase");
-    this.version(19)
+    this.version(20)
       .stores({
         theme: "id",
         products: "++id, name, barcode, stock, rubro",
         users: "id, username",
         auth: "id, userId",
         sales:
-          "++id, date, *paymentMethod, customerName, customerId, paid, credit",
+          "++id, date, *paymentMethod, customerName, customerId, paid, credit, chequeInfo",
         dailyCashes: "++id, &date, closed",
         dailyCashMovements: "++id, dailyCashId, date, type",
-        payments: "++id, saleId, date, method",
+        payments:
+          "++id, saleId, date, method, amount, checkStatus, customerId, customerName",
         customers: "&id, name",
         suppliers: "++id, companyName, lastVisit, nextVisit, createdAt, rubro",
         supplierProducts: "[supplierId+productId], supplierId, productId",

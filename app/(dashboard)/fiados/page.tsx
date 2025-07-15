@@ -374,6 +374,7 @@ const FiadosPage = () => {
           const newPayment: Payment = {
             id: Date.now() + Math.random(),
             saleId: currentCreditSale.id,
+            saleDate: currentCreditSale.date,
             amount: method.amount,
             date: new Date().toISOString(),
             method: method.method,

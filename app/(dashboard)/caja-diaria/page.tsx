@@ -65,6 +65,7 @@ const CajaDiariaPage = () => {
     { value: "EFECTIVO", label: "Efectivo" },
     { value: "TRANSFERENCIA", label: "Transferencia" },
     { value: "TARJETA", label: "Tarjeta" },
+    { value: "CHEQUE", label: "Cheque" },
   ];
 
   const [description, setDescription] = useState("");

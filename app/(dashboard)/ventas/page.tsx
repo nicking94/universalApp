@@ -8,6 +8,7 @@ import {
   Customer,
   DailyCashMovement,
   MonthOption,
+  Payment,
   PaymentSplit,
   Product,
   Sale,
@@ -86,6 +87,8 @@ const VentasPage = () => {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [shouldRedirectToCash, setShouldRedirectToCash] = useState(false);
+  const [registerCheck, setRegisterCheck] = useState(false);
+
   const CONVERSION_FACTORS = {
     Gr: { base: "Kg", factor: 0.001 },
     Kg: { base: "Kg", factor: 1 },
@@ -332,6 +335,7 @@ const VentasPage = () => {
     { value: "EFECTIVO", label: "Efectivo" },
     { value: "TRANSFERENCIA", label: "Transferencia" },
     { value: "TARJETA", label: "Tarjeta" },
+    { value: "CHEQUE", label: "Cheque" },
   ];
 
   const filteredSales = sales
@@ -440,6 +444,27 @@ const VentasPage = () => {
     }
   };
 
+  const handleRegisterCheckChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const isCheck = e.target.checked;
+    setRegisterCheck(isCheck);
+
+    // Si se marca como cheque, automáticamente se convierte en cuenta corriente
+    if (isCheck) {
+      setIsCredit(true);
+      setNewSale((prev) => ({
+        ...prev,
+        paymentMethods: [{ method: "CHEQUE", amount: prev.total }], // Autocompletar con el total
+      }));
+    } else {
+      // Si se desmarca, volver a efectivo con el total
+      setNewSale((prev) => ({
+        ...prev,
+        paymentMethods: [{ method: "EFECTIVO", amount: prev.total }],
+      }));
+    }
+  };
   const handleProductScan = (productId: number) => {
     setNewSale((prevState) => {
       const existingProductIndex = prevState.products.findIndex(
@@ -522,12 +547,20 @@ const VentasPage = () => {
   const handleCreditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const isCredit = e.target.checked;
     setIsCredit(isCredit);
+    setRegisterCheck(false); // Asegurarse de desmarcar también el checkbox de cheque
 
     if (isCredit) {
       setNewSale((prev) => ({
         ...prev,
         manualAmount: 0,
         total: calculateTotal(prev.products, 0),
+        paymentMethods: [{ method: "EFECTIVO", amount: 0 }], // Resetear a efectivo
+      }));
+    } else {
+      // Cuando se desactiva la cuenta corriente, resetear a efectivo
+      setNewSale((prev) => ({
+        ...prev,
+        paymentMethods: [{ method: "EFECTIVO", amount: prev.total }],
       }));
     }
   };
@@ -551,9 +584,22 @@ const VentasPage = () => {
   ) => {
     setNewSale((prev) => {
       const updatedMethods = [...prev.paymentMethods];
-      const productsTotal = calculateCombinedTotal(prev.products || []);
-      const manualAmount = prev.manualAmount || 0;
-      const total = productsTotal + manualAmount;
+
+      // Si se selecciona CHEQUE, automáticamente activar cuenta corriente
+      if (field === "method" && value === "CHEQUE") {
+        setIsCredit(true);
+        setRegisterCheck(true);
+      }
+
+      // Si se cambia de CHEQUE a otro método, mantener la cuenta corriente desactivada
+      if (
+        field === "method" &&
+        value !== "CHEQUE" &&
+        prev.paymentMethods[index]?.method === "CHEQUE"
+      ) {
+        setIsCredit(false);
+        setRegisterCheck(false);
+      }
 
       if (field === "amount") {
         const numericValue =
@@ -568,7 +614,7 @@ const VentasPage = () => {
 
         if (updatedMethods.length === 2) {
           const otherIndex = index === 0 ? 1 : 0;
-          const remaining = total - numericValue;
+          const remaining = prev.total - numericValue;
           updatedMethods[otherIndex] = {
             ...updatedMethods[otherIndex],
             amount: parseFloat(Math.max(0, remaining).toFixed(2)),
@@ -582,7 +628,7 @@ const VentasPage = () => {
       } else {
         updatedMethods[index] = {
           ...updatedMethods[index],
-          method: value as "EFECTIVO" | "TRANSFERENCIA" | "TARJETA",
+          [field]: value,
         };
         return {
           ...prev,
@@ -616,7 +662,8 @@ const VentasPage = () => {
               method: paymentOptions[prev.paymentMethods.length].value as
                 | "EFECTIVO"
                 | "TRANSFERENCIA"
-                | "TARJETA",
+                | "TARJETA"
+                | "CHEQUE",
               amount: share,
             },
           ],
@@ -630,7 +677,8 @@ const VentasPage = () => {
               method: paymentOptions[prev.paymentMethods.length].value as
                 | "EFECTIVO"
                 | "TRANSFERENCIA"
-                | "TARJETA",
+                | "TARJETA"
+                | "CHEQUE",
               amount: 0,
             },
           ],
@@ -676,7 +724,6 @@ const VentasPage = () => {
 
       return;
     }
-
     setIsOpenModal(true);
   };
   const validatePaymentMethods = (
@@ -688,6 +735,8 @@ const VentasPage = () => {
   };
 
   const handleConfirmAddSale = async () => {
+    handleCloseModal();
+
     const authData = await db.auth.get(1);
     if (authData?.userId === 2) {
       const isLimitReached = await checkSalesLimit();
@@ -812,10 +861,6 @@ const VentasPage = () => {
         customerId: isCredit ? customerId : "",
         paid: false,
       };
-
-      await db.sales.add(saleToSave);
-      setSales([...sales, saleToSave]);
-
       if (!isCredit) {
         await addIncomeToDailyCash(saleToSave);
         setSelectedSale(saleToSave);
@@ -831,21 +876,31 @@ const VentasPage = () => {
         }, 100);
       }
 
-      setNewSale({
-        products: [],
-        paymentMethods: [{ method: "EFECTIVO", amount: 0 }],
-        total: 0,
-        date: new Date().toISOString(),
-        barcode: "",
-        manualAmount: 0,
-      });
-      setIsCredit(false);
-      setCustomerName("");
-      setCustomerPhone("");
-      setSelectedCustomer(null);
+      if (isCredit && registerCheck) {
+        saleToSave.chequeInfo = {
+          amount: newSale.total,
+          status: "pendiente",
+          date: new Date().toISOString(),
+        };
+      }
 
-      setIsOpenModal(false);
-      showNotification("Venta agregada correctamente", "success");
+      await db.sales.add(saleToSave);
+      setSales([...sales, saleToSave]);
+
+      if (isCredit && registerCheck) {
+        const chequePayment: Payment = {
+          id: Date.now(),
+          saleId: saleToSave.id,
+          saleDate: saleToSave.date,
+          amount: saleToSave.total,
+          date: new Date().toISOString(),
+          method: "CHEQUE",
+          checkStatus: "pendiente",
+          customerId: saleToSave.customerId,
+          customerName: saleToSave.customerName,
+        };
+        await db.payments.add(chequePayment);
+      }
     } catch (error) {
       console.error("Error al agregar venta:", error);
       showNotification("Error al agregar venta", "error");
@@ -866,6 +921,7 @@ const VentasPage = () => {
       barcode: "",
     });
     setIsCredit(false);
+    setRegisterCheck(false);
     setIsOpenModal(false);
   };
   const handleCloseInfoModal = () => {
@@ -948,29 +1004,28 @@ const VentasPage = () => {
 
   useEffect(() => {
     setNewSale((prev) => {
-      const productsTotal = calculateCombinedTotal(prev.products || []);
-      const manualAmount = prev.manualAmount || 0;
-      const total = productsTotal + manualAmount;
       const updatedMethods = [...prev.paymentMethods];
 
-      if (updatedMethods.length <= 2) {
-        if (updatedMethods.length === 1) {
-          updatedMethods[0].amount = total;
-        } else {
-          const share = total / updatedMethods.length;
-          updatedMethods.forEach((m, i) => {
-            updatedMethods[i] = {
-              ...m,
-              amount: share,
-            };
-          });
-        }
+      // Si es un cheque y está activo, actualizar su monto al total
+      if (registerCheck && updatedMethods[0]?.method === "CHEQUE") {
+        updatedMethods[0].amount = prev.total;
+      } else if (updatedMethods.length === 1) {
+        // Para otros casos con un solo método, mantener sincronizado
+        updatedMethods[0].amount = prev.total;
+      } else if (updatedMethods.length === 2) {
+        // Para dos métodos, dividir proporcionalmente (si no es cheque)
+        const share = prev.total / updatedMethods.length;
+        updatedMethods.forEach((m, i) => {
+          updatedMethods[i] = {
+            ...m,
+            amount: share,
+          };
+        });
       }
 
       return {
         ...prev,
         paymentMethods: updatedMethods,
-        total: total,
       };
     });
   }, [
@@ -978,7 +1033,16 @@ const VentasPage = () => {
     newSale.manualAmount,
     newSale.paymentMethods.length,
     calculateCombinedTotal,
+    registerCheck, // Añadir registerCheck como dependencia
   ]);
+  useEffect(() => {
+    if (registerCheck && newSale.paymentMethods[0]?.method === "CHEQUE") {
+      setNewSale((prev) => ({
+        ...prev,
+        paymentMethods: [{ method: "CHEQUE", amount: prev.total }],
+      }));
+    }
+  }, [registerCheck]);
 
   const handleProductSelect = (
     selectedOptions: readonly {
@@ -1267,7 +1331,9 @@ const VentasPage = () => {
                         <td className="w-55 p-2 border border-gray_xl">
                           {sale.credit ? (
                             <span className="uppercase text-orange-600 font-semibold">
-                              Cuenta corriente
+                              {sale.chequeInfo
+                                ? "CUENTA CORRIENTE - CHEQUE"
+                                : "Cuenta corriente"}
                             </span>
                           ) : (
                             <>
@@ -1494,7 +1560,7 @@ const VentasPage = () => {
                           <th className="p-2">Producto</th>
                           <th className="p-2 text-center">Unidad</th>
                           <th className="p-2 text-center">Cantidad</th>
-                          <th className="w-22">% descuento</th>
+                          <th className="w-32">% descuento</th>
                           <th className="p-2 text-center">Total</th>
 
                           <th className="w-30 max-w-[8rem] p-2 text-center">
@@ -1657,7 +1723,7 @@ const VentasPage = () => {
                 <div className="flex items-center space-x-4">
                   <div className="w-full flex flex-col">
                     {isCredit ? (
-                      <div className="p-2 bg-gray-100 text-gray-800 rounded-md ">
+                      <div className="p-2 bg-gray-100 text-gray-800 rounded-md  ">
                         <p className="font-semibold">
                           VENTA FIADA - Monto manual deshabilitado
                         </p>
@@ -1702,7 +1768,7 @@ const VentasPage = () => {
 
                   <div
                     className={`w-full flex flex-col ${
-                      isCredit ? "py-4 mt-5" : "mt-8"
+                      isCredit ? "py-4 mt-17" : "mt-8"
                     }`}
                   >
                     <label
@@ -1712,14 +1778,42 @@ const VentasPage = () => {
                     >
                       Métodos de Pago
                     </label>
-
-                    {isCredit ? (
-                      <div className="p-2  bg-orange-100 text-orange-800 rounded-md -mt-5">
-                        <p className="font-semibold">
-                          VENTA FIADA - Métodos de pago deshabilitados
-                        </p>
+                    {isCredit && (
+                      <div className="flex items-center gap-2 -mt-11">
+                        <input
+                          type="checkbox"
+                          id="registerCheckCheckbox"
+                          checked={registerCheck}
+                          onChange={handleRegisterCheckChange}
+                          className="cursor-pointer"
+                        />
+                        <label>Registrar cheque</label>
                       </div>
-                    ) : (
+                    )}
+                    {isCredit && registerCheck ? (
+                      <div className="p-2 bg-orange-100 text-orange-800 rounded-md ">
+                        <p className="font-semibold">
+                          VENTA FIADA CON CHEQUE - Complete los detalles del
+                          cheque
+                        </p>
+                        <div className="flex items-center gap-2 mb-2 mt-2">
+                          <Select
+                            options={[{ value: "CHEQUE", label: "Cheque" }]}
+                            value={{ value: "CHEQUE", label: "Cheque" }}
+                            isDisabled={true}
+                            className="w-60 max-w-60 text-gray_b"
+                            menuPosition="fixed"
+                          />
+                          <InputCash
+                            value={newSale.paymentMethods[0]?.amount || 0}
+                            onChange={(value) =>
+                              handlePaymentMethodChange(0, "amount", value)
+                            }
+                            placeholder="Monto del cheque"
+                          />
+                        </div>
+                      </div>
+                    ) : !isCredit ? (
                       <>
                         {newSale.paymentMethods.map((payment, index) => (
                           <div
@@ -1808,7 +1902,7 @@ const VentasPage = () => {
                           </button>
                         )}
                       </>
-                    )}
+                    ) : null}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 mb-2">

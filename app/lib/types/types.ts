@@ -214,6 +214,11 @@ export type Sale = {
   deposit?: number;
   fromBudget?: boolean;
   budgetId?: string;
+  chequeInfo?: {
+    amount: number;
+    status: "pendiente" | "cobrado";
+    date: string;
+  };
 };
 
 export type SaleItem = {
@@ -254,13 +259,18 @@ export type ProductOption = {
   isDisabled?: boolean;
 };
 
-export type PaymentMethod = "EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "MIXTO";
+export type PaymentMethod =
+  | "EFECTIVO"
+  | "TRANSFERENCIA"
+  | "TARJETA"
+  | "CHEQUE"
+  | "MIXTO";
 
 export type PaymentSplit = {
   method: PaymentMethod;
   amount: number;
   isDeposit?: boolean;
-  paymentMethod?: "EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "MIXTO";
+  paymentMethod?: "EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "CHEQUE" | "MIXTO";
 };
 
 export type MovementType = "INGRESO" | "EGRESO";
@@ -279,7 +289,7 @@ export type DailyCashMovement = {
   description: string;
   type: "INGRESO" | "EGRESO";
   date: string;
-  paymentMethod?: "EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "MIXTO";
+  paymentMethod?: "EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "CHEQUE" | "MIXTO";
   productId?: number;
   productName?: string;
   costPrice?: number;
@@ -350,6 +360,11 @@ export interface CreditSale extends Sale {
   customerPhone?: string;
   customerId?: string;
   paid?: boolean;
+  chequeInfo?: {
+    amount: number;
+    status: "pendiente" | "cobrado";
+    date: string;
+  };
 }
 
 export interface Payment {
@@ -357,7 +372,15 @@ export interface Payment {
   saleId: number;
   amount: number;
   date: string;
+  saleDate: string;
   method: PaymentMethod;
+  checkNumber?: string;
+  checkDate?: string;
+  checkBank?: string;
+  checkStatus?: "pendiente" | "cobrado" | "rechazado";
+  checkDescription?: string;
+  customerId?: string;
+  customerName?: string;
 }
 export type Customer = {
   id: string;
@@ -561,3 +584,4 @@ export type Budget = {
   rubro?: Rubro;
   convertedToSale?: boolean;
 };
+export type ChequeFilter = "todos" | "pendiente" | "cobrado";
