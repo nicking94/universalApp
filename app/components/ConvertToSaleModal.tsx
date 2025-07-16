@@ -18,7 +18,6 @@ const paymentOptions = [
   { value: "EFECTIVO", label: "Efectivo" },
   { value: "TRANSFERENCIA", label: "Transferencia" },
   { value: "TARJETA", label: "Tarjeta" },
-  { value: "CHEQUE", label: "Cheque" },
 ];
 
 export const ConvertToSaleModal = ({

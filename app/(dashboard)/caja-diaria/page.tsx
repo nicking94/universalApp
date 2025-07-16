@@ -177,7 +177,7 @@ const CajaDiariaPage = () => {
           .reduce((sum, m) => sum + m.amount, 0);
 
         const cashExpense = cash.movements
-          .filter((m) => m.type === "EGRESO")
+          .filter((m) => m.type === "EGRESO" && m.paymentMethod === "EFECTIVO")
           .reduce((sum, m) => sum + m.amount, 0);
 
         const expectedAmount = cash.initialAmount + cashIncome - cashExpense;
@@ -336,7 +336,7 @@ const CajaDiariaPage = () => {
           .reduce((sum, m) => sum + m.amount, 0);
 
         const cashExpense = dailyCash.movements
-          .filter((m) => m.type === "EGRESO")
+          .filter((m) => m.type === "EGRESO" && m.paymentMethod === "EFECTIVO")
           .reduce((sum, m) => sum + m.amount, 0);
 
         const otherIncome = dailyCash.movements

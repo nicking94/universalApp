@@ -735,8 +735,6 @@ const VentasPage = () => {
   };
 
   const handleConfirmAddSale = async () => {
-    handleCloseModal();
-
     const authData = await db.auth.get(1);
     if (authData?.userId === 2) {
       const isLimitReached = await checkSalesLimit();
@@ -905,6 +903,7 @@ const VentasPage = () => {
       console.error("Error al agregar venta:", error);
       showNotification("Error al agregar venta", "error");
     }
+    handleCloseModal();
   };
 
   const handleOpenInfoModal = (sale: Sale) => {
@@ -1517,7 +1516,7 @@ const VentasPage = () => {
                       htmlFor="productSelect"
                       className="block text-gray_m dark:text-white text-sm font-semibold "
                     >
-                      Productos
+                      Productos*
                     </label>
                     <Select
                       placeholder="Seleccionar productos"
@@ -1723,15 +1722,15 @@ const VentasPage = () => {
                 <div className="flex items-center space-x-4">
                   <div className="w-full flex flex-col">
                     {isCredit ? (
-                      <div className="p-2 bg-gray-100 text-gray-800 rounded-md  ">
+                      <div className="p-2 bg-gray-100 text-gray-800 rounded-md mt-9 ">
                         <p className="font-semibold">
-                          VENTA FIADA - Monto manual deshabilitado
+                          Monto manual deshabilitado
                         </p>
                       </div>
                     ) : (
                       <div className="flex items-center space-x-2">
                         <InputCash
-                          label="Monto manual (opcional)"
+                          label="Monto manual"
                           value={newSale.manualAmount || 0}
                           onChange={handleManualAmountChange}
                           disabled={isCredit}
@@ -1779,7 +1778,7 @@ const VentasPage = () => {
                       Métodos de Pago
                     </label>
                     {isCredit && (
-                      <div className="flex items-center gap-2 -mt-11">
+                      <div className="flex items-center gap-2 -mt-10">
                         <input
                           type="checkbox"
                           id="registerCheckCheckbox"
@@ -1792,11 +1791,7 @@ const VentasPage = () => {
                     )}
                     {isCredit && registerCheck ? (
                       <div className="p-2 bg-orange-100 text-orange-800 rounded-md ">
-                        <p className="font-semibold">
-                          VENTA FIADA CON CHEQUE - Complete los detalles del
-                          cheque
-                        </p>
-                        <div className="flex items-center gap-2 mb-2 mt-2">
+                        <div className="flex items-center gap-2 ">
                           <Select
                             options={[{ value: "CHEQUE", label: "Cheque" }]}
                             value={{ value: "CHEQUE", label: "Cheque" }}
@@ -1919,7 +1914,7 @@ const VentasPage = () => {
                 {isCredit && (
                   <div>
                     <label className="block text-gray_m dark:text-white text-sm font-semibold">
-                      Cliente existente
+                      Cliente existente*
                     </label>
                     <Select
                       options={customerOptions}

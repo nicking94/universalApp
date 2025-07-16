@@ -102,7 +102,7 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
       if (sale.credit) {
         commands.push(0x1b, 0x61, 0x01);
         commands.push(0x1b, 0x21, 0x08);
-        pushText(commands, "** VENTA FIADA **\n");
+        pushText(commands, "** CUENTA CORRIENTE **\n");
         commands.push(0x1b, 0x21, 0x00);
 
         if (sale.customerName) {
@@ -279,7 +279,7 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
         )}
         {sale.credit && (
           <div className="text-center font-bold text-red-500 mb-2 border-t border-black pt-2">
-            ** VENTA FIADA **
+            ** CUENTA CORRIENTE **
             {sale.customerName && <p>Cliente: {sale.customerName}</p>}
           </div>
         )}

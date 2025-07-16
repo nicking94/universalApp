@@ -102,7 +102,6 @@ const CuentasCorrientesPage = () => {
     { value: "EFECTIVO", label: "Efectivo" },
     { value: "TRANSFERENCIA", label: "Transferencia" },
     { value: "TARJETA", label: "Tarjeta" },
-    { value: "CHEQUE", label: "Cheque" },
   ];
 
   const uniqueCustomers = Object.keys(salesByCustomer);
@@ -164,8 +163,9 @@ const CuentasCorrientesPage = () => {
 
     // Solo contar pagos no eliminados (cheques cobrados y otros métodos)
     const totalPayments = customerPayments.reduce((sum, p) => {
+      // No sumar cheques pendientes o eliminados
       if (p.method === "CHEQUE" && p.checkStatus !== "cobrado") {
-        return sum; // No sumar cheques pendientes
+        return sum;
       }
       return sum + p.amount;
     }, 0);
@@ -179,7 +179,7 @@ const CuentasCorrientesPage = () => {
     const salePayments = payments.filter((p) => p.saleId === sale.id);
 
     const totalPayments = salePayments.reduce((sum, p) => {
-      // No contar cheques pendientes como pago
+      // No contar cheques pendientes o eliminados
       if (p.method === "CHEQUE" && p.checkStatus !== "cobrado") {
         return sum;
       }
@@ -333,7 +333,6 @@ const CuentasCorrientesPage = () => {
   };
   const handleDeleteCheck = async (checkId: number) => {
     try {
-      // Obtener el cheque antes de eliminarlo
       const cheque = await db.payments.get(checkId);
       if (!cheque) {
         showNotification("Cheque no encontrado", "error");
@@ -343,45 +342,59 @@ const CuentasCorrientesPage = () => {
       // Eliminar el cheque
       await db.payments.delete(checkId);
 
-      // Actualizar la información del cheque en la venta correspondiente
-
+      // Actualizar el estado de la venta relacionada
       if (cheque.saleId) {
         const sale = await db.sales.get(cheque.saleId);
-        if (sale && sale.chequeInfo) {
-          await db.sales.update(cheque.saleId, {
-            paid: false, // Marcar como no pagada ya que eliminamos un pago
-            chequeInfo: undefined, // Usar undefined en lugar de null
-          } as Partial<CreditSale>);
+        if (sale) {
+          // Calcular el nuevo estado de pago
+          const remainingPayments = await db.payments
+            .where("saleId")
+            .equals(cheque.saleId)
+            .toArray();
+
+          const totalPaid = remainingPayments.reduce((sum, p) => {
+            if (p.method === "CHEQUE" && p.checkStatus !== "cobrado") {
+              return sum;
+            }
+            return sum + p.amount;
+          }, 0);
+
+          const updates: Partial<CreditSale> = {
+            paid: totalPaid >= sale.total - 0.01, // Considerar márgenes de redondeo
+          };
+
+          // Si el cheque eliminado era el único pago, limpiar chequeInfo
+          if (remainingPayments.length === 0) {
+            updates.chequeInfo = undefined;
+          }
+
+          await db.sales.update(cheque.saleId, updates);
         }
       }
 
-      // Actualizar el estado local
-      const updatedPayments = await db.payments.toArray();
-      const updatedSales = (await db.sales.toArray()).filter(
-        (s) => s.credit
-      ) as CreditSale[];
+      // Actualizar estados locales
+      const [updatedPayments, updatedSales] = await Promise.all([
+        db.payments.toArray(),
+        db.sales.toArray(),
+      ]);
 
       setPayments(updatedPayments);
-      setCreditSales(updatedSales);
+      setCreditSales(updatedSales.filter((s) => s.credit) as CreditSale[]);
 
-      // Actualizar los cheques del cliente en el modal
+      // Actualizar cheques del cliente en el modal
       setCurrentCustomerCheques(
         currentCustomerCheques.filter((c) => c.id !== checkId)
       );
 
-      // Si estamos viendo la info del cliente, actualizarla
+      // Actualizar información del cliente si está abierto el modal
       if (currentCustomerInfo) {
         const customerSales = updatedSales.filter(
-          (s) => s.customerName === currentCustomerInfo.name
-        );
+          (s) => s.credit && s.customerName === currentCustomerInfo.name
+        ) as CreditSale[];
 
         setCurrentCustomerInfo({
           ...currentCustomerInfo,
-          balance:
-            customerSales.reduce((total, sale) => total + sale.total, 0) -
-            updatedPayments
-              .filter((p) => customerSales.some((s) => s.id === p.saleId))
-              .reduce((sum, p) => sum + p.amount, 0),
+          balance: calculateCustomerBalance(currentCustomerInfo.name),
           sales: customerSales,
         });
       }

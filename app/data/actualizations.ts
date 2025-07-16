@@ -24,9 +24,15 @@ export const systemActualizations: Actualization[] = [
   },
   {
     id: 3,
-    title: `Versión 1.4.3`,
+    title: `Versión 1.4.4`,
     message:
-      "- Cambiado el nombre de FIADOS a CUENTAS CORRIENTES\n- Agregado el campo TEMPORADA en el rubro de INDUMENTARIA\n- Mejoras visuales.",
+      "- Cambiado el nombre de FIADOS a CUENTAS CORRIENTES\n- Agregado el campo TEMPORADA\n- Mejoras visuales.",
+    date: new Date().toISOString(),
+  },
+  {
+    id: 4,
+    title: `Versión 1.4.4`,
+    message: "- Se agregó el método de pago CHEQUE\n- Correciones varias.",
     date: new Date().toISOString(),
   },
 ];
