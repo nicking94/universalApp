@@ -398,7 +398,10 @@ const ProveedoresPage = () => {
               <tbody className={`bg-white text-gray_b divide-y divide-gray_xl`}>
                 {currentItems.length > 0 ? (
                   currentItems.map((supplier) => (
-                    <tr key={supplier.id}>
+                    <tr
+                      key={supplier.id}
+                      className="hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
+                    >
                       <td className="capitalize p-2 text-left  border border-gray_xl font-semibold">
                         {supplier.companyName}
                       </td>
@@ -564,7 +567,7 @@ const ProveedoresPage = () => {
                     {filteredAvailableProducts.map((product) => (
                       <div
                         key={product.id}
-                        className={`p-2 border rounded hover:bg-blue_xl dark:hover:bg-gray_m flex justify-between items-center `}
+                        className={`p-2 border rounded hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b flex justify-between items-center `}
                       >
                         <div className="flex-grow ">
                           <div className="flex justify-between">
@@ -615,7 +618,7 @@ const ProveedoresPage = () => {
                     {assignedProducts.map((product) => (
                       <div
                         key={product.id}
-                        className="p-2 border hover:bg-blue_xl dark:hover:bg-gray_m rounded"
+                        className="p-2 border hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b rounded"
                       >
                         <div className="flex justify-between items-center">
                           <div>

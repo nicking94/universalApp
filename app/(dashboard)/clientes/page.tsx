@@ -369,7 +369,10 @@ const ClientesPage = () => {
               >
                 {currentCustomers.length > 0 ? (
                   currentCustomers.map((customer) => (
-                    <tr key={customer.id}>
+                    <tr
+                      key={customer.id}
+                      className="hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
+                    >
                       <td className="font-semibold p-2 border border-gray_xl text-start">
                         {customer.name}
                       </td>
@@ -625,7 +628,7 @@ const ClientesPage = () => {
                             {selectedBudget.items.map((item, index) => (
                               <tr
                                 key={index}
-                                className=" text-gray_b dark:text-white"
+                                className=" text-gray_b dark:text-white hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
                               >
                                 <td className="p-2 border">
                                   {item.productName}
@@ -672,7 +675,10 @@ const ClientesPage = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray_xl text-gray_b">
                     {customerBudgets.map((budget) => (
-                      <tr key={budget.id}>
+                      <tr
+                        key={budget.id}
+                        className="hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
+                      >
                         <td className="p-2 border border-gray_xl text-start">
                           {new Date(budget.date).toLocaleDateString("es-AR")}
                         </td>

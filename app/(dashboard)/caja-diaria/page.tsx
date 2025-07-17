@@ -93,6 +93,9 @@ const CajaDiariaPage = () => {
 
   const getFilteredMovements = () => {
     return selectedDayMovements.filter((movement) => {
+      if (movement.paymentMethod === "CHEQUE" && movement.isCreditPayment) {
+        return true;
+      }
       const typeMatch = filterType === "TODOS" || movement.type === filterType;
 
       const paymentMatch =
@@ -112,7 +115,11 @@ const CajaDiariaPage = () => {
 
     return {
       totalIngresos: filtered
-        .filter((m) => m.type === "INGRESO")
+        .filter(
+          (m) =>
+            m.type === "INGRESO" ||
+            (m.paymentMethod === "CHEQUE" && m.isCreditPayment)
+        )
         .reduce((sum, m) => sum + (Number(m.amount) || 0), 0),
       totalEgresos: filtered
         .filter((m) => m.type === "EGRESO")
@@ -411,6 +418,7 @@ const CajaDiariaPage = () => {
 
       const processedMovementIds = new Set();
 
+      // Modifica esta parte en getDailySummary
       movements.forEach((movement) => {
         if (processedMovementIds.has(movement.id)) return;
         processedMovementIds.add(movement.id);
@@ -424,6 +432,8 @@ const CajaDiariaPage = () => {
           summary[date].gananciaNeta += Number(movement.profit) || 0;
         } else {
           summary[date].egresos += amount;
+          // Añade esta línea para restar la ganancia en devoluciones
+          summary[date].gananciaNeta -= Math.abs(Number(movement.profit) || 0);
         }
       });
       summary[date].ganancia = summary[date].ingresos - summary[date].egresos;
@@ -778,7 +788,7 @@ const CajaDiariaPage = () => {
         <div className="max-h-[50vh] overflow-y-auto">
           <table className="min-w-full divide-y divide-gray_l">
             <thead className="bg-gradient-to-bl from-blue_m to-blue_b text-white">
-              <tr className="text-xs lg:text-md 2xl:text-lg">
+              <tr className="text-xs lg:text-md 2xl:text-lg ">
                 <th className="p-2 text-left text-xs font-medium tracking-wider">
                   Tipo
                 </th>
@@ -802,7 +812,9 @@ const CajaDiariaPage = () => {
                 Object.values(groupedMovements).map((movement, index) => (
                   <tr
                     key={index}
-                    className={movement.type === "EGRESO" ? "bg-red_xl" : ""}
+                    className={` ${
+                      movement.type === "EGRESO" ? "bg-red_xl" : ""
+                    } hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b`}
                   >
                     <td className="whitespace-nowrap text-sm">
                       <span
@@ -1119,7 +1131,7 @@ const CajaDiariaPage = () => {
                       currentItems.map((day, index) => (
                         <tr
                           key={index}
-                          className="text-xs 2xl:text-[.9rem] bg-white text-gray_b border border-gray_xl"
+                          className="text-xs 2xl:text-[.9rem] bg-white text-gray_b border border-gray_xl hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
                         >
                           <td className="font-semibold p-2  border-x border-gray_xltext-start">
                             {format(parseISO(day.date), "dd/MM/yyyy")}

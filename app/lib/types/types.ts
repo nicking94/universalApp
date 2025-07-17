@@ -89,6 +89,7 @@ export type ModalProps = {
 };
 
 export type InputProps = {
+  width?: string;
   label?: string;
   colorLabel?: string;
   type?: string;
@@ -299,22 +300,22 @@ export type DailyCashMovement = {
   rubro?: Rubro;
   unit?:
     | "Unid."
-    | "gr"
+    | "Gr"
     | "Kg"
-    | "ml"
+    | "Ml"
     | "L"
     | "Bulto"
     | "Caja"
     | "Cajón"
-    | "mm"
-    | "cm"
-    | "m"
-    | "m²"
-    | "m³"
-    | "pulg"
-    | "docena"
-    | "ciento"
-    | "ton"
+    | "Mm"
+    | "Cm"
+    | "M"
+    | "M²"
+    | "M³"
+    | "Pulg"
+    | "Docena"
+    | "Ciento"
+    | "Ton"
     | "V"
     | "A"
     | "W";
@@ -366,6 +367,17 @@ export interface CreditSale extends Sale {
     date: string;
   };
 }
+export type ProductReturn = {
+  id: number;
+  productId: number;
+  productName: string;
+  reason: string;
+  date: string;
+  stockAdded: number;
+  amount: number;
+  profit: number;
+  rubro: Rubro;
+};
 
 export interface Payment {
   id: number;

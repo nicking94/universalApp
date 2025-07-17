@@ -141,15 +141,18 @@ const Metrics = () => {
             .reduce((sum, m) => sum + m.amount, 0);
 
           const ganancia = filteredMovements
-            .filter((m) => m.type === "INGRESO")
+            .filter(
+              (m) =>
+                m.type === "INGRESO" ||
+                (m.type === "EGRESO" && (m.profit ?? 0) < 0)
+            )
             .reduce((sum, m) => {
-              const productsProfit = m.profit || 0;
-
+              const productsProfit = m.profit ?? 0;
               return sum + productsProfit;
             }, 0);
 
           const egresos = filteredMovements
-            .filter((m) => m.type === "EGRESO")
+            .filter((m) => m.type === "EGRESO" && (m.profit ?? 0) >= 0)
             .reduce((sum, m) => sum + m.amount, 0);
 
           return {
@@ -673,7 +676,7 @@ const Metrics = () => {
                     }
                   }}
                   isDisabled={rubro === "indumentaria"}
-                  className={`text-gray_m min-w-40 dark:text-white ${
+                  className={`text-gray_m min-w-40  ${
                     rubro === "indumentaria"
                       ? "opacity-50 cursor-not-allowed"
                       : ""
@@ -772,7 +775,7 @@ const Metrics = () => {
                     }
                   }}
                   isDisabled={rubro === "indumentaria"}
-                  className={`react-select-container text-gray_m min-w-40 dark:text-white ${
+                  className={`react-select-container text-gray_m min-w-40 ${
                     rubro === "indumentaria"
                       ? "opacity-50 cursor-not-allowed"
                       : ""

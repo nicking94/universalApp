@@ -1303,7 +1303,7 @@ const VentasPage = () => {
                     return (
                       <tr
                         key={sale.id || Date.now()}
-                        className=" text-xs 2xl:text-[.9rem] bg-white text-gray_b border border-gray_xl"
+                        className=" text-xs 2xl:text-[.9rem] bg-white text-gray_b border border-gray_xl hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
                       >
                         <td
                           className="font-semibold px-2 text-start capitalize border border-gray_xl truncate max-w-[200px]"
@@ -1484,7 +1484,7 @@ const VentasPage = () => {
           }
         >
           <div className="overflow-y-auto">
-            <div className="flex flex-col min-h-[50vh] 2xl:min-h-[60vh] max-h-[50vh] 2xl:max-h-[60vh]  overflow-y-auto">
+            <div className="flex flex-col min-h-[50vh] 2xl:min-h-[60vh] max-h-[50vh] 2xl:max-h-[55vh]  overflow-y-auto">
               <form
                 onSubmit={handleConfirmAddSale}
                 className="flex flex-col gap-2"
@@ -1571,7 +1571,7 @@ const VentasPage = () => {
                         {newSale.products.map((product) => {
                           return (
                             <tr
-                              className="text-sm border-b border-gray-xl"
+                              className="text-sm border-b border-gray-xl hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
                               key={product.id}
                             >
                               <td className=" p-2">

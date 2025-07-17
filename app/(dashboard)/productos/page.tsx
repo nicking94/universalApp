@@ -5,8 +5,10 @@ import Modal from "@/app/components/Modal";
 import Notification from "@/app/components/Notification";
 import {
   ClothingSizeOption,
+  DailyCashMovement,
   Product,
   ProductFilters,
+  ProductReturn,
   Rubro,
   UnitOption,
 } from "@/app/lib/types/types";
@@ -29,6 +31,11 @@ import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
 import { usePagination } from "@/app/context/PaginationContext";
 import BarcodeGenerator from "@/app/components/BarcodeGenerator";
 import AdvancedFilterPanel from "@/app/components/AdvancedFilterPanel";
+import {
+  convertFromBaseUnit,
+  convertToBaseUnit,
+} from "@/app/lib/utils/calculations";
+import { getLocalDateString } from "@/app/lib/utils/getLocalDate";
 
 const clothingSizes: ClothingSizeOption[] = [
   { value: "XXS", label: "XXS" },
@@ -114,7 +121,147 @@ const ProductsPage = () => {
     useState(false);
   const [newBrand, setNewBrand] = useState("");
   const [newColor, setNewColor] = useState("");
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+  const [returnReason, setReturnReason] = useState("");
+  const [selectedReturnProduct, setSelectedReturnProduct] =
+    useState<Product | null>(null);
+  const [returns, setReturns] = useState<ProductReturn[]>([]);
+  const [showReturnsHistory, setShowReturnsHistory] = useState(false);
+  const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
+  const [returnQuantity, setReturnQuantity] = useState<number>(0);
+  const [returnUnit, setReturnUnit] = useState<string>("");
 
+  const handleReturnProduct = async () => {
+    if (!selectedReturnProduct) {
+      showNotification("Por favor seleccione un producto", "error");
+      return;
+    }
+
+    try {
+      // Obtener la cantidad actual del stock
+      const currentStock = selectedReturnProduct.stock;
+
+      // Validar que la cantidad a devolver sea válida
+      if (returnQuantity <= 0) {
+        showNotification("La cantidad debe ser mayor a 0", "error");
+        return;
+      }
+
+      // Convertir la cantidad a devolver a la unidad base del producto
+      const baseQuantity = convertToBaseUnit(returnQuantity, returnUnit);
+      const currentStockInBase = convertToBaseUnit(
+        currentStock,
+        selectedReturnProduct.unit
+      );
+
+      // Obtener la caja diaria actual
+      const today = getLocalDateString();
+      const dailyCash = await db.dailyCashes.get({ date: today });
+
+      if (!dailyCash) {
+        showNotification("No hay caja abierta para hoy", "error");
+        return;
+      }
+
+      // Calcular el monto a restar (precio de venta * cantidad)
+      const amountToSubtract = selectedReturnProduct.price * returnQuantity;
+
+      // Calcular la ganancia a restar (precio de venta - precio de costo) * cantidad
+      const profitToSubtract =
+        (selectedReturnProduct.price - selectedReturnProduct.costPrice) *
+        returnQuantity;
+
+      // Crear movimiento de egreso para la devolución
+      const returnMovement: DailyCashMovement = {
+        id: Date.now(),
+        amount: amountToSubtract,
+        description: `Devolución: ${getDisplayProductName(
+          selectedReturnProduct,
+          rubro,
+          false
+        )} - ${returnReason.trim() || "Sin motivo"}`,
+        type: "EGRESO",
+        paymentMethod: "EFECTIVO", // O el método de pago original si lo tienes
+        date: new Date().toISOString(),
+        productId: selectedReturnProduct.id,
+        productName: getDisplayProductName(selectedReturnProduct, rubro, false),
+        costPrice: selectedReturnProduct.costPrice,
+        sellPrice: selectedReturnProduct.price,
+        quantity: returnQuantity,
+        profit: -profitToSubtract, // Ganancia negativa
+        rubro: selectedReturnProduct.rubro || rubro,
+        unit: selectedReturnProduct.unit,
+      };
+
+      // Actualizar la caja diaria
+      const updatedCash = {
+        ...dailyCash,
+        movements: [...dailyCash.movements, returnMovement],
+        totalExpense: (dailyCash.totalExpense || 0) + amountToSubtract,
+        totalProfit: (dailyCash.totalProfit || 0) - profitToSubtract,
+      };
+
+      await db.dailyCashes.update(dailyCash.id, updatedCash);
+
+      // Actualizar el stock del producto (SUMAR la cantidad devuelta)
+      const updatedStock = convertFromBaseUnit(
+        currentStockInBase + baseQuantity, // Cambiado de - a +
+        selectedReturnProduct.unit
+      );
+      await db.products.update(selectedReturnProduct.id, {
+        stock: parseFloat(updatedStock.toFixed(3)),
+      });
+
+      // Registrar la devolución
+      const newReturn: ProductReturn = {
+        id: Date.now(),
+        productId: selectedReturnProduct.id,
+        productName: getDisplayProductName(selectedReturnProduct, rubro, false),
+        reason: returnReason.trim() || "Sin motivo",
+        date: new Date().toISOString(),
+        stockAdded: parseFloat(
+          convertFromBaseUnit(baseQuantity, selectedReturnProduct.unit).toFixed(
+            3
+          )
+        ),
+        amount: amountToSubtract,
+        profit: profitToSubtract,
+        rubro: selectedReturnProduct.rubro || rubro,
+      };
+
+      await db.returns.add(newReturn);
+      setReturns((prev) => [...prev, newReturn]);
+
+      // Actualizar la lista de productos
+      setProducts(
+        products.map((p) =>
+          p.id === selectedReturnProduct.id ? { ...p, stock: updatedStock } : p
+        )
+      );
+
+      showNotification(
+        `Producto ${getDisplayProductName(
+          selectedReturnProduct
+        )} devuelto correctamente. Stock actualizado: ${updatedStock} ${
+          selectedReturnProduct.unit
+        }. Monto restado: ${formatCurrency(amountToSubtract)}`,
+        "success"
+      );
+
+      // Resetear el formulario
+      resetReturnData();
+      setIsReturnModalOpen(false);
+    } catch (error) {
+      console.error("Error al devolver producto:", error);
+      showNotification("Error al devolver el producto", "error");
+    }
+  };
+  const resetReturnData = () => {
+    setSelectedReturnProduct(null);
+    setReturnReason("");
+    setReturnQuantity(0);
+    setReturnUnit("");
+  };
   const handleSort = (sort: {
     field: keyof Product;
     direction: "asc" | "desc";
@@ -159,6 +306,28 @@ const ProductsPage = () => {
     const products = await db.products.where("rubro").equals(rubro).count();
     return products >= 20;
   };
+  const CONVERSION_FACTORS = {
+    Gr: { base: "Kg", factor: 0.001 },
+    Kg: { base: "Kg", factor: 1 },
+    Ton: { base: "Kg", factor: 1000 },
+    Ml: { base: "L", factor: 0.001 },
+    L: { base: "L", factor: 1 },
+    Mm: { base: "M", factor: 0.001 },
+    Cm: { base: "M", factor: 0.01 },
+    Pulg: { base: "M", factor: 0.0254 },
+    M: { base: "M", factor: 1 },
+    "Unid.": { base: "Unid.", factor: 1 },
+    Docena: { base: "Unid.", factor: 12 },
+    Ciento: { base: "Unid.", factor: 100 },
+    Bulto: { base: "Bulto", factor: 1 },
+    Caja: { base: "Caja", factor: 1 },
+    Cajón: { base: "Cajón", factor: 1 },
+    "M²": { base: "M²", factor: 1 },
+    "M³": { base: "M³", factor: 1 },
+    V: { base: "V", factor: 1 },
+    A: { base: "A", factor: 1 },
+    W: { base: "W", factor: 1 },
+  } as const;
   const sortedProducts = useMemo(() => {
     let filtered = [...products];
 
@@ -354,6 +523,18 @@ const ProductsPage = () => {
         </button>
       </div>
     );
+  };
+  const getCompatibleUnits = (productUnit: string): UnitOption[] => {
+    const productUnitInfo =
+      CONVERSION_FACTORS[productUnit as keyof typeof CONVERSION_FACTORS];
+    if (!productUnitInfo) return unitOptions.filter((u) => !u.convertible);
+
+    return unitOptions.filter((option) => {
+      if (!option.convertible) return false;
+      const optionInfo =
+        CONVERSION_FACTORS[option.value as keyof typeof CONVERSION_FACTORS];
+      return optionInfo?.base === productUnitInfo.base;
+    });
   };
 
   const getUniqueOptions = (field: keyof Product) => {
@@ -719,6 +900,17 @@ const ProductsPage = () => {
     }
   };
   useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F3") {
+        e.preventDefault();
+        setIsSelectionModalOpen(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+  useEffect(() => {
     if (editingProduct) {
       setIsSaveDisabled(!hasChanges(editingProduct, newProduct));
     } else {
@@ -733,35 +925,38 @@ const ProductsPage = () => {
   }, [newProduct, editingProduct]);
 
   useEffect(() => {
-    let isMounted = true;
-
     const fetchData = async () => {
       try {
         const storedProducts = await db.products.toArray();
-        if (isMounted) {
-          const cleanedProducts = storedProducts.map((p) => ({
-            ...p,
-            id: Number(p.id),
+        const storedReturns = await db.returns.toArray();
 
-            customCategories: (p.customCategories || []).filter(
-              (cat) => cat.name && cat.name.trim()
-            ),
-          }));
+        setProducts(
+          storedProducts
+            .map((p) => ({
+              ...p,
+              id: Number(p.id),
+              customCategories: (p.customCategories || []).filter(
+                (cat) => cat.name && cat.name.trim()
+              ),
+            }))
+            .sort((a, b) => b.id - a.id)
+        );
 
-          setProducts(cleanedProducts.sort((a, b) => b.id - a.id));
-          await loadCustomCategories();
-        }
+        setReturns(
+          storedReturns.map((r) => ({
+            ...r,
+            id: Number(r.id),
+          }))
+        );
+
+        await loadCustomCategories();
       } catch (error) {
-        console.error("Error fetching products:", error);
-        showNotification("Error al cargar los productos", "error");
+        console.error("Error fetching data:", error);
+        showNotification("Error al cargar los datos", "error");
       }
     };
 
     fetchData();
-
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
   useEffect(() => {
@@ -836,18 +1031,27 @@ const ProductsPage = () => {
           </div>
           <div className="w-full flex justify-end items-center gap-2 ">
             <Button
-              text="Ver Precio [F5]"
-              colorText="text-white"
-              colorTextHover="text-white"
-              onClick={handleOpenPriceModal}
-              hotkey="F5"
-            />
-            <Button
               text="Añadir Producto [F2]"
               colorText="text-white"
               colorTextHover="text-white"
               onClick={handleAddProduct}
               hotkey="F2"
+            />
+            <Button
+              text="Devoluciones [F3]"
+              colorText="text-white"
+              colorTextHover="text-white"
+              onClick={() => setIsSelectionModalOpen(true)}
+              hotkey="F3"
+            >
+              <PackageX size={20} />
+            </Button>
+            <Button
+              text="Ver Precio [F4]"
+              colorText="text-white"
+              colorTextHover="text-white"
+              onClick={handleOpenPriceModal}
+              hotkey="F4"
             />
           </div>
         </div>
@@ -912,7 +1116,7 @@ const ProductsPage = () => {
                       return (
                         <tr
                           key={index}
-                          className={`text-xs 2xl:text-[.9rem] border border-gray_xl ${
+                          className={`text-xs 2xl:text-[.9rem] border border-gray_xl hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b ${
                             isExpired
                               ? "border-l-2 border-l-red_m text-gray_b bg-white animate-pulse"
                               : expiredToday
@@ -1085,7 +1289,244 @@ const ProductsPage = () => {
             />
           )}
         </div>
+        <Modal
+          isOpen={isSelectionModalOpen}
+          onClose={() => setIsSelectionModalOpen(false)}
+          title="Devoluciones"
+          bgColor="bg-white dark:bg-gray_b"
+          buttons={
+            <>
+              <Button
+                text="Cancelar"
+                colorText="text-gray_b dark:text-white"
+                colorTextHover="hover:dark:text-white"
+                colorBg="bg-transparent dark:bg-gray_m"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                onClick={() => setIsSelectionModalOpen(false)}
+              />
+            </>
+          }
+        >
+          <div className="flex  justify-center items-center gap-4 p-4">
+            <Button
+              text="Devolver Producto"
+              colorText="text-white"
+              colorTextHover="text-white"
+              onClick={() => {
+                setIsSelectionModalOpen(false);
+                setIsReturnModalOpen(true);
+              }}
+            />
+            <Button
+              text="Ver Historial"
+              colorText="text-white"
+              colorTextHover="text-white"
+              onClick={() => {
+                setIsSelectionModalOpen(false);
+                setShowReturnsHistory(true);
+              }}
+            />
+          </div>
+        </Modal>
+        <Modal
+          isOpen={showReturnsHistory}
+          onClose={() => setShowReturnsHistory(false)}
+          title="Historial de Devoluciones"
+          bgColor="bg-white dark:bg-gray_b"
+          buttons={
+            <Button
+              text="Volver"
+              colorText="text-gray_b dark:text-white"
+              colorTextHover="hover:dark:text-white"
+              colorBg="bg-transparent dark:bg-gray_m"
+              colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+              onClick={() => {
+                setShowReturnsHistory(false);
+                setIsSelectionModalOpen(true);
+              }}
+              hotkey="Escape"
+            />
+          }
+        >
+          <div className="max-h-[55vh] overflow-y-auto">
+            {returns.length > 0 ? (
+              <table className="w-full border-collapse">
+                <thead className="bg-blue_m text-white">
+                  <tr>
+                    <th className="p-2 text-left">Producto</th>
+                    <th className="p-2 text-left">Motivo</th>
+                    <th className="p-2">Cantidad</th>
 
+                    <th className="p-2">Fecha</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray_xl">
+                  {returns
+                    .sort(
+                      (a, b) =>
+                        new Date(b.date).getTime() - new Date(a.date).getTime()
+                    )
+                    .map((ret, index) => (
+                      <tr
+                        key={index}
+                        className="hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
+                      >
+                        <td className="p-2">{ret.productName}</td>
+                        <td className="p-2">{ret.reason}</td>
+                        <td className="p-2 text-center">{ret.stockAdded}</td>
+
+                        <td className="p-2 text-center">
+                          {format(parseISO(ret.date), "dd/MM/yyyy HH:mm", {
+                            locale: es,
+                          })}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="text-center py-4">
+                <PackageX size={48} className="mx-auto text-gray_m mb-2" />
+                <p>No hay devoluciones registradas</p>
+              </div>
+            )}
+          </div>
+        </Modal>
+        <Modal
+          isOpen={isReturnModalOpen}
+          onClose={() => {
+            setIsReturnModalOpen(false);
+            resetReturnData();
+          }}
+          title="Devolver Producto [F3]"
+          bgColor="bg-white dark:bg-gray_b"
+          buttons={
+            <>
+              <Button
+                text="Confirmar Devolución"
+                colorText="text-white"
+                colorTextHover="text-white"
+                onClick={handleReturnProduct}
+                hotkey="Enter"
+              />
+              <Button
+                text="Volver"
+                colorText="text-gray_b dark:text-white"
+                colorTextHover="hover:dark:text-white"
+                colorBg="bg-transparent dark:bg-gray_m"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                onClick={() => {
+                  setIsReturnModalOpen(false);
+                  resetReturnData();
+                  setIsSelectionModalOpen(true);
+                }}
+                hotkey="Escape"
+              />
+            </>
+          }
+        >
+          <div className="flex flex-col gap-4">
+            <div>
+              <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                Seleccionar Producto
+              </label>
+              <Select
+                options={sortedProducts.map((product) => ({
+                  value: product,
+                  label: getDisplayProductName(product, rubro, false),
+                }))}
+                value={
+                  selectedReturnProduct
+                    ? {
+                        value: selectedReturnProduct,
+                        label: getDisplayProductName(
+                          selectedReturnProduct,
+                          rubro,
+                          false
+                        ),
+                      }
+                    : null
+                }
+                onChange={(selectedOption) => {
+                  setSelectedReturnProduct(selectedOption?.value || null);
+                }}
+                placeholder="Buscar producto..."
+                className="text-gray_m"
+              />
+            </div>
+
+            {selectedReturnProduct && (
+              <div className="mt-2 p-3 bg-blue_xl dark:bg-gray_m rounded-lg">
+                <p className="font-semibold">Producto seleccionado:</p>
+                <p>
+                  {getDisplayProductName(selectedReturnProduct, rubro, false)}
+                </p>
+                <p>
+                  Stock actual: {selectedReturnProduct.stock}{" "}
+                  {selectedReturnProduct.unit}
+                </p>
+              </div>
+            )}
+
+            {selectedReturnProduct && (
+              <div className="flex flex-col gap-2">
+                <label className="block text-gray_m dark:text-white text-sm font-semibold ">
+                  Cantidad a devolver
+                </label>
+                <div className="flex max-w-75">
+                  <Input
+                    width="w-40"
+                    type="number"
+                    value={returnQuantity || ""}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === "" || !isNaN(Number(value))) {
+                        setReturnQuantity(value === "" ? 1 : Number(value));
+                      }
+                    }}
+                    step={
+                      selectedReturnProduct?.unit === "Kg" ||
+                      selectedReturnProduct?.unit === "L"
+                        ? "0.001"
+                        : "1"
+                    }
+                  />
+                  <Select
+                    options={getCompatibleUnits(
+                      selectedReturnProduct?.unit || "Unid."
+                    )}
+                    noOptionsMessage={() => "No se encontraron opciones"}
+                    value={unitOptions.find(
+                      (opt) =>
+                        opt.value ===
+                        (returnUnit || selectedReturnProduct?.unit)
+                    )}
+                    onChange={(selectedOption) => {
+                      setReturnUnit(
+                        selectedOption?.value || selectedReturnProduct?.unit
+                      );
+                    }}
+                    className="text-gray_m w-60"
+                    isDisabled
+                  />
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                Motivo de la devolución
+              </label>
+              <Input
+                type="text"
+                name="returnReason"
+                placeholder="Ej: Producto defectuoso, cambio de talla, etc."
+                value={returnReason}
+                onChange={(e) => setReturnReason(e.target.value)}
+              />
+            </div>
+          </div>
+        </Modal>
         <Modal
           isOpen={isOpenModal}
           onConfirm={handleConfirmAddProduct}

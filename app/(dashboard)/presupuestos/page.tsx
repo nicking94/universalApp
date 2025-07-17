@@ -1025,7 +1025,10 @@ const PresupuestosPage = () => {
               <tbody className="bg-white text-gray_b divide-y divide-gray_xl ">
                 {currentBudgets.length > 0 ? (
                   currentBudgets.map((budget) => (
-                    <tr key={budget.id}>
+                    <tr
+                      key={budget.id}
+                      className="hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
+                    >
                       <td className="font-semibold p-2 border border-gray_xl text-start">
                         {budget.customerName}
                       </td>
@@ -1431,7 +1434,10 @@ const PresupuestosPage = () => {
                             (p) => p.id === item.productId
                           );
                           return (
-                            <tr key={item.productId}>
+                            <tr
+                              key={item.productId}
+                              className="hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
+                            >
                               <td className="p-2 whitespace-nowrap">
                                 {item.productName}
                                 {item.size && ` (${item.size})`}

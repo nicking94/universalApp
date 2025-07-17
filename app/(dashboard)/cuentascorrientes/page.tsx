@@ -302,18 +302,74 @@ const CuentasCorrientesPage = () => {
   };
   const handleMarkCheckAsPaid = async (checkId: number) => {
     try {
-      // Actualizar el pago en la tabla payments
-      await db.payments.update(checkId, { checkStatus: "cobrado" });
-
-      // Actualizar la información del cheque en la venta correspondiente
       const payment = await db.payments.get(checkId);
-      if (payment) {
-        await db.sales.update(payment.saleId, {
-          "chequeInfo.status": "cobrado",
-        } as Partial<CreditSale>);
+      if (!payment) return;
+
+      // NUEVO: obtener la venta original
+      const sale = await db.sales.get(payment.saleId);
+      if (!sale) return;
+
+      // Calcular ganancia total acumulada
+      const totalProfit = sale.products.reduce((sum, product) => {
+        const cost = product.costPrice || 0;
+        return sum + (product.price - cost) * product.quantity;
+      }, 0);
+
+      // Calcular la proporción del cheque respecto al total de la venta
+      const paymentRatio = payment.amount / sale.total;
+      const profitCheque = totalProfit * paymentRatio;
+
+      // Registrar el ingreso en caja diaria
+      const today = getLocalDateString();
+      const dailyCash = await db.dailyCashes.get({ date: today });
+
+      const movement: DailyCashMovement = {
+        id: Date.now(),
+        amount: payment.amount,
+        description: `Cobro de cheque - ${payment.customerName}`,
+        type: "INGRESO",
+        date: new Date().toISOString(),
+        paymentMethod: "CHEQUE",
+        isCreditPayment: true,
+        originalSaleId: payment.saleId,
+        profit: profitCheque, // <-- NUEVO
+        items: sale.products.map((p) => ({
+          productId: p.id,
+          productName: p.name,
+          quantity: p.quantity,
+          unit: p.unit,
+          price: p.price,
+        })),
+      };
+
+      if (dailyCash) {
+        const updatedCash = {
+          ...dailyCash,
+          movements: [...dailyCash.movements, movement],
+          totalIncome: (dailyCash.totalIncome || 0) + payment.amount,
+          totalProfit: (dailyCash.totalProfit || 0) + (profitCheque || 0),
+        };
+        await db.dailyCashes.update(dailyCash.id, updatedCash);
+      } else {
+        await db.dailyCashes.add({
+          id: Date.now(),
+          date: today,
+          initialAmount: 0,
+          movements: [movement],
+          closed: false,
+          totalIncome: payment.amount,
+          totalExpense: 0,
+          totalProfit: profitCheque || 0,
+        });
       }
 
-      // Actualizar el estado local
+      // Actualizar el estado del pago y la venta
+      await db.payments.update(checkId, { checkStatus: "cobrado" });
+      await db.sales.update(payment.saleId, {
+        "chequeInfo.status": "cobrado",
+      } as Partial<CreditSale>);
+
+      // Actualizar estados locales
       const updatedPayments = await db.payments.toArray();
       const updatedSales = await db.sales.toArray();
 
@@ -325,7 +381,10 @@ const CuentasCorrientesPage = () => {
         )
       );
 
-      showNotification("Cheque marcado como cobrado", "success");
+      showNotification(
+        "Cheque marcado como cobrado e ingresado en caja",
+        "success"
+      );
     } catch (error) {
       console.error("Error al actualizar estado del cheque:", error);
       showNotification("Error al actualizar cheque", "error");
@@ -690,7 +749,10 @@ const CuentasCorrientesPage = () => {
                     const oldestSale = sortedSales[0];
 
                     return (
-                      <tr key={customerName}>
+                      <tr
+                        key={customerName}
+                        className="hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
+                      >
                         <td className="font-semibold p-2 border border-gray_xl text-start">
                           {customerName}
                         </td>
@@ -805,7 +867,7 @@ const CuentasCorrientesPage = () => {
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                   setChequeFilter(e.target.value as ChequeFilter)
                 }
-                className="border border-gray_xl rounded p-1"
+                className="border border-gray_xl rounded p-1 text-gray_b bg-white"
               >
                 <option value="todos">Todos</option>
                 <option value="pendiente">Pendientes</option>
@@ -813,9 +875,9 @@ const CuentasCorrientesPage = () => {
               </select>
             </div>
 
-            <div className="max-h-[60vh] overflow-y-auto">
+            <div className="max-h-[55vh] overflow-y-auto">
               <table className="w-full border-collapse">
-                <thead className="bg-gray-100">
+                <thead className="bg-gray_xxl dark:bg-blue_b">
                   <tr>
                     <th className="p-2 border text-left">Monto</th>
                     <th className="p-2 border">Fecha</th>
@@ -832,7 +894,10 @@ const CuentasCorrientesPage = () => {
                         cheque.checkStatus === chequeFilter
                     )
                     .map((cheque, index) => (
-                      <tr key={index} className="border-b">
+                      <tr
+                        key={index}
+                        className="border-b hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
+                      >
                         <td className="p-2 border text-left">
                           {cheque.amount.toLocaleString("es-AR", {
                             style: "currency",
@@ -876,9 +941,9 @@ const CuentasCorrientesPage = () => {
                                 <Button
                                   icon={<Trash size={20} />}
                                   iconPosition="left"
-                                  colorText="text-gray_b"
+                                  colorText="text-gray_b dark:text-red_l"
                                   colorTextHover="hover:text-white"
-                                  colorBg="bg-transparent"
+                                  colorBg="bg-transparent dark:bg-red_b"
                                   colorBgHover="hover:bg-red_m"
                                   px="px-2"
                                   py="py-1"
@@ -1083,7 +1148,7 @@ const CuentasCorrientesPage = () => {
                               {sale.products.map((product, idx) => (
                                 <tr
                                   key={idx}
-                                  className="border-b last:border-b-0"
+                                  className="border-b last:border-b-0 hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
                                 >
                                   <td className="py-1">
                                     {getDisplayProductName(

@@ -24,7 +24,7 @@ export const systemActualizations: Actualization[] = [
   },
   {
     id: 3,
-    title: `Versión 1.4.4`,
+    title: `Versión 1.4.3`,
     message:
       "- Cambiado el nombre de FIADOS a CUENTAS CORRIENTES\n- Agregado el campo TEMPORADA\n- Mejoras visuales.",
     date: new Date().toISOString(),
@@ -33,6 +33,13 @@ export const systemActualizations: Actualization[] = [
     id: 4,
     title: `Versión 1.4.4`,
     message: "- Se agregó el método de pago CHEQUE\n- Correciones varias.",
+    date: new Date().toISOString(),
+  },
+  {
+    id: 5,
+    title: `Versión 1.4.5`,
+    message:
+      "- Se agregó la posibilidad de DEVOLVER productos y un historial de devoluciones. podés verlo en la sección de PRODUCTOS\n- Correciones visuales",
     date: new Date().toISOString(),
   },
 ];

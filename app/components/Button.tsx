@@ -5,7 +5,7 @@ import { ButtonProps } from "../lib/types/types";
 
 const Button: React.FC<ButtonProps> = ({
   width = "w-auto",
-  minwidth = "min-w-[8rem] 2xl:min-w-[11.5rem]",
+  minwidth = "min-w-[7rem] 2xl:min-w-[10rem]",
   height = "h-[2rem] 2xl:h-auto",
   px = "px-3",
   py = "py-2",
@@ -55,7 +55,7 @@ const Button: React.FC<ButtonProps> = ({
       title={title}
       className={`${colorText} ${colorTextHover} ${width} ${minwidth} ${height} ${px} ${py} ${colorBg} ${colorBgHover} ${
         disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
-      } flex items-center justify-center text-xs 2xl:text-sm gap-2 rounded transition-all duration-300 font-normal uppercase  shadow shadow-blue_m`}
+      } flex items-center justify-center text-xs gap-2 rounded transition-all duration-300 font-normal uppercase shadow shadow-blue_m`}
     >
       {icon && iconPosition === "left" && <span>{icon}</span>}
       {text && <span>{text}</span>}

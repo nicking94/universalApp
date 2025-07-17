@@ -16,6 +16,7 @@ const Input: React.FC<InputProps & { icon?: React.ReactNode }> = ({
   border = "border-1 border-gray_xl",
   textPosition = "text-start",
   icon,
+  width = "w-full",
 }) => {
   return (
     <div className="w-full">
@@ -47,7 +48,7 @@ const Input: React.FC<InputProps & { icon?: React.ReactNode }> = ({
           accept={accept}
           className={`${textPosition} ${
             icon ? "pl-10" : "pl-3"
-          }  focus:shadow-lg focus:shadow-gray_xl dark:focus:shadow-gray_m w-full bg-white p-2 rounded-sm placeholder:text-gray_l outline-none text-gray_b ${border} h-[2.39rem] max-h-[2.39rem]`}
+          } ${width}  focus:shadow-lg focus:shadow-gray_xl dark:focus:shadow-gray_m  bg-white p-2 rounded-sm placeholder:text-gray_l outline-none text-gray_b ${border} h-[2.39rem] max-h-[2.39rem]`}
         />
       </div>
     </div>

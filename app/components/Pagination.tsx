@@ -131,7 +131,7 @@ const Pagination: React.FC<
               className={`cursor-pointer p-2 rounded-md ${
                 currentPage === 1
                   ? "text-gray_m dark:text-gray_xl "
-                  : "text-gray_b dark:text-gray_xl hover:bg-blue_xl dark:hover:bg-gray_m"
+                  : "text-gray_b dark:text-gray_xl hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
               }`}
             >
               <ChevronLeft size={20} aria-hidden="true" />
@@ -209,7 +209,7 @@ const Pagination: React.FC<
               className={`cursor-pointer p-2 rounded-md ${
                 currentPage === totalPages
                   ? "text-gray_m dark:text-gray_xl"
-                  : "text-gray_b dark:text-gray_xl hover:bg-blue_xl dark:hover:bg-gray_m"
+                  : "text-gray_b dark:text-gray_xl hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
               }`}
             >
               <ChevronRight size={20} aria-hidden="true" />

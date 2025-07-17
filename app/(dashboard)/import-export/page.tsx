@@ -65,6 +65,7 @@ export default function ImportExportPage() {
         deletedActualizations,
         notifications,
         customCategories: await db.customCategories.toArray(),
+        returns: await db.returns.toArray(),
       };
       const json = JSON.stringify(data, null, 2);
       const blob = new Blob([json], { type: "application/json;charset=utf-8" });
@@ -145,6 +146,7 @@ export default function ImportExportPage() {
           db.deletedActualizations,
           db.notifications,
           db.customCategories,
+          db.returns,
         ],
         async () => {
           await db.theme.clear();
@@ -163,6 +165,7 @@ export default function ImportExportPage() {
           await db.deletedActualizations.clear();
           await db.notifications.clear();
           await db.customCategories.clear();
+          await db.returns.clear();
 
           try {
             await db.theme.bulkAdd(data.theme || []);
@@ -183,6 +186,7 @@ export default function ImportExportPage() {
             );
             await db.notifications.bulkAdd(data.notifications || []);
             await db.customCategories.bulkAdd(data.customCategories || []);
+            await db.returns.bulkAdd(data.returns || []);
           } catch (e) {
             console.error("Error al importar datos:", e);
             throw e;

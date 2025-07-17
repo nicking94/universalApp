@@ -16,6 +16,7 @@ import {
   Rubro,
   CustomCategory,
   NotificationType,
+  ProductReturn,
 } from "../lib/types/types";
 
 class MyDatabase extends Dexie {
@@ -45,13 +46,15 @@ class MyDatabase extends Dexie {
     { id?: number; actualizationId: number },
     number
   >;
+  returns!: Table<ProductReturn, number>;
 
   constructor() {
     super("MyDatabase");
-    this.version(20)
+    this.version(21)
       .stores({
         theme: "id",
         products: "++id, name, barcode, stock, rubro",
+        returns: "++id, productId, date",
         users: "id, username",
         auth: "id, userId",
         sales:
