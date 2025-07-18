@@ -151,7 +151,7 @@ const CustomerNotes = ({
           </div>
         </div>
 
-        <div className="space-y-4 max-h-[50vh] overflow-y-auto">
+        <div className="space-y-4 max-h-[35vh] overflow-y-auto">
           {notes.length > 0 ? (
             notes.map((note) => (
               <div

@@ -452,7 +452,6 @@ const VentasPage = () => {
 
     // Si se marca como cheque, automáticamente se convierte en cuenta corriente
     if (isCheck) {
-      setIsCredit(true);
       setNewSale((prev) => ({
         ...prev,
         paymentMethods: [{ method: "CHEQUE", amount: prev.total }], // Autocompletar con el total
@@ -547,22 +546,14 @@ const VentasPage = () => {
   const handleCreditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const isCredit = e.target.checked;
     setIsCredit(isCredit);
-    setRegisterCheck(false); // Asegurarse de desmarcar también el checkbox de cheque
+    setRegisterCheck(false);
 
-    if (isCredit) {
-      setNewSale((prev) => ({
-        ...prev,
-        manualAmount: 0,
-        total: calculateTotal(prev.products, 0),
-        paymentMethods: [{ method: "EFECTIVO", amount: 0 }], // Resetear a efectivo
-      }));
-    } else {
-      // Cuando se desactiva la cuenta corriente, resetear a efectivo
-      setNewSale((prev) => ({
-        ...prev,
-        paymentMethods: [{ method: "EFECTIVO", amount: prev.total }],
-      }));
-    }
+    setNewSale((prev) => ({
+      ...prev,
+      paymentMethods: isCredit
+        ? [{ method: "EFECTIVO", amount: prev.total }]
+        : [{ method: "EFECTIVO", amount: prev.total }],
+    }));
   };
 
   const handleYearChange = (
@@ -728,10 +719,17 @@ const VentasPage = () => {
   };
   const validatePaymentMethods = (
     paymentMethods: PaymentSplit[],
-    total: number
+    total: number,
+    isCredit: boolean
   ): boolean => {
-    const sum = paymentMethods.reduce((acc, method) => acc + method.amount, 0);
-    return Math.abs(sum - total) < 0.01;
+    if (isCredit) {
+      const sum = paymentMethods.reduce(
+        (acc, method) => acc + method.amount,
+        0
+      );
+      return Math.abs(sum - total) < 0.01;
+    }
+    return true;
   };
 
   const handleConfirmAddSale = async () => {
@@ -746,7 +744,9 @@ const VentasPage = () => {
         return;
       }
     }
-    if (!validatePaymentMethods(newSale.paymentMethods, newSale.total)) {
+    if (
+      !validatePaymentMethods(newSale.paymentMethods, newSale.total, isCredit)
+    ) {
       showNotification(
         "La suma de los métodos de pago no coincide con el total",
         "error"
@@ -921,6 +921,9 @@ const VentasPage = () => {
     });
     setIsCredit(false);
     setRegisterCheck(false);
+    setSelectedCustomer(null);
+    setCustomerName("");
+    setCustomerPhone("");
     setIsOpenModal(false);
   };
   const handleCloseInfoModal = () => {
@@ -1303,7 +1306,7 @@ const VentasPage = () => {
                     return (
                       <tr
                         key={sale.id || Date.now()}
-                        className=" text-xs 2xl:text-[.9rem] bg-white text-gray_b border border-gray_xl hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
+                        className=" text-xs 2xl:text-[.9rem] bg-white text-gray_b border border-gray_xl hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
                       >
                         <td
                           className="font-semibold px-2 text-start capitalize border border-gray_xl truncate max-w-[200px]"
@@ -1484,7 +1487,7 @@ const VentasPage = () => {
           }
         >
           <div className="overflow-y-auto">
-            <div className="flex flex-col min-h-[50vh] 2xl:min-h-[60vh] max-h-[50vh] 2xl:max-h-[55vh]  overflow-y-auto">
+            <div className="flex flex-col min-h-[50vh] 2xl:min-h-[60vh] max-h-[35vh] 2xl:max-h-[55vh]  overflow-y-auto">
               <form
                 onSubmit={handleConfirmAddSale}
                 className="flex flex-col gap-2"
@@ -1571,7 +1574,7 @@ const VentasPage = () => {
                         {newSale.products.map((product) => {
                           return (
                             <tr
-                              className="text-sm border-b border-gray-xl hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
+                              className="text-sm border-b border-gray-xl hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
                               key={product.id}
                             >
                               <td className=" p-2">

@@ -34,12 +34,18 @@ export default function RootLayout({
         <RubroProvider>
           <SidebarProvider>
             <html lang="es">
-              <body
-                className={` ${roboto.variable} antialiased hidden md:block`}
-              >
-                <main>
-                  {children} <SessionChecker />
-                </main>
+              <body className={`${roboto.variable} antialiased`}>
+                <div className="hidden md:block">
+                  <main>
+                    {children}
+                    <SessionChecker />
+                  </main>
+                </div>
+                <div className="md:hidden fixed inset-0 bg-white flex items-center justify-center p-4">
+                  <p className="text-center text-blue_b text-lg font-semibold">
+                    Aplicación no disponible en dispositivos moviles
+                  </p>
+                </div>
               </body>
             </html>
           </SidebarProvider>

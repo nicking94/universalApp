@@ -1027,7 +1027,7 @@ const PresupuestosPage = () => {
                   currentBudgets.map((budget) => (
                     <tr
                       key={budget.id}
-                      className="hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
+                      className="hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
                     >
                       <td className="font-semibold p-2 border border-gray_xl text-start">
                         {budget.customerName}
@@ -1170,7 +1170,7 @@ const PresupuestosPage = () => {
                   ))
                 ) : (
                   <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
-                    <td colSpan={6} className="py-4 text-center">
+                    <td colSpan={7} className="py-4 text-center">
                       <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
                         <FileText size={64} className="mb-4 text-gray_m" />
                         <p className="text-gray_m">
@@ -1436,7 +1436,7 @@ const PresupuestosPage = () => {
                           return (
                             <tr
                               key={item.productId}
-                              className="hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
+                              className="hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
                             >
                               <td className="p-2 whitespace-nowrap">
                                 {item.productName}

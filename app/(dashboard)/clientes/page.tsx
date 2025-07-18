@@ -371,7 +371,7 @@ const ClientesPage = () => {
                   currentCustomers.map((customer) => (
                     <tr
                       key={customer.id}
-                      className="hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
+                      className="hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
                     >
                       <td className="font-semibold p-2 border border-gray_xl text-start">
                         {customer.name}
@@ -608,7 +608,7 @@ const ClientesPage = () => {
                 {selectedBudget.items ? (
                   Array.isArray(selectedBudget.items) &&
                   selectedBudget.items.length > 0 ? (
-                    <div className="flex flex-col justify-between max-h-[50vh]">
+                    <div className="flex flex-col justify-between max-h-[35vh]">
                       <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
                         <table className="w-full border-collapse ">
                           <thead className="bg-gradient-to-bl from-blue_m to-blue_b text-white">
@@ -628,7 +628,7 @@ const ClientesPage = () => {
                             {selectedBudget.items.map((item, index) => (
                               <tr
                                 key={index}
-                                className=" text-gray_b dark:text-white hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
+                                className=" text-gray_b dark:text-white hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
                               >
                                 <td className="p-2 border">
                                   {item.productName}
@@ -677,7 +677,7 @@ const ClientesPage = () => {
                     {customerBudgets.map((budget) => (
                       <tr
                         key={budget.id}
-                        className="hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
+                        className="hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
                       >
                         <td className="p-2 border border-gray_xl text-start">
                           {new Date(budget.date).toLocaleDateString("es-AR")}

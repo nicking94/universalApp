@@ -14,7 +14,7 @@ export default function Home() {
 
   return (
     <div className="flex items-center justify-center min-h-screen capitalize bg-gradient-to-bl from-blue_m to-blue_b">
-      <p className="text-2xl text-white">Cargando aplicación...</p>
+      <p className="text-xl text-white">Cargando aplicación...</p>
     </div>
   );
 }

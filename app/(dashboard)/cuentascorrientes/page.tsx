@@ -10,12 +10,14 @@ import Button from "@/app/components/Button";
 import Notification from "@/app/components/Notification";
 import {
   ChequeFilter,
+  ChequeWithDetails,
   CreditSale,
   Customer,
   DailyCashMovement,
   Payment,
   PaymentMethod,
   PaymentSplit,
+  SaleItem,
 } from "@/app/lib/types/types";
 import SearchBar from "@/app/components/SearchBar";
 import { CheckCircle, Info, Plus, Trash, Wallet } from "lucide-react";
@@ -56,11 +58,9 @@ const CuentasCorrientesPage = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isChequesModalOpen, setIsChequesModalOpen] = useState(false);
   const [currentCustomerCheques, setCurrentCustomerCheques] = useState<
-    Payment[]
+    ChequeWithDetails[]
   >([]);
-  const [chequeFilter, setChequeFilter] = useState<
-    "todos" | "pendiente" | "cobrado"
-  >("todos");
+  const [chequeFilter, setChequeFilter] = useState<ChequeFilter>("todos");
 
   const filteredSales = creditSales
     .filter((sale) => {
@@ -152,7 +152,7 @@ const CuentasCorrientesPage = () => {
 
   const calculateCustomerBalance = (customerName: string) => {
     const customerSales = creditSales.filter(
-      (sale) => sale.customerName === customerName
+      (sale) => sale.customerName === customerName && !sale.chequeInfo
     );
 
     const customerPayments = payments.filter((p) =>
@@ -174,7 +174,7 @@ const CuentasCorrientesPage = () => {
   };
 
   const calculateRemainingBalance = (sale: CreditSale) => {
-    if (!sale) return 0;
+    if (!sale || sale.chequeInfo) return 0;
 
     const salePayments = payments.filter((p) => p.saleId === sale.id);
 
@@ -401,33 +401,25 @@ const CuentasCorrientesPage = () => {
       // Eliminar el cheque
       await db.payments.delete(checkId);
 
-      // Actualizar el estado de la venta relacionada
-      if (cheque.saleId) {
+      // Verificar si era el único pago pendiente de la venta
+      const remainingPayments = await db.payments
+        .where("saleId")
+        .equals(cheque.saleId)
+        .toArray();
+
+      if (remainingPayments.length === 0) {
+        // Si no hay otros pagos, eliminar la venta completa
+        await db.sales.delete(cheque.saleId);
+      } else {
+        // Si hay otros pagos, actualizar el estado de la venta
         const sale = await db.sales.get(cheque.saleId);
         if (sale) {
-          // Calcular el nuevo estado de pago
-          const remainingPayments = await db.payments
-            .where("saleId")
-            .equals(cheque.saleId)
-            .toArray();
-
-          const totalPaid = remainingPayments.reduce((sum, p) => {
-            if (p.method === "CHEQUE" && p.checkStatus !== "cobrado") {
-              return sum;
-            }
-            return sum + p.amount;
-          }, 0);
-
-          const updates: Partial<CreditSale> = {
-            paid: totalPaid >= sale.total - 0.01, // Considerar márgenes de redondeo
-          };
-
-          // Si el cheque eliminado era el único pago, limpiar chequeInfo
-          if (remainingPayments.length === 0) {
-            updates.chequeInfo = undefined;
-          }
-
-          await db.sales.update(cheque.saleId, updates);
+          await db.sales.update(cheque.saleId, {
+            paid: remainingPayments.some(
+              (p) => p.method !== "CHEQUE" || p.checkStatus === "cobrado"
+            ),
+            chequeInfo: undefined,
+          });
         }
       }
 
@@ -543,6 +535,7 @@ const CuentasCorrientesPage = () => {
         updatedSales.filter((sale) => sale.credit === true) as CreditSale[]
       );
       setPayments(updatedPayments);
+
       for (const method of paymentMethods) {
         if (method.amount > 0) {
           const newPayment: Payment = {
@@ -674,21 +667,33 @@ const CuentasCorrientesPage = () => {
 
   const handleOpenChequesModal = async (customerName: string) => {
     try {
-      // Obtener todos los cheques del cliente
       const customerCheques = await db.payments
         .where("method")
         .equals("CHEQUE")
         .and((p) => p.customerName === customerName)
         .toArray();
 
-      // Obtener información adicional de las ventas relacionadas
       const chequesWithDetails = await Promise.all(
         customerCheques.map(async (cheque) => {
           const sale = await db.sales.get(cheque.saleId);
+
+          const saleItems: SaleItem[] =
+            sale?.products?.map((product) => ({
+              productId: product.id,
+              productName: product.name,
+              quantity: product.quantity,
+              unit: product.unit,
+              price: product.price,
+              size: product.size,
+              color: product.color,
+              rubro: product.rubro,
+            })) || [];
+
           return {
             ...cheque,
             saleDate: sale?.date || "",
-            products: sale?.products || [],
+            products: saleItems,
+            saleTotal: sale?.total || 0,
           };
         })
       );
@@ -702,7 +707,7 @@ const CuentasCorrientesPage = () => {
   };
   const handleOpenInfoModal = (sale: CreditSale) => {
     const customerSales = creditSales.filter(
-      (cs) => cs.customerName === sale.customerName
+      (cs) => cs.customerName === sale.customerName && !cs.chequeInfo
     );
 
     setCurrentCustomerInfo({
@@ -751,7 +756,7 @@ const CuentasCorrientesPage = () => {
                     return (
                       <tr
                         key={customerName}
-                        className="hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
+                        className="hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
                       >
                         <td className="font-semibold p-2 border border-gray_xl text-start">
                           {customerName}
@@ -881,8 +886,8 @@ const CuentasCorrientesPage = () => {
                   <tr>
                     <th className="p-2 border text-left">Monto</th>
                     <th className="p-2 border">Fecha</th>
-
                     <th className="p-2 border">Estado</th>
+                    <th className="p-2 border">Productos</th>
                     <th className="p-2 border">Acciones</th>
                   </tr>
                 </thead>
@@ -896,7 +901,7 @@ const CuentasCorrientesPage = () => {
                     .map((cheque, index) => (
                       <tr
                         key={index}
-                        className="border-b hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
+                        className="border-b hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
                       >
                         <td className="p-2 border text-left">
                           {cheque.amount.toLocaleString("es-AR", {
@@ -907,7 +912,6 @@ const CuentasCorrientesPage = () => {
                         <td className="p-2 border text-center">
                           {format(new Date(cheque.date), "dd/MM/yyyy")}
                         </td>
-
                         <td className="p-2 border text-center">
                           <span
                             className={`px-2 py-1 rounded text-xs ${
@@ -921,40 +925,70 @@ const CuentasCorrientesPage = () => {
                             {cheque.checkStatus || "pendiente"}
                           </span>
                         </td>
+                        <td className="p-2 border">
+                          <div className="max-h-20 overflow-y-auto">
+                            {cheque.products?.map((product, idx) => (
+                              <div
+                                key={idx}
+                                className="text-xs py-1 border-b last:border-b-0"
+                              >
+                                <div className="flex justify-between">
+                                  <span>
+                                    {getDisplayProductName(
+                                      {
+                                        name: product.productName,
+                                        size: product.size,
+                                        color: product.color,
+                                        rubro: product.rubro,
+                                      },
+                                      rubro,
+                                      true
+                                    )}
+                                  </span>
+                                  <span>
+                                    {product.quantity} {product.unit}
+                                  </span>
+                                  <span>
+                                    {product.price.toLocaleString("es-AR", {
+                                      style: "currency",
+                                      currency: "ARS",
+                                    })}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </td>
                         <td className="p-2 border text-center">
                           <div className="flex justify-center items-center gap-2">
                             {cheque.checkStatus === "pendiente" && (
-                              <>
-                                <Button
-                                  icon={<CheckCircle size={16} />}
-                                  onClick={() =>
-                                    handleMarkCheckAsPaid(cheque.id)
-                                  }
-                                  colorText="text-white"
-                                  colorTextHover="hover:text-white"
-                                  colorBg="bg-green_b"
-                                  colorBgHover="hover:bg-green_m"
-                                  minwidth="min-w-0"
-                                  title="Marcar como cobrado"
-                                />
-
-                                <Button
-                                  icon={<Trash size={20} />}
-                                  iconPosition="left"
-                                  colorText="text-gray_b dark:text-red_l"
-                                  colorTextHover="hover:text-white"
-                                  colorBg="bg-transparent dark:bg-red_b"
-                                  colorBgHover="hover:bg-red_m"
-                                  px="px-2"
-                                  py="py-1"
-                                  minwidth="min-w-0"
-                                  onClick={() => {
-                                    handleDeleteCheck(cheque.id);
-                                  }}
-                                  title="Eliminar cheque"
-                                />
-                              </>
+                              <Button
+                                icon={<CheckCircle size={16} />}
+                                onClick={() => handleMarkCheckAsPaid(cheque.id)}
+                                colorText="text-white"
+                                colorTextHover="hover:text-white"
+                                colorBg="bg-green_b"
+                                colorBgHover="hover:bg-green_m"
+                                minwidth="min-w-0"
+                                title="Marcar como cobrado"
+                              />
                             )}
+
+                            <Button
+                              icon={<Trash size={20} />}
+                              iconPosition="left"
+                              colorText="text-gray_b dark:text-red_l"
+                              colorTextHover="hover:text-white"
+                              colorBg="bg-transparent dark:bg-red_b"
+                              colorBgHover="hover:bg-red_m"
+                              px="px-2"
+                              py="py-1"
+                              minwidth="min-w-0"
+                              onClick={() => {
+                                handleDeleteCheck(cheque.id);
+                              }}
+                              title="Eliminar cheque"
+                            />
                           </div>
                         </td>
                       </tr>
@@ -967,7 +1001,9 @@ const CuentasCorrientesPage = () => {
         <Modal
           isOpen={isInfoModalOpen}
           onClose={() => setIsInfoModalOpen(false)}
-          title={`Cuentas corrientes de ${currentCustomerInfo?.name}`}
+          title={`Cuentas corrientes de ${
+            currentCustomerInfo?.name || "Cliente"
+          }`}
           buttons={
             <div className="w-full flex justify-end">
               <Button
@@ -1082,34 +1118,18 @@ const CuentasCorrientesPage = () => {
                     <div
                       key={sale.id}
                       className={`mb-4 p-4 rounded-lg shadow-sm ${
-                        isPaid &&
-                        (!sale.chequeInfo ||
-                          sale.chequeInfo.status === "cobrado")
+                        isPaid
                           ? "bg-green_xl dark:bg-green_l shadow-green_l border-t border-green_l"
                           : "bg-red_xl dark:bg-red_l shadow-red_l border-t border-red_l"
                       }`}
                     >
-                      <div className="flex justify-between items-center mb-3 ">
+                      <div className="flex justify-between items-center mb-3">
                         <div className="flex items-center space-x-2">
-                          <span className="text-gray_b font-semibold">
+                          <span className="text-lg">
                             {format(new Date(sale.date), "dd/MM/yyyy", {
                               locale: es,
                             })}
                           </span>
-                          {sale.chequeInfo && (
-                            <div
-                              className={` p-2 rounded-md ${
-                                sale.chequeInfo.status === "cobrado"
-                                  ? " text-green-800"
-                                  : " text-yellow-800"
-                              }`}
-                            >
-                              <p className="font-semibold ">
-                                Pago con Cheque -{" "}
-                                {sale.chequeInfo.status.toUpperCase()}
-                              </p>
-                            </div>
-                          )}
                         </div>
 
                         <div className="mt-2">
@@ -1119,7 +1139,7 @@ const CuentasCorrientesPage = () => {
                               px="px-1"
                               minwidth="min-w-20"
                               colorText="text-white"
-                              colorTextHover="hover:text-white"
+                              colorTextHover="text-white"
                               text="Pagar"
                               onClick={() => {
                                 setCurrentCreditSale(sale);
@@ -1132,9 +1152,7 @@ const CuentasCorrientesPage = () => {
                       </div>
 
                       <div className="mb-1">
-                        <h4 className="text-sm text-gray_b font-medium mb-1">
-                          Detalles
-                        </h4>
+                        <h4 className="text-sm font-medium mb-1">Detalles</h4>
                         <div className="bg-white dark:bg-gray_m rounded-md p-2">
                           <table className="w-full text-sm">
                             <thead className="text-md">
@@ -1148,7 +1166,7 @@ const CuentasCorrientesPage = () => {
                               {sale.products.map((product, idx) => (
                                 <tr
                                   key={idx}
-                                  className="border-b last:border-b-0 hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
+                                  className="border-b last:border-b-0 hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
                                 >
                                   <td className="py-1">
                                     {getDisplayProductName(
@@ -1173,32 +1191,13 @@ const CuentasCorrientesPage = () => {
                                   </td>
                                 </tr>
                               ))}
-
-                              {sale.manualAmount === undefined ||
-                                (sale.manualAmount > 0 && (
-                                  <tr className="border-b last:border-b-0">
-                                    <td className="py-1">
-                                      Monto manual adicional
-                                    </td>
-                                    <td className="text-right py-1">-</td>
-                                    <td className="text-right py-1">
-                                      {sale.manualAmount.toLocaleString(
-                                        "es-AR",
-                                        {
-                                          style: "currency",
-                                          currency: "ARS",
-                                        }
-                                      )}
-                                    </td>
-                                  </tr>
-                                ))}
                             </tbody>
                           </table>
                         </div>
                       </div>
                       <div className="grid grid-cols-3 gap-2 text-md font-semibold">
                         <div
-                          className={` p-2 rounded ${
+                          className={`p-2 rounded ${
                             isPaid
                               ? "bg-white dark:bg-green_b"
                               : "bg-white dark:bg-red_b"
@@ -1227,7 +1226,6 @@ const CuentasCorrientesPage = () => {
                             })}
                           </p>
                         </div>
-
                         <div className="bg-white dark:bg-gray_m p-2 rounded">
                           <p>Total:</p>
                           <p>

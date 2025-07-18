@@ -361,11 +361,6 @@ export interface CreditSale extends Sale {
   customerPhone?: string;
   customerId?: string;
   paid?: boolean;
-  chequeInfo?: {
-    amount: number;
-    status: "pendiente" | "cobrado";
-    date: string;
-  };
 }
 export type ProductReturn = {
   id: number;
@@ -393,7 +388,15 @@ export interface Payment {
   checkDescription?: string;
   customerId?: string;
   customerName?: string;
+  products?: Product[];
+  saleTotal?: number;
 }
+export type ChequeWithDetails = Omit<Payment, "products"> & {
+  saleDate: string;
+  products: SaleItem[];
+  saleTotal: number;
+};
+
 export type Customer = {
   id: string;
   name: string;

@@ -1116,7 +1116,7 @@ const ProductsPage = () => {
                       return (
                         <tr
                           key={index}
-                          className={`text-xs 2xl:text-[.9rem] border border-gray_xl hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b ${
+                          className={`text-xs 2xl:text-[.9rem] border border-gray_xl hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300 ${
                             isExpired
                               ? "border-l-2 border-l-red_m text-gray_b bg-white animate-pulse"
                               : expiredToday
@@ -1369,7 +1369,7 @@ const ProductsPage = () => {
                     .map((ret, index) => (
                       <tr
                         key={index}
-                        className="hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
+                        className="hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
                       >
                         <td className="p-2">{ret.productName}</td>
                         <td className="p-2">{ret.reason}</td>

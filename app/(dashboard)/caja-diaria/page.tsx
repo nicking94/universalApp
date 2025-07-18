@@ -93,18 +93,30 @@ const CajaDiariaPage = () => {
 
   const getFilteredMovements = () => {
     return selectedDayMovements.filter((movement) => {
-      if (movement.paymentMethod === "CHEQUE" && movement.isCreditPayment) {
-        return true;
-      }
-      const typeMatch = filterType === "TODOS" || movement.type === filterType;
+      // Filtro por tipo de movimiento
+      const typeMatch =
+        filterType === "TODOS" ||
+        movement.type === filterType ||
+        (movement.paymentMethod === "CHEQUE" &&
+          movement.isCreditPayment &&
+          filterType === "INGRESO");
 
-      const paymentMatch =
-        filterPaymentMethod === "TODOS" ||
-        movement.paymentMethod === filterPaymentMethod ||
-        (movement.combinedPaymentMethods &&
-          movement.combinedPaymentMethods.some(
+      // Filtro por método de pago
+      let paymentMatch = false;
+      if (filterPaymentMethod === "TODOS") {
+        paymentMatch = true;
+      } else {
+        // Verificar método de pago principal
+        if (movement.paymentMethod === filterPaymentMethod) {
+          paymentMatch = true;
+        }
+        // Verificar métodos de pago combinados
+        if (movement.combinedPaymentMethods) {
+          paymentMatch = movement.combinedPaymentMethods.some(
             (m) => m.method === filterPaymentMethod
-          ));
+          );
+        }
+      }
 
       return typeMatch && paymentMatch;
     });
@@ -785,7 +797,7 @@ const CajaDiariaPage = () => {
           </div>
         </div>
 
-        <div className="max-h-[50vh] overflow-y-auto">
+        <div className="max-h-[35vh] overflow-y-auto">
           <table className="min-w-full divide-y divide-gray_l">
             <thead className="bg-gradient-to-bl from-blue_m to-blue_b text-white">
               <tr className="text-xs lg:text-md 2xl:text-lg ">
@@ -814,7 +826,7 @@ const CajaDiariaPage = () => {
                     key={index}
                     className={` ${
                       movement.type === "EGRESO" ? "bg-red_xl" : ""
-                    } hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b`}
+                    } hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300`}
                   >
                     <td className="whitespace-nowrap text-sm">
                       <span
@@ -1131,7 +1143,7 @@ const CajaDiariaPage = () => {
                       currentItems.map((day, index) => (
                         <tr
                           key={index}
-                          className="text-xs 2xl:text-[.9rem] bg-white text-gray_b border border-gray_xl hover:bg-blue_xl dark:hover:bg-gray_xxl dark:hover:text-gray_b"
+                          className="text-xs 2xl:text-[.9rem] bg-white text-gray_b border border-gray_xl hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
                         >
                           <td className="font-semibold p-2  border-x border-gray_xltext-start">
                             {format(parseISO(day.date), "dd/MM/yyyy")}
