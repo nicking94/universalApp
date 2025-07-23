@@ -42,6 +42,20 @@ export const systemActualizations: Actualization[] = [
       "- Se agregó la posibilidad de DEVOLVER productos y un historial de devoluciones. podés verlo en la sección de PRODUCTOS\n- Correciones visuales",
     date: new Date().toISOString(),
   },
+  {
+    id: 6,
+    title: `Versión 1.4.6`,
+    message:
+      "Ya no se pueden crear, editar o eliminar productos desde TODOS LOS RUBROS. Solo servirá a modo de información para administrar los reportes de todos los rubros. si tu negocio solo gestiona un solo rubro, no se ve afectado por la actualizacion\n- Correciones visuales y mejoras varias",
+    date: new Date().toISOString(),
+  },
+  {
+    id: 7,
+    title: `FORMA PARTE DE NUESTRO PROGRAMA DE REFERIDOS`,
+    message:
+      "Si conoces a alguien que tenga un negocio, recomendá Universal App y por cada cliente que se sume te damos $15.000!\n- Consultá al soporte técnico para saber más... (Link en el menú del sistema)",
+    date: new Date().toISOString(),
+  },
 ];
 
 export const getUnshownActualizations = async (): Promise<Actualization[]> => {

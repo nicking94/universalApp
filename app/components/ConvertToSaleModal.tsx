@@ -190,7 +190,7 @@ export const ConvertToSaleModal = ({
                 {budget.items.map((item, index) => (
                   <tr
                     key={index}
-                    className="hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
+                    className="hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
                   >
                     <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-900">
                       {item.productName}

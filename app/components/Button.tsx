@@ -6,9 +6,9 @@ import { ButtonProps } from "../lib/types/types";
 const Button: React.FC<ButtonProps> = ({
   width = "w-auto",
   minwidth = "min-w-[7rem] 2xl:min-w-[10rem]",
-  height = "h-[2rem] 2xl:h-auto",
-  px = "px-3",
-  py = "py-2",
+  height = "h-[1.9rem]",
+  px = "px-2",
+  py = "py-1",
   text,
   icon,
   iconPosition = "right",

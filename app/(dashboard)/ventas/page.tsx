@@ -1263,16 +1263,18 @@ const VentasPage = () => {
               }}
             />
           </div>
-          <div className="w-full  flex justify-end">
-            <Button
-              title="Nueva Venta"
-              text="Nueva Venta [F1]"
-              colorText="text-white"
-              colorTextHover="text-white"
-              onClick={handleAddSale}
-              hotkey="F1"
-            />
-          </div>
+          {rubro !== "Todos los rubros" && (
+            <div className="w-full  flex justify-end">
+              <Button
+                title="Nueva Venta"
+                text="Nueva Venta [F1]"
+                colorText="text-white"
+                colorTextHover="text-white"
+                onClick={handleAddSale}
+                hotkey="F1"
+              />
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col justify-between h-[calc(100vh-200px)]">
@@ -1286,9 +1288,11 @@ const VentasPage = () => {
                   <th className="p-2 ">Fecha</th>
                   <th className="p-2">Forma De Pago</th>
                   <th className="p-2">Total</th>
-                  <th className="w-40 max-w-[5rem] 2xl:max-w-[10rem] p-2">
-                    Acciones
-                  </th>
+                  {rubro !== "Todos los rubros" && (
+                    <th className="w-40 max-w-[5rem] 2xl:max-w-[10rem] p-2">
+                      Acciones
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody
@@ -1306,7 +1310,7 @@ const VentasPage = () => {
                     return (
                       <tr
                         key={sale.id || Date.now()}
-                        className=" text-xs 2xl:text-[.9rem] bg-white text-gray_b border border-gray_xl hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
+                        className=" text-xs 2xl:text-[.9rem] bg-white text-gray_b border border-gray_xl hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
                       >
                         <td
                           className="font-semibold px-2 text-start capitalize border border-gray_xl truncate max-w-[200px]"
@@ -1377,23 +1381,24 @@ const VentasPage = () => {
                             })}`
                           )}
                         </td>
-
-                        <td className="p-2 border border-gray_xl">
-                          <div className="flex justify-center items-center gap-2 h-full">
-                            <Button
-                              title="Imprimir ticket"
-                              icon={<Printer size={20} />}
-                              colorText="text-gray_b"
-                              colorTextHover="hover:text-white"
-                              colorBg="bg-transparent"
-                              colorBgHover="hover:bg-blue-500"
-                              px="px-1"
-                              py="py-1"
-                              minwidth="min-w-0"
-                              onClick={() => handleOpenInfoModal(sale)}
-                            />
-                          </div>
-                        </td>
+                        {rubro !== "Todos los rubros" && (
+                          <td className="p-2 border border-gray_xl">
+                            <div className="flex justify-center items-center gap-2 h-full">
+                              <Button
+                                title="Imprimir ticket"
+                                icon={<Printer size={20} />}
+                                colorText="text-gray_b"
+                                colorTextHover="hover:text-white"
+                                colorBg="bg-transparent"
+                                colorBgHover="hover:bg-blue-500"
+                                px="px-1"
+                                py="py-1"
+                                minwidth="min-w-0"
+                                onClick={() => handleOpenInfoModal(sale)}
+                              />
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })
@@ -1574,7 +1579,7 @@ const VentasPage = () => {
                         {newSale.products.map((product) => {
                           return (
                             <tr
-                              className="text-sm border-b border-gray-xl hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
+                              className="text-sm border-b border-gray-xl hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
                               key={product.id}
                             >
                               <td className=" p-2">

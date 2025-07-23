@@ -370,16 +370,18 @@ const ProveedoresPage = () => {
           <div className="w-full max-w-md">
             <SearchBar onSearch={handleSearch} />
           </div>
-          <Button
-            icon={<Plus size={20} />}
-            text="Nuevo Proveedor"
-            colorText="text-white"
-            colorTextHover="text-white"
-            onClick={() => {
-              resetForm();
-              setIsModalOpen(true);
-            }}
-          />
+          {rubro !== "Todos los rubros" && (
+            <Button
+              icon={<Plus size={20} />}
+              text="Nuevo Proveedor"
+              colorText="text-white"
+              colorTextHover="text-white"
+              onClick={() => {
+                resetForm();
+                setIsModalOpen(true);
+              }}
+            />
+          )}
         </div>
 
         <div className="flex flex-col justify-between h-[calc(100vh-200px)]">
@@ -392,7 +394,9 @@ const ProveedoresPage = () => {
                   <th className="p-2">Última Visita</th>
                   <th className="p-2">Próxima Visita</th>
                   <th className="p-2">Productos</th>
-                  <th className="w-40 max-w-40 p-2">Acciones</th>
+                  {rubro !== "Todos los rubros" && (
+                    <th className="w-40 max-w-40 p-2">Acciones</th>
+                  )}
                 </tr>
               </thead>
               <tbody className={`bg-white text-gray_b divide-y divide-gray_xl`}>
@@ -400,7 +404,7 @@ const ProveedoresPage = () => {
                   currentItems.map((supplier) => (
                     <tr
                       key={supplier.id}
-                      className="hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
+                      className="hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
                     >
                       <td className="capitalize p-2 text-left  border border-gray_xl font-semibold">
                         {supplier.companyName}
@@ -457,42 +461,46 @@ const ProveedoresPage = () => {
                       <td className="p-2 border border-gray_xl">
                         {supplierProductCounts[supplier.id] || 0} productos
                       </td>
-                      <td className="p-2 space-x-4 border border-gray_xl">
-                        <div className="flex justify-center gap-2">
-                          <Button
-                            icon={<Package size={20} />}
-                            colorText="text-gray_b"
-                            colorTextHover="hover:text-white"
-                            colorBg="bg-transparent"
-                            colorBgHover="hover:bg-blue_m"
-                            px="px-1"
-                            py="py-1"
-                            minwidth="min-w-0"
-                            onClick={() => openProductAssignmentModal(supplier)}
-                          />
-                          <Button
-                            icon={<Edit size={20} />}
-                            colorText="text-gray_b"
-                            colorTextHover="hover:text-white"
-                            colorBg="bg-transparent"
-                            px="px-1"
-                            py="py-1"
-                            minwidth="min-w-0"
-                            onClick={() => handleEdit(supplier)}
-                          />
-                          <Button
-                            icon={<Trash size={20} />}
-                            colorText="text-gray_b"
-                            colorTextHover="hover:text-white"
-                            colorBg="bg-transparent"
-                            colorBgHover="hover:bg-red_m"
-                            px="px-1"
-                            py="py-1"
-                            minwidth="min-w-0"
-                            onClick={() => openDeleteModal(supplier)}
-                          />
-                        </div>
-                      </td>
+                      {rubro !== "Todos los rubros" && (
+                        <td className="p-2 space-x-4 border border-gray_xl">
+                          <div className="flex justify-center gap-2">
+                            <Button
+                              icon={<Package size={20} />}
+                              colorText="text-gray_b"
+                              colorTextHover="hover:text-white"
+                              colorBg="bg-transparent"
+                              colorBgHover="hover:bg-blue_m"
+                              px="px-1"
+                              py="py-1"
+                              minwidth="min-w-0"
+                              onClick={() =>
+                                openProductAssignmentModal(supplier)
+                              }
+                            />
+                            <Button
+                              icon={<Edit size={20} />}
+                              colorText="text-gray_b"
+                              colorTextHover="hover:text-white"
+                              colorBg="bg-transparent"
+                              px="px-1"
+                              py="py-1"
+                              minwidth="min-w-0"
+                              onClick={() => handleEdit(supplier)}
+                            />
+                            <Button
+                              icon={<Trash size={20} />}
+                              colorText="text-gray_b"
+                              colorTextHover="hover:text-white"
+                              colorBg="bg-transparent"
+                              colorBgHover="hover:bg-red_m"
+                              px="px-1"
+                              py="py-1"
+                              minwidth="min-w-0"
+                              onClick={() => openDeleteModal(supplier)}
+                            />
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))
                 ) : (
@@ -567,7 +575,7 @@ const ProveedoresPage = () => {
                     {filteredAvailableProducts.map((product) => (
                       <div
                         key={product.id}
-                        className={`p-2 border rounded hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300 flex justify-between items-center `}
+                        className={`p-2 border rounded hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300 flex justify-between items-center `}
                       >
                         <div className="flex-grow ">
                           <div className="flex justify-between">
@@ -618,7 +626,7 @@ const ProveedoresPage = () => {
                     {assignedProducts.map((product) => (
                       <div
                         key={product.id}
-                        className="p-2 border hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300 rounded"
+                        className="p-2 border hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300 rounded"
                       >
                         <div className="flex justify-between items-center">
                           <div>

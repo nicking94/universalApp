@@ -639,7 +639,9 @@ const ProductsPage = () => {
     }, 2500);
   };
 
-  const handleAddProduct = () => {
+  const handleAddProduct = async () => {
+    const categories = await loadCustomCategories();
+    setGlobalCustomCategories(categories);
     setIsOpenModal(true);
   };
   const handleAddCategory = async () => {
@@ -723,13 +725,17 @@ const ProductsPage = () => {
     };
 
     if (
-      !productToSave.name ||
-      !productToSave.stock ||
-      !productToSave.costPrice ||
-      !productToSave.price ||
-      !productToSave.unit
+      !newProduct.name ||
+      !newProduct.stock ||
+      !newProduct.costPrice ||
+      !newProduct.price ||
+      !newProduct.unit ||
+      !newProduct.customCategories?.length
     ) {
-      showNotification("Por favor, complete todos los campos", "error");
+      showNotification(
+        "Por favor, complete todos los campos obligatorios",
+        "error"
+      );
       return;
     }
 
@@ -810,7 +816,8 @@ const ProductsPage = () => {
   };
 
   const handleEditProduct = async (product: Product) => {
-    await loadCustomCategories();
+    const categories = await loadCustomCategories();
+    setGlobalCustomCategories(categories);
 
     setEditingProduct(product);
     setNewBrand(product.brand || "");
@@ -851,6 +858,7 @@ const ProductsPage = () => {
       const allProducts = await db.products.toArray();
       const allCategories = new Map<string, { name: string; rubro: Rubro }>();
 
+      // Agregar categorías almacenadas
       storedCategories.forEach((cat) => {
         if (cat.name?.trim()) {
           const key = `${cat.name.toLowerCase().trim()}_${cat.rubro}`;
@@ -861,19 +869,9 @@ const ProductsPage = () => {
         }
       });
 
+      // Agregar categorías de productos (tanto customCategories como category)
       allProducts.forEach((product) => {
-        if (product.category?.trim()) {
-          const key = `${product.category.toLowerCase().trim()}_${
-            product.rubro
-          }`;
-          if (!allCategories.has(key)) {
-            allCategories.set(key, {
-              name: product.category.trim(),
-              rubro: product.rubro || "comercio",
-            });
-          }
-        }
-
+        // Procesar customCategories
         if (product.customCategories?.length) {
           product.customCategories.forEach((cat) => {
             if (cat.name?.trim()) {
@@ -888,6 +886,19 @@ const ProductsPage = () => {
               }
             }
           });
+        }
+
+        // Procesar category heredada
+        if (product.category?.trim()) {
+          const key = `${product.category.toLowerCase().trim()}_${
+            product.rubro || "comercio"
+          }`;
+          if (!allCategories.has(key)) {
+            allCategories.set(key, {
+              name: product.category.trim(),
+              rubro: product.rubro || "comercio",
+            });
+          }
         }
       });
 
@@ -958,6 +969,15 @@ const ProductsPage = () => {
 
     fetchData();
   }, []);
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const categories = await loadCustomCategories();
+      setGlobalCustomCategories(categories);
+    };
+    if (isOpenModal) {
+      fetchCategories();
+    }
+  }, [rubro, isOpenModal]);
 
   useEffect(() => {
     const loadSuppliers = async () => {
@@ -1029,7 +1049,11 @@ const ProductsPage = () => {
               rubro={rubro}
             />
           </div>
-          <div className="w-full flex justify-end items-center gap-2 ">
+          <div
+            className={`w-full flex justify-end items-center gap-2 ${
+              rubro === "Todos los rubros" ? "hidden" : ""
+            } `}
+          >
             <Button
               text="Añadir Producto [F2]"
               colorText="text-white"
@@ -1060,7 +1084,7 @@ const ProductsPage = () => {
           <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
             <table className=" table-auto w-full text-center border-collapse overflow-y-auto shadow-sm shadow-gray_l">
               <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b">
-                <tr className="text-xs lg:text-md 2xl:text-lg">
+                <tr className="text-xs lg:text-md 2xl:text-lg ">
                   <th className="p-2 text-start">Producto</th>
                   <th className="p-2">Stock </th>
                   <th className="p-2 cursor-pointer">Categoría</th>
@@ -1080,9 +1104,11 @@ const ProductsPage = () => {
                     <th className="p-2">Vencimiento</th>
                   )}
                   <th className="p-2">Proveedor</th>
-                  <th className="w-30 max-w-[4rem] 2xl:max-w-[10rem] p-2">
-                    Acciones
-                  </th>
+                  {rubro !== "Todos los rubros" && (
+                    <th className="w-30 max-w-[4rem] 2xl:max-w-[10rem] p-2">
+                      Acciones
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody
@@ -1116,14 +1142,14 @@ const ProductsPage = () => {
                       return (
                         <tr
                           key={index}
-                          className={`text-xs 2xl:text-[.9rem] border border-gray_xl hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300 ${
+                          className={`text-xs 2xl:text-[.9rem] border border-gray_xl hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300 ${
                             isExpired
                               ? "border-l-2 border-l-red_m text-gray_b bg-white animate-pulse"
                               : expiredToday
-                              ? "border-l-2 border-l-red_m text-white bg-red_m"
+                              ? "border-l-2 border-l-red_m text-white  bg-red_m hover:bg-red_m dark:hover:bg-red_m "
                               : isExpiringSoon
-                              ? "border-l-2 border-l-red_m text-gray_b bg-red_l "
-                              : "text-gray_b bg-white"
+                              ? "border-l-2 border-l-red_m text-gray_b bg-red_l hover:bg-red_l dark:hover:bg-red_l"
+                              : "text-gray_b hover:text-gray_b bg-white "
                           }`}
                         >
                           <td className="font-semibold p-2 text-start capitalize border border-gray_xl">
@@ -1225,43 +1251,44 @@ const ProductsPage = () => {
                           <td className="p-2 border border-gray_xl">
                             {productSuppliers[product.id] || "-"}
                           </td>
-
-                          <td className="p-2 flex justify-center gap-2">
-                            <Button
-                              icon={<Barcode size={20} />}
-                              colorText={isExpired ? "text-gray_b" : ""}
-                              colorTextHover="hover:text-white"
-                              colorBg="bg-transparent"
-                              px="px-1"
-                              py="py-1"
-                              minwidth="min-w-0"
-                              onClick={() => handleGenerateBarcode(product)}
-                              title="Código de Barras"
-                            />
-                            <Button
-                              icon={<Edit size={20} />}
-                              colorText={isExpired ? "text-gray_b" : ""}
-                              colorTextHover="hover:text-white"
-                              colorBg="bg-transparent"
-                              px="px-1"
-                              py="py-1"
-                              minwidth="min-w-0"
-                              onClick={() => handleEditProduct(product)}
-                              title="Editar Producto"
-                            />
-                            <Button
-                              icon={<Trash size={20} />}
-                              colorText="text-gray_b"
-                              colorTextHover="hover:text-white"
-                              colorBg="bg-transparent"
-                              colorBgHover="hover:bg-red_m"
-                              px="px-1"
-                              py="py-1"
-                              minwidth="min-w-0"
-                              onClick={() => handleDeleteProduct(product)}
-                              title="Eliminar Producto"
-                            />
-                          </td>
+                          {rubro !== "Todos los rubros" && (
+                            <td className="p-2 flex justify-center gap-2">
+                              <Button
+                                icon={<Barcode size={20} />}
+                                colorText={isExpired ? "text-gray_b" : ""}
+                                colorTextHover="hover:text-white"
+                                colorBg="bg-transparent"
+                                px="px-1"
+                                py="py-1"
+                                minwidth="min-w-0"
+                                onClick={() => handleGenerateBarcode(product)}
+                                title="Código de Barras"
+                              />
+                              <Button
+                                icon={<Edit size={20} />}
+                                colorText={isExpired ? "text-gray_b" : ""}
+                                colorTextHover="hover:text-white"
+                                colorBg="bg-transparent"
+                                px="px-1"
+                                py="py-1"
+                                minwidth="min-w-0"
+                                onClick={() => handleEditProduct(product)}
+                                title="Editar Producto"
+                              />
+                              <Button
+                                icon={<Trash size={20} />}
+                                colorText="text-gray_b"
+                                colorTextHover="hover:text-white"
+                                colorBg="bg-transparent"
+                                colorBgHover="hover:bg-red_m"
+                                px="px-1"
+                                py="py-1"
+                                minwidth="min-w-0"
+                                onClick={() => handleDeleteProduct(product)}
+                                title="Eliminar Producto"
+                              />
+                            </td>
+                          )}
                         </tr>
                       );
                     })
@@ -1369,7 +1396,7 @@ const ProductsPage = () => {
                     .map((ret, index) => (
                       <tr
                         key={index}
-                        className="hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
+                        className="hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
                       >
                         <td className="p-2">{ret.productName}</td>
                         <td className="p-2">{ret.reason}</td>
@@ -1683,7 +1710,7 @@ const ProductsPage = () => {
             <div className="w-full grid grid-cols-2 gap-x-4 gap-y-2  ">
               <div className="w-full">
                 <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
-                  Seleccionar categoría
+                  Seleccionar categoría*
                 </label>
                 <Select
                   options={[
@@ -1729,7 +1756,7 @@ const ProductsPage = () => {
                             name: editingProduct.category,
                             rubro: editingProduct.rubro || rubro,
                           },
-                          label: `${editingProduct.category} (heredada)`,
+                          label: `${editingProduct.category}`,
                         }
                       : null
                   }

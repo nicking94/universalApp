@@ -54,10 +54,12 @@ ChartJS.register(
 const Metrics = () => {
   const { rubro } = useRubro();
   const [products, setProducts] = useState<Product[]>([]);
-  const [monthlyRankingUnit, setMonthlyRankingUnit] =
-    useState<Product["unit"]>("Unid.");
-  const [yearlyRankingUnit, setYearlyRankingUnit] =
-    useState<Product["unit"]>("Unid.");
+  const [monthlyRankingUnit, setMonthlyRankingUnit] = useState<
+    Product["unit"] | "General"
+  >("General");
+  const [yearlyRankingUnit, setYearlyRankingUnit] = useState<
+    Product["unit"] | "General"
+  >("General");
   const [dailyCashes, setDailyCashes] = useState<DailyCash[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<number>(
     () => new Date().getMonth() + 1
@@ -67,7 +69,8 @@ const Metrics = () => {
   );
   const [availableYears, setAvailableYears] = useState<number[]>([]);
 
-  const unidadLegible: Record<Product["unit"], string> = {
+  const unidadLegible: Record<Product["unit"] | "General", string> = {
+    General: "General",
     A: "amperio",
     Bulto: "bulto",
     Caja: "caja",
@@ -273,119 +276,116 @@ const Metrics = () => {
   );
 
   const getProductMovements = useMemo(
-    () => (period: "month" | "year", selectedUnit: Product["unit"]) => {
-      let filteredCashes = dailyCashes;
+    () =>
+      (period: "month" | "year", selectedUnit: Product["unit"] | "General") => {
+        let filteredCashes = dailyCashes;
 
-      if (period === "month") {
-        filteredCashes = dailyCashes.filter((cash) => {
-          const date = parseISO(cash.date);
-          return isSameMonth(date, new Date(selectedYear, selectedMonth - 1));
-        });
-      } else if (period === "year") {
-        filteredCashes = dailyCashes.filter((cash) => {
-          const date = parseISO(cash.date);
-          return isSameYear(date, new Date(selectedYear, 0));
-        });
-      }
-
-      const productMap = new Map<
-        number,
-        {
-          name: string;
-          quantity: number;
-          amount: number;
-          profit: number;
-          unit: Product["unit"];
-          rubro: Rubro;
+        if (period === "month") {
+          filteredCashes = dailyCashes.filter((cash) => {
+            const date = parseISO(cash.date);
+            return isSameMonth(date, new Date(selectedYear, selectedMonth - 1));
+          });
+        } else if (period === "year") {
+          filteredCashes = dailyCashes.filter((cash) => {
+            const date = parseISO(cash.date);
+            return isSameYear(date, new Date(selectedYear, 0));
+          });
         }
-      >();
 
-      filteredCashes.forEach((cash) => {
-        cash.movements.forEach((movement) => {
-          if (movement.type === "INGRESO" && movement.items) {
-            movement.items.forEach((item) => {
-              const product = products.find((p) => p.id === item.productId);
-              const itemUnit = item.unit || "Unid.";
-
-              if (
-                product &&
-                (rubro === "Todos los rubros" || product.rubro === rubro) &&
-                itemUnit === selectedUnit
-              ) {
-                const existing = productMap.get(item.productId) || {
-                  name: item.productName,
-                  quantity: 0,
-                  amount: 0,
-                  profit: 0,
-                  unit: itemUnit,
-                  rubro: product.rubro,
-                };
-
-                const profitPerUnit = calculateProfit(
-                  product,
-                  item.quantity,
-                  itemUnit
-                );
-
-                productMap.set(item.productId, {
-                  name: existing.name,
-                  quantity: existing.quantity + item.quantity,
-                  amount:
-                    existing.amount +
-                    calculatePrice(product, item.quantity, itemUnit),
-                  profit: existing.profit + profitPerUnit,
-                  unit: itemUnit,
-                  rubro: existing.rubro,
-                });
-              }
-            });
+        // Cambiamos a un Map que agrupe por nombre de producto en lugar de por ID
+        const productMap = new Map<
+          string,
+          {
+            name: string;
+            quantity: number;
+            amount: number;
+            profit: number;
+            unit: string;
+            rubro: Rubro;
           }
+        >();
+
+        filteredCashes.forEach((cash) => {
+          cash.movements.forEach((movement) => {
+            if (movement.type === "INGRESO" && movement.items) {
+              movement.items.forEach((item) => {
+                const product = products.find((p) => p.id === item.productId);
+                const itemUnit = item.unit || "Unid.";
+
+                if (
+                  product &&
+                  (rubro === "Todos los rubros" || product.rubro === rubro) &&
+                  (selectedUnit === "General" || itemUnit === selectedUnit)
+                ) {
+                  const displayName = getDisplayProductName(
+                    {
+                      name: item.productName,
+                      size: product.size,
+                      color: product.color,
+                      rubro: product.rubro,
+                    },
+                    product.rubro
+                  );
+
+                  const existing = productMap.get(displayName) || {
+                    name: displayName,
+                    quantity: 0,
+                    amount: 0,
+                    profit: 0,
+                    unit: itemUnit,
+                    rubro: product.rubro,
+                  };
+
+                  const profitPerUnit = calculateProfit(
+                    product,
+                    item.quantity,
+                    itemUnit
+                  );
+
+                  productMap.set(displayName, {
+                    name: displayName,
+                    quantity: existing.quantity + item.quantity,
+                    amount:
+                      existing.amount +
+                      calculatePrice(product, item.quantity, itemUnit),
+                    profit: existing.profit + profitPerUnit,
+                    unit: itemUnit,
+                    rubro: existing.rubro,
+                  });
+                }
+              });
+            }
+          });
         });
-      });
 
-      const allProducts = Array.from(productMap.values())
-        .map(({ name, quantity, amount, profit, unit, rubro }) => {
-          const productInfo = {
-            name,
-            size: products.find((p) => p.name === name)?.size,
-            color: products.find((p) => p.name === name)?.color,
-            rubro,
-          };
+        const allProducts = Array.from(productMap.values()).sort(
+          (a, b) => b.quantity - a.quantity
+        );
 
-          return {
-            name: getDisplayProductName(productInfo, rubro),
-            quantity,
-            amount,
-            profit,
-            unit,
-          };
-        })
-        .sort((a, b) => b.quantity - a.quantity);
+        const formatDisplayQuantity = (qty: number, unit: string) => {
+          if (
+            unit === "Unid." ||
+            unit === "Bulto" ||
+            unit === "Caja" ||
+            unit === "Cajón" ||
+            unit === "docena" ||
+            unit === "ciento"
+          ) {
+            return Math.round(qty).toString();
+          }
 
-      const formatDisplayQuantity = (qty: number, unit: string) => {
-        if (
-          unit === "Unid." ||
-          unit === "Bulto" ||
-          unit === "Caja" ||
-          unit === "Cajón" ||
-          unit === "docena" ||
-          unit === "ciento"
-        ) {
-          return Math.round(qty).toString();
-        }
+          const rounded = Math.round(qty * 100) / 100;
+          return rounded % 1 === 0 ? rounded.toString() : rounded.toFixed(2);
+        };
 
-        const rounded = Math.round(qty * 100) / 100;
-        return rounded % 1 === 0 ? rounded.toString() : rounded.toFixed(2);
-      };
-
-      return allProducts.slice(0, 5).map((product) => ({
-        ...product,
-        displayText: `${formatDisplayQuantity(
-          product.quantity,
-          product.unit
-        )} ${product.unit}`,
-      }));
-    },
+        return allProducts.slice(0, 5).map((product) => ({
+          ...product,
+          displayText: `${formatDisplayQuantity(
+            product.quantity,
+            product.unit
+          )} ${product.unit}`,
+        }));
+      },
     [dailyCashes, products, rubro, selectedYear, selectedMonth]
   );
   useEffect(() => {
@@ -427,7 +427,8 @@ const Metrics = () => {
     }
   }, [rubro]);
 
-  const unitOptions: { value: Product["unit"]; label: string }[] = [
+  const unitOptions: { value: Product["unit"] | "General"; label: string }[] = [
+    { value: "General", label: "General" },
     { value: "A", label: "Amperios" },
     { value: "Bulto", label: "Bultos" },
     { value: "Cajón", label: "Cajones" },
@@ -656,8 +657,10 @@ const Metrics = () => {
             <div className="mt-4">
               <div className="flex bg-gradient-to-bl from-blue_m to-blue_b dark:bg-gray_m text-white items-center mb-2 px-2">
                 <h3 className="w-full p-2 font-medium text-md">
-                  5 Productos por {unidadLegible[monthlyRankingUnit]} más
-                  vendidos este mes
+                  5 Productos más vendidos{" "}
+                  {monthlyRankingUnit !== "General" &&
+                    `por ${unidadLegible[monthlyRankingUnit]}`}{" "}
+                  este mes
                 </h3>
                 <Select
                   placeholder="Seleccionar unidad"
@@ -755,8 +758,10 @@ const Metrics = () => {
             <div className="mt-4">
               <div className="flex bg-gradient-to-bl from-blue_m to-blue_b dark:bg-gray_m text-white items-center mb-2 px-2">
                 <h3 className="w-full p-2 font-medium text-md">
-                  5 Productos por {unidadLegible[yearlyRankingUnit]} más
-                  vendidos este año
+                  5 Productos más vendidos{" "}
+                  {yearlyRankingUnit !== "General" &&
+                    `por ${unidadLegible[yearlyRankingUnit]}`}{" "}
+                  este año
                 </h3>
                 <Select
                   placeholder="Seleccionar unidad"

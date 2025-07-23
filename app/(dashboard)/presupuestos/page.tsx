@@ -1000,13 +1000,15 @@ const PresupuestosPage = () => {
           <div className="w-full max-w-md">
             <SearchBar onSearch={handleSearch} />
           </div>
-          <Button
-            icon={<Plus className="w-4 h-4" />}
-            text="Nuevo Presupuesto"
-            colorText="text-white"
-            colorTextHover="text-white"
-            onClick={handleNewBudgetClick}
-          />
+          {rubro !== "Todos los rubros" && (
+            <Button
+              icon={<Plus className="w-4 h-4" />}
+              text="Nuevo Presupuesto"
+              colorText="text-white"
+              colorTextHover="text-white"
+              onClick={handleNewBudgetClick}
+            />
+          )}
         </div>
         <div className="flex flex-col justify-between h-[calc(100vh-200px)]">
           <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
@@ -1019,7 +1021,9 @@ const PresupuestosPage = () => {
                   <th className="p-2 text-center">Fecha Presupuesto</th>
                   <th className="p-2 text-center">Fecha Expiración</th>
                   <th className="p-2 text-center">Estado</th>
-                  <th className="p-2 text-center w-40 max-w-40">Acciones</th>
+                  {rubro !== "Todos los rubros" && (
+                    <th className="p-2 text-center w-40 max-w-40">Acciones</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="bg-white text-gray_b divide-y divide-gray_xl ">
@@ -1027,7 +1031,7 @@ const PresupuestosPage = () => {
                   currentBudgets.map((budget) => (
                     <tr
                       key={budget.id}
-                      className="hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
+                      className="hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
                     >
                       <td className="font-semibold p-2 border border-gray_xl text-start">
                         {budget.customerName}
@@ -1085,87 +1089,89 @@ const PresupuestosPage = () => {
                           {budget.status}
                         </span>
                       </td>
-                      <td className="p-2 border border-gray_xl">
-                        <div className="flex justify-center items-center gap-2 h-full">
-                          <Button
-                            icon={<ShoppingCart size={20} />}
-                            colorText={
-                              budget.status === "cobrado"
-                                ? "text-gray-400"
-                                : "text-gray_b"
-                            }
-                            colorTextHover={
-                              budget.status === "cobrado"
-                                ? ""
-                                : "hover:text-white"
-                            }
-                            colorBg="bg-transparent"
-                            colorBgHover={
-                              budget.status === "cobrado"
-                                ? ""
-                                : "hover:bg-green-500"
-                            }
-                            px="px-1"
-                            py="py-1"
-                            minwidth="min-w-0"
-                            onClick={() => {
-                              if (budget.status !== "cobrado") {
-                                setBudgetToConvert(budget);
-                                setIsConvertModalOpen(true);
+                      {rubro !== "Todos los rubros" && (
+                        <td className="p-2 border border-gray_xl">
+                          <div className="flex justify-center items-center gap-2 h-full">
+                            <Button
+                              icon={<ShoppingCart size={20} />}
+                              colorText={
+                                budget.status === "cobrado"
+                                  ? "text-gray-400"
+                                  : "text-gray_b"
                               }
-                            }}
-                            disabled={budget.status === "cobrado"}
-                            title={
-                              budget.status === "cobrado"
-                                ? "Presupuesto ya cobrado"
-                                : "Cobrar como venta"
-                            }
-                          />
-                          {handleDownloadPDF(budget)}
-                          <Button
-                            icon={<StickyNote size={20} />}
-                            colorText="text-gray_b"
-                            colorTextHover="hover:text-white"
-                            colorBg="bg-transparent"
-                            colorBgHover="hover:bg-blue_b"
-                            px="px-1"
-                            py="py-1"
-                            minwidth="min-w-0"
-                            onClick={() => handleShowNotes(budget)}
-                            disabled={!budget.customerId}
-                            title={
-                              !budget.customerId
-                                ? "No hay cliente asociado"
-                                : "Ver notas del cliente"
-                            }
-                          />
+                              colorTextHover={
+                                budget.status === "cobrado"
+                                  ? ""
+                                  : "hover:text-white"
+                              }
+                              colorBg="bg-transparent"
+                              colorBgHover={
+                                budget.status === "cobrado"
+                                  ? ""
+                                  : "hover:bg-green-500"
+                              }
+                              px="px-1"
+                              py="py-1"
+                              minwidth="min-w-0"
+                              onClick={() => {
+                                if (budget.status !== "cobrado") {
+                                  setBudgetToConvert(budget);
+                                  setIsConvertModalOpen(true);
+                                }
+                              }}
+                              disabled={budget.status === "cobrado"}
+                              title={
+                                budget.status === "cobrado"
+                                  ? "Presupuesto ya cobrado"
+                                  : "Cobrar como venta"
+                              }
+                            />
+                            {handleDownloadPDF(budget)}
+                            <Button
+                              icon={<StickyNote size={20} />}
+                              colorText="text-gray_b"
+                              colorTextHover="hover:text-white"
+                              colorBg="bg-transparent"
+                              colorBgHover="hover:bg-blue_b"
+                              px="px-1"
+                              py="py-1"
+                              minwidth="min-w-0"
+                              onClick={() => handleShowNotes(budget)}
+                              disabled={!budget.customerId}
+                              title={
+                                !budget.customerId
+                                  ? "No hay cliente asociado"
+                                  : "Ver notas del cliente"
+                              }
+                            />
 
-                          <Button
-                            icon={<Edit size={20} />}
-                            colorText="text-gray_b"
-                            colorTextHover="hover:text-white"
-                            colorBg="bg-transparent"
-                            colorBgHover="hover:bg-blue_b"
-                            px="px-1"
-                            py="py-1"
-                            minwidth="min-w-0"
-                            onClick={() => handleEditClick(budget)}
-                            title="Editar presupuesto"
-                          />
-                          <Button
-                            icon={<Trash size={20} />}
-                            colorText="text-gray_b"
-                            colorTextHover="hover:text-white"
-                            colorBg="bg-transparent"
-                            colorBgHover="hover:bg-red_m"
-                            px="px-1"
-                            py="py-1"
-                            minwidth="min-w-0"
-                            onClick={() => handleDeleteClick(budget)}
-                            title="Eliminar presupuesto"
-                          />
-                        </div>
-                      </td>
+                            <Button
+                              icon={<Edit size={20} />}
+                              colorText="text-gray_b"
+                              colorTextHover="hover:text-white"
+                              colorBg="bg-transparent"
+                              colorBgHover="hover:bg-blue_b"
+                              px="px-1"
+                              py="py-1"
+                              minwidth="min-w-0"
+                              onClick={() => handleEditClick(budget)}
+                              title="Editar presupuesto"
+                            />
+                            <Button
+                              icon={<Trash size={20} />}
+                              colorText="text-gray_b"
+                              colorTextHover="hover:text-white"
+                              colorBg="bg-transparent"
+                              colorBgHover="hover:bg-red_m"
+                              px="px-1"
+                              py="py-1"
+                              minwidth="min-w-0"
+                              onClick={() => handleDeleteClick(budget)}
+                              title="Eliminar presupuesto"
+                            />
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))
                 ) : (
@@ -1436,7 +1442,7 @@ const PresupuestosPage = () => {
                           return (
                             <tr
                               key={item.productId}
-                              className="hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
+                              className="hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
                             >
                               <td className="p-2 whitespace-nowrap">
                                 {item.productName}

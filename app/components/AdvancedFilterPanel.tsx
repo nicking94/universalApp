@@ -271,15 +271,17 @@ const AdvancedFilterPanel: React.FC<AdvancedFilterPanelProps> = ({
               isClearable
             />
           </div>
-          <Button
-            icon={<FaFilter size={16} />}
-            minwidth="min-w-0"
-            colorText="text-white"
-            colorTextHover="text-white"
-            colorBg="bg-blue_b"
-            colorBgHover="hover:bg-blue_m"
-            onClick={() => setIsFiltersOpen(!isFiltersOpen)}
-          />
+          {rubro !== "Todos los rubros" && (
+            <Button
+              icon={<FaFilter size={16} />}
+              minwidth="min-w-0"
+              colorText="text-white"
+              colorTextHover="text-white"
+              colorBg="bg-blue_b"
+              colorBgHover="hover:bg-blue_m"
+              onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+            />
+          )}
         </div>
       </div>
 

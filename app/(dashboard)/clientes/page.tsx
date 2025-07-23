@@ -344,13 +344,15 @@ const ClientesPage = () => {
           <div className="w-full max-w-md">
             <SearchBar onSearch={handleSearch} />
           </div>
-          <Button
-            icon={<Plus className="w-4 h-4" />}
-            text="Nuevo Cliente"
-            colorText="text-white"
-            colorTextHover="text-white"
-            onClick={() => setIsModalOpen(true)}
-          />
+          {rubro !== "Todos los rubros" && (
+            <Button
+              icon={<Plus className="w-4 h-4" />}
+              text="Nuevo Cliente"
+              colorText="text-white"
+              colorTextHover="text-white"
+              onClick={() => setIsModalOpen(true)}
+            />
+          )}
         </div>
 
         <div className="flex flex-col justify-between h-[calc(100vh-200px)]">
@@ -361,7 +363,9 @@ const ClientesPage = () => {
                   <th className="p-2 text-start">Nombre</th>
                   <th className="p-2">Teléfono</th>
                   <th className="p-2">Fecha de Registro</th>
-                  <th className="p-2 w-40 max-w-40">Acciones</th>
+                  {rubro !== "Todos los rubros" && (
+                    <th className="p-2 w-40 max-w-40">Acciones</th>
+                  )}
                 </tr>
               </thead>
               <tbody
@@ -371,7 +375,7 @@ const ClientesPage = () => {
                   currentCustomers.map((customer) => (
                     <tr
                       key={customer.id}
-                      className="hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
+                      className="hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
                     >
                       <td className="font-semibold p-2 border border-gray_xl text-start">
                         {customer.name}
@@ -384,49 +388,51 @@ const ClientesPage = () => {
                           "es-AR"
                         )}
                       </td>
-                      <td className="p-2 border border-gray_xl">
-                        <div className="flex justify-center items-center gap-2 h-full">
-                          <Button
-                            icon={<ClipboardList size={20} />}
-                            colorText="text-gray_b"
-                            colorTextHover="hover:text-white"
-                            colorBg="bg-transparent"
-                            colorBgHover="hover:bg-blue_b"
-                            px="px-1"
-                            py="py-1"
-                            minwidth="min-w-0"
-                            onClick={() => {
-                              setSelectedCustomer(customer);
-                              setIsBudgetsModalOpen(true);
-                            }}
-                            title="Ver presupuestos"
-                          />
-                          <Button
-                            icon={<Edit size={20} />}
-                            colorText="text-gray_b"
-                            colorTextHover="hover:text-white"
-                            colorBg="bg-transparent"
-                            colorBgHover="hover:bg-blue_b"
-                            px="px-1"
-                            py="py-1"
-                            minwidth="min-w-0"
-                            onClick={() => handleEditClick(customer)}
-                            title="Editar cliente"
-                          />
-                          <Button
-                            icon={<Trash size={20} />}
-                            colorText="text-gray_b"
-                            colorTextHover="hover:text-white"
-                            colorBg="bg-transparent"
-                            colorBgHover="hover:bg-red_m"
-                            px="px-1"
-                            py="py-1"
-                            minwidth="min-w-0"
-                            onClick={() => handleDeleteClick(customer)}
-                            title="Eliminar cliente"
-                          />
-                        </div>
-                      </td>
+                      {rubro !== "Todos los rubros" && (
+                        <td className="p-2 border border-gray_xl">
+                          <div className="flex justify-center items-center gap-2 h-full">
+                            <Button
+                              icon={<ClipboardList size={20} />}
+                              colorText="text-gray_b"
+                              colorTextHover="hover:text-white"
+                              colorBg="bg-transparent"
+                              colorBgHover="hover:bg-blue_b"
+                              px="px-1"
+                              py="py-1"
+                              minwidth="min-w-0"
+                              onClick={() => {
+                                setSelectedCustomer(customer);
+                                setIsBudgetsModalOpen(true);
+                              }}
+                              title="Ver presupuestos"
+                            />
+                            <Button
+                              icon={<Edit size={20} />}
+                              colorText="text-gray_b"
+                              colorTextHover="hover:text-white"
+                              colorBg="bg-transparent"
+                              colorBgHover="hover:bg-blue_b"
+                              px="px-1"
+                              py="py-1"
+                              minwidth="min-w-0"
+                              onClick={() => handleEditClick(customer)}
+                              title="Editar cliente"
+                            />
+                            <Button
+                              icon={<Trash size={20} />}
+                              colorText="text-gray_b"
+                              colorTextHover="hover:text-white"
+                              colorBg="bg-transparent"
+                              colorBgHover="hover:bg-red_m"
+                              px="px-1"
+                              py="py-1"
+                              minwidth="min-w-0"
+                              onClick={() => handleDeleteClick(customer)}
+                              title="Eliminar cliente"
+                            />
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))
                 ) : (
@@ -628,7 +634,7 @@ const ClientesPage = () => {
                             {selectedBudget.items.map((item, index) => (
                               <tr
                                 key={index}
-                                className=" text-gray_b dark:text-white hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
+                                className=" text-gray_b dark:text-white hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
                               >
                                 <td className="p-2 border">
                                   {item.productName}
@@ -677,7 +683,7 @@ const ClientesPage = () => {
                     {customerBudgets.map((budget) => (
                       <tr
                         key={budget.id}
-                        className="hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
+                        className="hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
                       >
                         <td className="p-2 border border-gray_xl text-start">
                           {new Date(budget.date).toLocaleDateString("es-AR")}

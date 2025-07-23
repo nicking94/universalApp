@@ -132,6 +132,7 @@ export type Product = {
   expiration?: string;
   quantity: number;
   unit:
+    | "General"
     | "A"
     | "Bulto"
     | "Cajón"
@@ -299,6 +300,7 @@ export type DailyCashMovement = {
   profit?: number;
   rubro?: Rubro;
   unit?:
+    | "General"
     | "Unid."
     | "Gr"
     | "Kg"

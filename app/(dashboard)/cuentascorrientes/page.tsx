@@ -736,7 +736,9 @@ const CuentasCorrientesPage = () => {
                   <th className="p-2 text-start">Cliente</th>
                   <th className="p-2">Fecha</th>
                   <th className="p-2">Deuda</th>
-                  <th className="w-40 max-w-40 p-2">Acciones</th>
+                  {rubro !== "Todos los rubros" && (
+                    <th className="w-40 max-w-40 p-2">Acciones</th>
+                  )}
                 </tr>
               </thead>
               <tbody
@@ -756,7 +758,7 @@ const CuentasCorrientesPage = () => {
                     return (
                       <tr
                         key={customerName}
-                        className="hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
+                        className="hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
                       >
                         <td className="font-semibold p-2 border border-gray_xl text-start">
                           {customerName}
@@ -776,50 +778,52 @@ const CuentasCorrientesPage = () => {
                             currency: "ARS",
                           })}
                         </td>
-                        <td className="p-2 border border-gray_xl">
-                          <div className="flex justify-center items-center h-full gap-2">
-                            <Button
-                              icon={<Wallet size={20} />}
-                              colorText="text-gray_b"
-                              colorTextHover="hover:text-white"
-                              colorBg="bg-transparent"
-                              px="px-2"
-                              py="py-1"
-                              minwidth="min-w-0"
-                              onClick={() =>
-                                handleOpenChequesModal(customerName)
-                              }
-                              title="Ver cheques"
-                            />
-                            <Button
-                              icon={<Info size={20} />}
-                              iconPosition="left"
-                              colorText="text-gray_b"
-                              colorTextHover="hover:text-white"
-                              colorBg="bg-transparent"
-                              px="px-2"
-                              py="py-1"
-                              minwidth="min-w-0"
-                              onClick={() => handleOpenInfoModal(oldestSale)}
-                            />
+                        {rubro !== "Todos los rubros" && (
+                          <td className="p-2 border border-gray_xl">
+                            <div className="flex justify-center items-center h-full gap-2">
+                              <Button
+                                icon={<Wallet size={20} />}
+                                colorText="text-gray_b"
+                                colorTextHover="hover:text-white"
+                                colorBg="bg-transparent"
+                                px="px-2"
+                                py="py-1"
+                                minwidth="min-w-0"
+                                onClick={() =>
+                                  handleOpenChequesModal(customerName)
+                                }
+                                title="Ver cheques"
+                              />
+                              <Button
+                                icon={<Info size={20} />}
+                                iconPosition="left"
+                                colorText="text-gray_b"
+                                colorTextHover="hover:text-white"
+                                colorBg="bg-transparent"
+                                px="px-2"
+                                py="py-1"
+                                minwidth="min-w-0"
+                                onClick={() => handleOpenInfoModal(oldestSale)}
+                              />
 
-                            <Button
-                              icon={<Trash size={20} />}
-                              iconPosition="left"
-                              colorText="text-gray_b"
-                              colorTextHover="hover:text-white"
-                              colorBg="bg-transparent"
-                              colorBgHover="hover:bg-red_m"
-                              px="px-2"
-                              py="py-1"
-                              minwidth="min-w-0"
-                              onClick={() => {
-                                setCustomerToDelete(customerName);
-                                setIsDeleteModalOpen(true);
-                              }}
-                            />
-                          </div>
-                        </td>
+                              <Button
+                                icon={<Trash size={20} />}
+                                iconPosition="left"
+                                colorText="text-gray_b"
+                                colorTextHover="hover:text-white"
+                                colorBg="bg-transparent"
+                                colorBgHover="hover:bg-red_m"
+                                px="px-2"
+                                py="py-1"
+                                minwidth="min-w-0"
+                                onClick={() => {
+                                  setCustomerToDelete(customerName);
+                                  setIsDeleteModalOpen(true);
+                                }}
+                              />
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })
@@ -901,7 +905,7 @@ const CuentasCorrientesPage = () => {
                     .map((cheque, index) => (
                       <tr
                         key={index}
-                        className="border-b hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
+                        className="border-b hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
                       >
                         <td className="p-2 border text-left">
                           {cheque.amount.toLocaleString("es-AR", {
@@ -1166,7 +1170,7 @@ const CuentasCorrientesPage = () => {
                               {sale.products.map((product, idx) => (
                                 <tr
                                   key={idx}
-                                  className="border-b last:border-b-0 hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
+                                  className="border-b last:border-b-0 hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
                                 >
                                   <td className="py-1">
                                     {getDisplayProductName(

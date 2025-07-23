@@ -826,7 +826,7 @@ const CajaDiariaPage = () => {
                     key={index}
                     className={` ${
                       movement.type === "EGRESO" ? "bg-red_xl" : ""
-                    } hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300`}
+                    } hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300`}
                   >
                     <td className="whitespace-nowrap text-sm">
                       <span
@@ -1072,48 +1072,50 @@ const CajaDiariaPage = () => {
                   className="text-gray_m min-w-40"
                 />
               </div>
-              <div className="flex gap-2">
-                <Button
-                  icon={<Plus className="w-4 h-4" />}
-                  text="Nuevo Movimiento"
-                  colorText="text-white"
-                  colorTextHover="text-white"
-                  onClick={async () => {
-                    const isCashOpen = await checkCashStatus();
-                    if (isCashOpen) setIsOpenModal(true);
-                  }}
-                />
-                {currentDailyCash ? (
-                  <div>
-                    {currentDailyCash.closed ? (
-                      <Button
-                        icon={<Plus size={20} />}
-                        text="Reabrir Caja"
-                        colorText="text-white"
-                        colorTextHover="text-white"
-                        onClick={() => setIsOpenCashModal(true)}
-                      />
-                    ) : (
-                      <Button
-                        icon={<X size={20} />}
-                        text="Cerrar Caja"
-                        colorText="text-white"
-                        colorTextHover="text-white"
-                        colorBg="bg-red_m"
-                        colorBgHover="hover:bg-red_m"
-                        onClick={() => setIsCloseCashModal(true)}
-                      />
-                    )}
-                  </div>
-                ) : (
+              {rubro !== "Todos los rubros" && (
+                <div className="flex gap-2">
                   <Button
-                    text="Abrir Caja"
+                    icon={<Plus className="w-4 h-4" />}
+                    text="Nuevo Movimiento"
                     colorText="text-white"
                     colorTextHover="text-white"
-                    onClick={() => setIsOpenCashModal(true)}
+                    onClick={async () => {
+                      const isCashOpen = await checkCashStatus();
+                      if (isCashOpen) setIsOpenModal(true);
+                    }}
                   />
-                )}
-              </div>
+                  {currentDailyCash ? (
+                    <div>
+                      {currentDailyCash.closed ? (
+                        <Button
+                          icon={<Plus size={20} />}
+                          text="Reabrir Caja"
+                          colorText="text-white"
+                          colorTextHover="text-white"
+                          onClick={() => setIsOpenCashModal(true)}
+                        />
+                      ) : (
+                        <Button
+                          icon={<X size={20} />}
+                          text="Cerrar Caja"
+                          colorText="text-white"
+                          colorTextHover="text-white"
+                          colorBg="bg-red_m"
+                          colorBgHover="hover:bg-red_m"
+                          onClick={() => setIsCloseCashModal(true)}
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <Button
+                      text="Abrir Caja"
+                      colorText="text-white"
+                      colorTextHover="text-white"
+                      onClick={() => setIsOpenCashModal(true)}
+                    />
+                  )}
+                </div>
+              )}
             </div>
             <div
               className={` flex flex-col justify-between ${
@@ -1143,7 +1145,7 @@ const CajaDiariaPage = () => {
                       currentItems.map((day, index) => (
                         <tr
                           key={index}
-                          className="text-xs 2xl:text-[.9rem] bg-white text-gray_b border border-gray_xl hover:bg-gray_xxl dark:hover:bg-gray_m dark:hover:text-gray_xxl transition-all duration-300"
+                          className="text-xs 2xl:text-[.9rem] bg-white text-gray_b border border-gray_xl hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
                         >
                           <td className="font-semibold p-2  border-x border-gray_xltext-start">
                             {format(parseISO(day.date), "dd/MM/yyyy")}
