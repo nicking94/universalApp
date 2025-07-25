@@ -1264,7 +1264,7 @@ const VentasPage = () => {
             />
           </div>
           {rubro !== "Todos los rubros" && (
-            <div className="w-full  flex justify-end">
+            <div className="w-full flex justify-end mt-3">
               <Button
                 title="Nueva Venta"
                 text="Nueva Venta [F1]"
@@ -1280,11 +1280,9 @@ const VentasPage = () => {
         <div className="flex flex-col justify-between h-[calc(100vh-200px)]">
           <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
             <table className="table-auto w-full text-center border-collapse overflow-y-auto shadow-sm shadow-gray_l">
-              <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b">
-                <tr className="text-xs lg:text-md 2xl:text-lg">
-                  <th className="text-sm 2xl:text-lg p-2 text-start ">
-                    Productos
-                  </th>
+              <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-xs">
+                <tr>
+                  <th className="p-2 text-start ">Productos</th>
                   <th className="p-2 ">Fecha</th>
                   <th className="p-2">Forma De Pago</th>
                   <th className="p-2">Total</th>
@@ -1310,7 +1308,7 @@ const VentasPage = () => {
                     return (
                       <tr
                         key={sale.id || Date.now()}
-                        className=" text-xs 2xl:text-[.9rem] bg-white text-gray_b border border-gray_xl hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
+                        className=" text-xs 2xl:text-sm bg-white text-gray_b border border-gray_xl hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
                       >
                         <td
                           className="font-semibold px-2 text-start capitalize border border-gray_xl truncate max-w-[200px]"
@@ -1336,19 +1334,20 @@ const VentasPage = () => {
 
                         <td className="w-55 p-2 border border-gray_xl">
                           {sale.credit ? (
-                            <span className="uppercase text-orange-600 font-semibold">
-                              {sale.chequeInfo
-                                ? "CUENTA CORRIENTE - CHEQUE"
-                                : "Cuenta corriente"}
+                            <span className="uppercase text-xs text-orange-600 font-semibold">
+                              {sale.chequeInfo ? "Cheque" : "Cuenta corriente"}
                             </span>
                           ) : (
                             <>
-                              {sale.deposit && sale.deposit > 0 && (
+                              {/* Solo mostrar seña si existe y es mayor a 0 */}
+                              {sale.deposit && sale.deposit > 0 ? (
                                 <div className="text-xs flex justify-between">
                                   <span>SEÑA:</span>
                                   <span>{formatCurrency(sale.deposit)}</span>
                                 </div>
-                              )}
+                              ) : null}
+
+                              {/* Mostrar métodos de pago normales */}
                               {paymentMethods.map((payment, i) => (
                                 <div
                                   key={i}
@@ -1357,7 +1356,7 @@ const VentasPage = () => {
                                   <span>
                                     {payment?.method ||
                                       "Método no especificado"}
-                                    :{" "}
+                                    :
                                   </span>
                                   <span>
                                     {formatCurrency(payment?.amount || 0)}
@@ -1439,7 +1438,7 @@ const VentasPage = () => {
                     colorText="text-gray_b dark:text-white"
                     colorTextHover="hover:dark:text-white"
                     colorBg="bg-transparent dark:bg-gray_m"
-                    colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                    colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
                     onClick={() => handleCloseInfoModal()}
                   />
                 </div>
@@ -1484,7 +1483,7 @@ const VentasPage = () => {
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
                 onClick={handleCloseModal}
                 hotkey="esc"
               />
@@ -1563,8 +1562,8 @@ const VentasPage = () => {
                   <div className=" max-h-[16rem] overflow-y-auto ">
                     <table className="table-auto w-full shadow">
                       <thead className=" bg-gradient-to-bl from-blue_m to-blue_b text-white text-sm 2xl:text-lg">
-                        <tr className="text-xs lg:text-md 2xl:text-lg">
-                          <th className="p-2">Producto</th>
+                        <tr>
+                          <th className="p-2 text-left">Producto</th>
                           <th className="p-2 text-center">Unidad</th>
                           <th className="p-2 text-center">Cantidad</th>
                           <th className="w-32">% descuento</th>

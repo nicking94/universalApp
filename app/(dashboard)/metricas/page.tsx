@@ -97,6 +97,10 @@ const Metrics = () => {
     currentRubro: Rubro
   ): boolean => {
     if (currentRubro === "Todos los rubros") return true;
+    // Movimientos de presupuestos deben filtrarse por su rubro original
+    if (movement.fromBudget || movement.budgetId) {
+      return movement.rubro === currentRubro;
+    }
     if (movement.type === "INGRESO") {
       if (movement.items) {
         return movement.items.some((item) => {
@@ -139,29 +143,46 @@ const Metrics = () => {
             filterByRubro(m, rubro)
           );
 
+          // 1. Ganancias de ventas normales
+          const salesProfit = filteredMovements
+            .filter(
+              (m) => m.type === "INGRESO" && !m.fromBudget && !m.isDeposit
+            )
+            .reduce((sum, m) => sum + (m.profit || 0), 0);
+
+          // 2. Ganancias de presupuestos cobrados como venta
+          const budgetSalesProfit = filteredMovements
+            .filter((m) => m.fromBudget && !m.isDeposit)
+            .reduce((sum, m) => sum + (m.profit || 0), 0);
+
+          // 3. Ganancias de señas (depósitos) de presupuestos
+          const depositProfit = filteredMovements
+            .filter((m) => m.isDeposit)
+            .reduce((sum, m) => sum + (m.profit || 0), 0);
+
+          // 4. Ganancias de cuentas corrientes pagadas
+          const creditPaymentsProfit = filteredMovements
+            .filter((m) => m.description?.includes("Pago cuenta corriente"))
+            .reduce((sum, m) => sum + (m.profit || 0), 0);
+
           const ingresos = filteredMovements
             .filter((m) => m.type === "INGRESO")
             .reduce((sum, m) => sum + m.amount, 0);
 
-          const ganancia = filteredMovements
-            .filter(
-              (m) =>
-                m.type === "INGRESO" ||
-                (m.type === "EGRESO" && (m.profit ?? 0) < 0)
-            )
-            .reduce((sum, m) => {
-              const productsProfit = m.profit ?? 0;
-              return sum + productsProfit;
-            }, 0);
-
           const egresos = filteredMovements
-            .filter((m) => m.type === "EGRESO" && (m.profit ?? 0) >= 0)
+            .filter((m) => m.type === "EGRESO")
             .reduce((sum, m) => sum + m.amount, 0);
+
+          const gananciaTotal =
+            salesProfit +
+            budgetSalesProfit +
+            depositProfit +
+            creditPaymentsProfit;
 
           return {
             ingresos: acc.ingresos + ingresos,
             egresos: acc.egresos + egresos,
-            ganancia: acc.ganancia + ganancia,
+            ganancia: acc.ganancia + gananciaTotal,
           };
         },
         { ingresos: 0, egresos: 0, ganancia: 0 }

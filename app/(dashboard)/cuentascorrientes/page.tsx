@@ -731,8 +731,8 @@ const CuentasCorrientesPage = () => {
         <div className="flex flex-col justify-between h-[calc(100vh-200px)] ">
           <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
             <table className="table-auto w-full text-center border-collapse shadow-sm shadow-gray_l">
-              <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-sm 2xl:text-lg">
-                <tr className="text-xs lg:text-md 2xl:text-lg">
+              <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-xs">
+                <tr>
                   <th className="p-2 text-start">Cliente</th>
                   <th className="p-2">Fecha</th>
                   <th className="p-2">Deuda</th>
@@ -758,9 +758,9 @@ const CuentasCorrientesPage = () => {
                     return (
                       <tr
                         key={customerName}
-                        className="hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
+                        className="hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300 text-xs 2xl:text-sm"
                       >
-                        <td className="font-semibold p-2 border border-gray_xl text-start">
+                        <td className="p-2 font-semibold border border-gray_xl text-start">
                           {customerName}
                         </td>
                         <td className="p-2 border border-gray_xl">
@@ -779,7 +779,7 @@ const CuentasCorrientesPage = () => {
                           })}
                         </td>
                         {rubro !== "Todos los rubros" && (
-                          <td className="p-2 border border-gray_xl">
+                          <td className="border border-gray_xl p-2">
                             <div className="flex justify-center items-center h-full gap-2">
                               <Button
                                 icon={<Wallet size={20} />}
@@ -862,7 +862,7 @@ const CuentasCorrientesPage = () => {
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
                 onClick={() => setIsChequesModalOpen(false)}
               />
             </div>
@@ -1015,7 +1015,7 @@ const CuentasCorrientesPage = () => {
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
                 onClick={() => setIsInfoModalOpen(false)}
                 hotkey="Escape"
               />
@@ -1275,7 +1275,7 @@ const CuentasCorrientesPage = () => {
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
                 onClick={() => {
                   setIsPaymentModalOpen(false);
                   setPaymentMethods([{ method: "EFECTIVO", amount: 0 }]);
@@ -1418,7 +1418,7 @@ const CuentasCorrientesPage = () => {
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
                 onClick={() => setIsDeleteModalOpen(false)}
                 hotkey="Escape"
               />

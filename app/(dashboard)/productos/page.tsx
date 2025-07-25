@@ -1050,7 +1050,7 @@ const ProductsPage = () => {
             />
           </div>
           <div
-            className={`w-full flex justify-end items-center gap-2 ${
+            className={`w-full flex justify-end items-center mt-3 gap-2 ${
               rubro === "Todos los rubros" ? "hidden" : ""
             } `}
           >
@@ -1083,8 +1083,8 @@ const ProductsPage = () => {
         <div className="flex flex-col justify-between h-[calc(100vh-200px)]  ">
           <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
             <table className=" table-auto w-full text-center border-collapse overflow-y-auto shadow-sm shadow-gray_l">
-              <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b">
-                <tr className="text-xs lg:text-md 2xl:text-lg ">
+              <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-xs">
+                <tr>
                   <th className="p-2 text-start">Producto</th>
                   <th className="p-2">Stock </th>
                   <th className="p-2 cursor-pointer">Categoría</th>
@@ -1142,7 +1142,7 @@ const ProductsPage = () => {
                       return (
                         <tr
                           key={index}
-                          className={`text-xs 2xl:text-[.9rem] border border-gray_xl hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300 ${
+                          className={`border border-gray_xl hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300 text-xs 2xl:text-sm ${
                             isExpired
                               ? "border-l-2 border-l-red_m text-gray_b bg-white animate-pulse"
                               : expiredToday
@@ -1152,7 +1152,7 @@ const ProductsPage = () => {
                               : "text-gray_b hover:text-gray_b bg-white "
                           }`}
                         >
-                          <td className="font-semibold p-2 text-start capitalize border border-gray_xl">
+                          <td className="font-semibold px-2 text-start capitalize border border-gray_xl">
                             <div className="flex items-center gap-2 h-full">
                               {expiredToday && (
                                 <AlertTriangle
@@ -1328,7 +1328,7 @@ const ProductsPage = () => {
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
                 onClick={() => setIsSelectionModalOpen(false)}
               />
             </>
@@ -1366,7 +1366,7 @@ const ProductsPage = () => {
               colorText="text-gray_b dark:text-white"
               colorTextHover="hover:dark:text-white"
               colorBg="bg-transparent dark:bg-gray_m"
-              colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+              colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
               onClick={() => {
                 setShowReturnsHistory(false);
                 setIsSelectionModalOpen(true);
@@ -1441,7 +1441,7 @@ const ProductsPage = () => {
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
                 onClick={() => {
                   setIsReturnModalOpen(false);
                   resetReturnData();
@@ -1574,7 +1574,7 @@ const ProductsPage = () => {
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
                 onClick={handleCloseModal}
               />
             </>
@@ -1619,8 +1619,8 @@ const ProductsPage = () => {
                     text="Generar código"
                     colorText="text-white"
                     colorTextHover="text-white"
-                    colorBg="bg-blue_m"
-                    colorBgHover="hover:bg-blue_b"
+                    colorBg="bg-blue_b"
+                    colorBgHover="hover:bg-blue_m"
                     onClick={generateAutoBarcode}
                   />
                 </div>
@@ -1699,8 +1699,8 @@ const ProductsPage = () => {
                       text="Agregar"
                       colorText="text-white"
                       colorTextHover="text-white"
-                      colorBg="bg-blue_m"
-                      colorBgHover="hover:bg-blue_b"
+                      colorBg="bg-blue_b"
+                      colorBgHover="hover:bg-blue_m"
                       onClick={handleAddCategory}
                     />
                   </div>
@@ -2010,7 +2010,7 @@ const ProductsPage = () => {
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
                 onClick={(e) => {
                   e?.preventDefault();
                   setIsCategoryDeleteModalOpen(false);
@@ -2056,7 +2056,7 @@ const ProductsPage = () => {
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
                 onClick={() => setIsConfirmModalOpen(false)}
               />
             </>
@@ -2075,7 +2075,7 @@ const ProductsPage = () => {
               colorText="text-gray_b dark:text-white"
               colorTextHover="hover:dark:text-white"
               colorBg="bg-transparent dark:bg-gray_m"
-              colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+              colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
               onClick={() => setIsPriceModalOpen(false)}
             />
           }

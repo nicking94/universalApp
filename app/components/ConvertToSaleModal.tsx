@@ -159,7 +159,7 @@ export const ConvertToSaleModal = ({
             colorText="text-gray_b dark:text-white"
             colorTextHover="hover:dark:text-white"
             colorBg="bg-transparent dark:bg-gray_m"
-            colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+            colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
             onClick={onClose}
           />
         </>
@@ -171,7 +171,7 @@ export const ConvertToSaleModal = ({
           <div className="max-h-40 overflow-y-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
-                <tr className="text-xs lg:text-md 2xl:text-lg">
+                <tr>
                   <th className="px-2 py-1 text-left text-xs font-medium text-gray_l uppercase tracking-wider">
                     Producto
                   </th>

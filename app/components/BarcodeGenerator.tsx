@@ -194,7 +194,7 @@ const BarcodeGenerator = ({
             colorText="text-gray_b dark:text-white"
             colorTextHover="hover:dark:text-white"
             colorBg="bg-transparent dark:bg-gray_m"
-            colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+            colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
             onClick={onClose}
             disabled={isPrinting}
           />

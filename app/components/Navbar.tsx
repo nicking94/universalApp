@@ -36,7 +36,7 @@ const Navbar: React.FC<NavbarProps> = ({
           <Image className="rounded-full w-8 h-8" src={logo} alt="User Logo" />
           <h1 className="text-lg italic">
             Universal App <span className="text-[.8rem]">v.{APP_VERSION}</span>{" "}
-            | <span className="text-sm">{rubro}</span>
+            | <span className="uppercase text-sm">{rubro}</span>
           </h1>
         </div>
 

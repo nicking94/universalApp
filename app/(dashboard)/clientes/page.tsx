@@ -340,16 +340,16 @@ const ClientesPage = () => {
       <div className="px-10 2xl:px-10 py-4 text-gray_l dark:text-white h-[calc(100vh-80px)]">
         <h1 className="text-lg 2xl:text-xl font-semibold mb-2">Clientes</h1>
 
-        <div className="flex justify-between mb-2">
+        <div className="flex justify-between mb-2 ">
           <div className="w-full max-w-md">
             <SearchBar onSearch={handleSearch} />
           </div>
           {rubro !== "Todos los rubros" && (
             <Button
-              icon={<Plus className="w-4 h-4" />}
+              icon={<Plus className="w-4 h-4 " />}
               text="Nuevo Cliente"
               colorText="text-white"
-              colorTextHover="text-white"
+              colorTextHover="text-white mt-3"
               onClick={() => setIsModalOpen(true)}
             />
           )}
@@ -358,8 +358,8 @@ const ClientesPage = () => {
         <div className="flex flex-col justify-between h-[calc(100vh-200px)]">
           <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
             <table className="table-auto w-full text-center border-collapse shadow-sm shadow-gray_l">
-              <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-sm 2xl:text-lg">
-                <tr className="text-xs lg:text-md 2xl:text-lg">
+              <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-xs">
+                <tr>
                   <th className="p-2 text-start">Nombre</th>
                   <th className="p-2">Teléfono</th>
                   <th className="p-2">Fecha de Registro</th>
@@ -375,7 +375,7 @@ const ClientesPage = () => {
                   currentCustomers.map((customer) => (
                     <tr
                       key={customer.id}
-                      className="hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
+                      className="hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300 text-xs 2xl:text-sm"
                     >
                       <td className="font-semibold p-2 border border-gray_xl text-start">
                         {customer.name}
@@ -486,7 +486,7 @@ const ClientesPage = () => {
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
                 onClick={() => {
                   setIsModalOpen(false);
                   setEditingCustomer(null);
@@ -542,7 +542,7 @@ const ClientesPage = () => {
                   colorText="text-gray_b dark:text-white"
                   colorTextHover="hover:dark:text-white"
                   colorBg="bg-transparent dark:bg-gray_m"
-                  colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                  colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
                   onClick={() => {
                     setIsBudgetsModalOpen(false);
                     setSelectedCustomer(null);
@@ -556,7 +556,7 @@ const ClientesPage = () => {
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
                 onClick={() => {
                   setIsBudgetsModalOpen(false);
                   setSelectedCustomer(null);
@@ -618,7 +618,7 @@ const ClientesPage = () => {
                       <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
                         <table className="w-full border-collapse ">
                           <thead className="bg-gradient-to-bl from-blue_m to-blue_b text-white">
-                            <tr className="text-xs lg:text-md 2xl:text-lg">
+                            <tr>
                               <th className="p-2 border text-left">
                                 Descripción
                               </th>
@@ -672,7 +672,7 @@ const ClientesPage = () => {
               {customerBudgets.length > 0 ? (
                 <table className="w-full table-auto divide-y divide-gray_xl">
                   <thead className="bg-gradient-to-bl from-blue_m to-blue_b text-white">
-                    <tr className="text-xs lg:text-md 2xl:text-lg">
+                    <tr>
                       <th className="p-2 text-start">Fecha</th>
                       <th className="p-2">Total</th>
                       <th className="p-2">Estado</th>
@@ -752,7 +752,7 @@ const ClientesPage = () => {
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
                 onClick={() => setIsDeleteBudgetModalOpen(false)}
                 hotkey="esc"
               />
@@ -790,7 +790,7 @@ const ClientesPage = () => {
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
                 onClick={() => setIsDeleteModalOpen(false)}
                 hotkey="esc"
               />

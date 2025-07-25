@@ -375,7 +375,7 @@ const ProveedoresPage = () => {
               icon={<Plus size={20} />}
               text="Nuevo Proveedor"
               colorText="text-white"
-              colorTextHover="text-white"
+              colorTextHover="text-white mt-3"
               onClick={() => {
                 resetForm();
                 setIsModalOpen(true);
@@ -387,8 +387,8 @@ const ProveedoresPage = () => {
         <div className="flex flex-col justify-between h-[calc(100vh-200px)]">
           <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
             <table className="w-full text-center border-collapse shadow-sm shadow-gray_l">
-              <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-sm 2xl:text-lg">
-                <tr className="text-xs lg:text-md 2xl:text-lg">
+              <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-xs">
+                <tr>
                   <th className="p-2 text-left">Empresa</th>
                   <th className="p-2">Proveedores</th>
                   <th className="p-2">Última Visita</th>
@@ -404,7 +404,7 @@ const ProveedoresPage = () => {
                   currentItems.map((supplier) => (
                     <tr
                       key={supplier.id}
-                      className="hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
+                      className="hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300 text-xs 2xl:text-sm"
                     >
                       <td className="capitalize p-2 text-left  border border-gray_xl font-semibold">
                         {supplier.companyName}
@@ -412,13 +412,13 @@ const ProveedoresPage = () => {
                       <td className="p-2  border border-gray_xl">
                         <div className="flex justify-center items-center space-x-4  ">
                           {supplier.contacts.length > 0 && (
-                            <div className="text-sm">
+                            <div>
                               <p>{supplier.contacts[0].name}</p>
                             </div>
                           )}
                           {supplier.contacts.length > 1 && (
                             <div className="group relative inline-block">
-                              <span className="text-xs text-gray_l cursor-pointer">
+                              <span className=" text-gray_l cursor-pointer">
                                 +{supplier.contacts.length - 1} más
                               </span>
                               <div className="absolute hidden group-hover:block z-10 w-64 p-2 bg-white border border-gray_l rounded shadow-lg text-sm">
@@ -546,7 +546,7 @@ const ProveedoresPage = () => {
               colorText="text-gray_b dark:text-white"
               colorTextHover="hover:dark:text-white"
               colorBg="bg-transparent dark:bg-gray_m"
-              colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+              colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
               onClick={() => {
                 setIsProductAssignmentModalOpen(false);
                 setProductSearchQuery("");
@@ -685,7 +685,7 @@ const ProveedoresPage = () => {
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
                 onClick={() => {
                   setIsModalOpen(false);
                   resetForm();
@@ -801,7 +801,7 @@ const ProveedoresPage = () => {
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
                 onClick={() => setIsDeleteModalOpen(false)}
               />
             </div>

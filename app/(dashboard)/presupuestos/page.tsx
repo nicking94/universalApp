@@ -435,6 +435,7 @@ const PresupuestosPage = () => {
             profitPercentage: (methodProfit / methodAmount) * 100,
             budgetId: budgetToConvert.id,
             fromBudget: true,
+            rubro: budgetToConvert.rubro || "comercio",
           });
         });
 
@@ -453,6 +454,16 @@ const PresupuestosPage = () => {
             ...updatedMovements[depositMovementIndex],
             profit: depositProfit,
             profitPercentage: (depositProfit / deposit) * 100,
+            type: "INGRESO",
+            rubro: budgetToConvert.rubro || "comercio",
+            items: budgetToConvert.items.map((item) => ({
+              productId: item.productId,
+              productName: item.productName,
+              quantity: item.quantity,
+              unit: item.unit,
+              price: item.price,
+              costPrice: item.basePrice || 0,
+            })),
           };
 
           const updatedCash = {
@@ -1005,7 +1016,7 @@ const PresupuestosPage = () => {
               icon={<Plus className="w-4 h-4" />}
               text="Nuevo Presupuesto"
               colorText="text-white"
-              colorTextHover="text-white"
+              colorTextHover="text-white mt-3"
               onClick={handleNewBudgetClick}
             />
           )}
@@ -1013,8 +1024,8 @@ const PresupuestosPage = () => {
         <div className="flex flex-col justify-between h-[calc(100vh-200px)]">
           <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
             <table className="w-full table-auto divide-y divide-gray_xl">
-              <thead className="bg-gradient-to-bl from-blue_m to-blue_b text-white text-sm 2xl:text-lg">
-                <tr className="text-xs lg:text-md 2xl:text-lg">
+              <thead className="bg-gradient-to-bl from-blue_m to-blue_b text-white text-xs">
+                <tr>
                   <th className="p-2 text-start">Cliente</th>
                   <th className="p-2 text-center">Teléfono</th>
                   <th className="p-2 text-center">Total</th>
@@ -1031,7 +1042,7 @@ const PresupuestosPage = () => {
                   currentBudgets.map((budget) => (
                     <tr
                       key={budget.id}
-                      className="hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
+                      className="hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300 text-xs 2xl:text-sm"
                     >
                       <td className="font-semibold p-2 border border-gray_xl text-start">
                         {budget.customerName}
@@ -1243,7 +1254,7 @@ const PresupuestosPage = () => {
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
                 onClick={() => {
                   setIsModalOpen(false);
                   setEditingBudget(null);
@@ -1410,7 +1421,7 @@ const PresupuestosPage = () => {
                   <div className="overflow-y-auto max-h-[15vh] 2xl:max-h-[26vh]">
                     <table className="min-w-full divide-y divide-gray-200 text-gray_b">
                       <thead className="bg-gradient-to-r from-blue_b to-blue_m text-white">
-                        <tr className="text-xs lg:text-md 2xl:text-lg">
+                        <tr>
                           <th className="p-2 text-left text-xs font-medium  tracking-wider">
                             Producto
                           </th>
@@ -1672,7 +1683,7 @@ const PresupuestosPage = () => {
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
                 onClick={() => setIsDeleteModalOpen(false)}
                 hotkey="esc"
               />

@@ -725,7 +725,7 @@ const CajaDiariaPage = () => {
               colorText="text-gray_b dark:text-white"
               colorTextHover="hover:dark:text-white"
               colorBg="bg-transparent dark:bg-gray_m"
-              colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+              colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
               onClick={() => {
                 setIsDetailModalOpen(false);
                 setFilterType("TODOS");
@@ -798,20 +798,20 @@ const CajaDiariaPage = () => {
         </div>
 
         <div className="max-h-[35vh] overflow-y-auto">
-          <table className="min-w-full divide-y divide-gray_l">
+          <table className="min-w-full divide-y divide-gray_l ">
             <thead className="bg-gradient-to-bl from-blue_m to-blue_b text-white">
-              <tr className="text-xs lg:text-md 2xl:text-lg ">
+              <tr>
                 <th className="p-2 text-left text-xs font-medium tracking-wider">
                   Tipo
                 </th>
 
-                <th className="p-2 text-left text-xs font-medium tracking-wider">
+                <th className="p-2 text-center text-xs font-medium tracking-wider">
                   Producto
                 </th>
-                <th className="p-2 text-left text-xs font-medium  tracking-wider">
+                <th className="p-2 text-center text-xs font-medium  tracking-wider">
                   Descripción
                 </th>
-                <th className="p-2 text-left text-xs font-medium  tracking-wider">
+                <th className="p-2 text-center text-xs font-medium  tracking-wider">
                   Métodos de Pago
                 </th>
                 <th className="p-2 text-center text-xs font-medium tracking-wider">
@@ -824,13 +824,13 @@ const CajaDiariaPage = () => {
                 Object.values(groupedMovements).map((movement, index) => (
                   <tr
                     key={index}
-                    className={` ${
+                    className={`text-xs ${
                       movement.type === "EGRESO" ? "bg-red_xl" : ""
                     } hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300`}
                   >
-                    <td className="whitespace-nowrap text-sm">
+                    <td className="whitespace-nowrap text-xs">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs ${
+                        className={`px-2 py-1 rounded-full ${
                           movement.type === "INGRESO"
                             ? "bg-green_xl text-green_b"
                             : "bg-red_l text-red_b"
@@ -839,12 +839,12 @@ const CajaDiariaPage = () => {
                         {movement.type}
                       </span>
                     </td>
-                    <td className="p-2 text-sm text-gray_m min-w-[23rem]">
+                    <td className="p-2 text-gray_b min-w-[23rem]">
                       {movement.items && movement.items.length > 0 ? (
                         <div className="flex flex-col">
                           {movement.items.map((item, i) => (
                             <div key={i} className="flex justify-between">
-                              <span className="font-semibold">
+                              <span>
                                 {getDisplayProductName(
                                   {
                                     name: item.productName,
@@ -884,10 +884,8 @@ const CajaDiariaPage = () => {
                         "-"
                       )}
                     </td>
-                    <td className="p-2 text-sm text-gray_m">
-                      {movement.description}
-                    </td>
-                    <td className="p-2 text-sm text-gray_m">
+                    <td className="p-2 text-gray_m">{movement.description}</td>
+                    <td className="p-2 text-gray_m">
                       {movement.isBudgetGroup ? (
                         <div>
                           {movement.subMovements?.map((sub, i) => (
@@ -918,7 +916,7 @@ const CajaDiariaPage = () => {
                         </div>
                       )}
                     </td>
-                    <td className="p-2 text-sm text-center font-medium text-green_b">
+                    <td className="p-2 text-center font-medium text-green_b">
                       {formatCurrency(movement.amount)}
                     </td>
                   </tr>
@@ -1073,7 +1071,7 @@ const CajaDiariaPage = () => {
                 />
               </div>
               {rubro !== "Todos los rubros" && (
-                <div className="flex gap-2">
+                <div className="flex gap-2 mt-2">
                   <Button
                     icon={<Plus className="w-4 h-4" />}
                     text="Nuevo Movimiento"
@@ -1125,7 +1123,7 @@ const CajaDiariaPage = () => {
               <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
                 <table className=" table-auto w-full text-center border-collapse overflow-y-auto shadow-sm shadow-gray_l">
                   <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b">
-                    <tr className="text-xs lg:text-md 2xl:text-lg">
+                    <tr>
                       <th className="text-sm 2xl:text-lg p-2 text-start">
                         Fecha
                       </th>
@@ -1145,7 +1143,7 @@ const CajaDiariaPage = () => {
                       currentItems.map((day, index) => (
                         <tr
                           key={index}
-                          className="text-xs 2xl:text-[.9rem] bg-white text-gray_b border border-gray_xl hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
+                          className="text-xs bg-white text-gray_b border border-gray_xl hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
                         >
                           <td className="font-semibold p-2  border-x border-gray_xltext-start">
                             {format(parseISO(day.date), "dd/MM/yyyy")}
@@ -1374,7 +1372,7 @@ const CajaDiariaPage = () => {
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-blue_l"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
                 onClick={() => {
                   setIsOpenCashModal(false);
                   setInitialAmount("");
