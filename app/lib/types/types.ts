@@ -580,6 +580,12 @@ export type DailyData = {
   egresos: number;
   ganancia: number;
 };
+export type WeeklyData = {
+  week: string;
+  ingresos: number;
+  egresos: number;
+  ganancia: number;
+};
 
 export type MonthlyData = {
   month: string;

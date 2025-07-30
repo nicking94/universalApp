@@ -1,5 +1,4 @@
 "use client";
-
 import ProtectedRoute from "@/app/components/ProtectedRoute";
 import { db } from "@/app/database/db";
 import {
@@ -18,6 +17,8 @@ import {
   endOfMonth,
   format,
   getYear,
+  startOfWeek,
+  endOfWeek,
 } from "date-fns";
 import { es } from "date-fns/locale";
 import { useEffect, useState, useMemo } from "react";
@@ -39,7 +40,6 @@ import { useRubro } from "@/app/context/RubroContext";
 import { calculatePrice, calculateProfit } from "@/app/lib/utils/calculations";
 import Select from "react-select";
 import { SingleValue } from "react-select";
-
 ChartJS.register(
   BarElement,
   CategoryScale,
@@ -58,6 +58,9 @@ const Metrics = () => {
     Product["unit"] | "General"
   >("General");
   const [yearlyRankingUnit, setYearlyRankingUnit] = useState<
+    Product["unit"] | "General"
+  >("General");
+  const [weeklyRankingUnit, setWeeklyRankingUnit] = useState<
     Product["unit"] | "General"
   >("General");
   const [dailyCashes, setDailyCashes] = useState<DailyCash[]>([]);
@@ -92,17 +95,16 @@ const Metrics = () => {
     V: "voltio",
     W: "vatio",
   };
+
   const filterByRubro = (
     movement: DailyCashMovement,
     currentRubro: Rubro
   ): boolean => {
     if (currentRubro === "Todos los rubros") return true;
-
     // Movimientos de presupuestos deben filtrarse por su rubro original
     if (movement.fromBudget || movement.budgetId) {
       return movement.rubro === currentRubro;
     }
-
     // Todos los movimientos de ingreso que coincidan con el rubro
     if (movement.type === "INGRESO") {
       if (movement.rubro) {
@@ -120,7 +122,6 @@ const Metrics = () => {
       }
       return false;
     }
-
     if (movement.type === "EGRESO") {
       if (movement.rubro) {
         return movement.rubro === currentRubro;
@@ -131,15 +132,20 @@ const Metrics = () => {
       }
       return false;
     }
-
     return false;
   };
+
   const getConsistentSummary = useMemo(
-    () => (period: "month" | "year") => {
+    () => (period: "week" | "month" | "year") => {
       const filteredCashes = dailyCashes.filter((cash) => {
         const date = parseISO(cash.date);
         if (period === "month") {
           return isSameMonth(date, new Date(selectedYear, selectedMonth - 1));
+        } else if (period === "week") {
+          const today = new Date();
+          const weekStart = startOfWeek(today);
+          const weekEnd = endOfWeek(today);
+          return date >= weekStart && date <= weekEnd;
         }
         return isSameYear(date, new Date(selectedYear, 0));
       });
@@ -149,21 +155,17 @@ const Metrics = () => {
           const filteredMovements = cash.movements.filter((m) =>
             filterByRubro(m, rubro)
           );
-
           // 1. Todos los ingresos que coincidan con el rubro
           const ingresos = filteredMovements
             .filter((m) => m.type === "INGRESO")
             .reduce((sum, m) => sum + m.amount, 0);
-
           const egresos = filteredMovements
             .filter((m) => m.type === "EGRESO")
             .reduce((sum, m) => sum + m.amount, 0);
-
           // Calcular ganancia solo para movimientos de venta
           const ganancia = filteredMovements
             .filter((m) => m.type === "INGRESO" && m.profit !== undefined)
             .reduce((sum, m) => sum + (m.profit || 0), 0);
-
           return {
             ingresos: acc.ingresos + ingresos,
             egresos: acc.egresos + egresos,
@@ -177,17 +179,15 @@ const Metrics = () => {
   );
 
   const getChartData = useMemo(
-    () => (period: "month" | "year") => {
+    () => (period: "week" | "month" | "year") => {
       if (period === "month") {
         const daysInMonth = eachDayOfInterval({
           start: startOfMonth(new Date(selectedYear, selectedMonth - 1)),
           end: endOfMonth(new Date(selectedYear, selectedMonth - 1)),
         });
-
         return daysInMonth.map((day) => {
           const dateStr = format(day, "yyyy-MM-dd");
           const dailyCash = dailyCashes.find((dc) => dc.date === dateStr);
-
           if (!dailyCash)
             return {
               date: format(day, "dd"),
@@ -195,29 +195,64 @@ const Metrics = () => {
               egresos: 0,
               ganancia: 0,
             };
-
           const filteredMovements = dailyCash.movements.filter((m) =>
             filterByRubro(m, rubro)
           );
-
           const ingresos = filteredMovements
             .filter((m) => m.type === "INGRESO")
             .reduce((sum, m) => sum + m.amount, 0);
-
           const egresos = filteredMovements
             .filter((m) => m.type === "EGRESO")
             .reduce((sum, m) => sum + m.amount, 0);
-
           const ganancia = filteredMovements
             .filter((m) => m.type === "INGRESO")
             .reduce((sum, m) => {
               const productsProfit = m.profit || 0;
-
               return sum + productsProfit;
             }, 0);
-
           return {
             date: format(day, "dd"),
+            ingresos,
+            egresos,
+            ganancia,
+          };
+        });
+      } else if (period === "week") {
+        const today = new Date();
+        const weekStart = startOfWeek(today);
+        const weekEnd = endOfWeek(today);
+        const daysInWeek = eachDayOfInterval({
+          start: weekStart,
+          end: weekEnd,
+        });
+
+        return daysInWeek.map((day) => {
+          const dateStr = format(day, "yyyy-MM-dd");
+          const dailyCash = dailyCashes.find((dc) => dc.date === dateStr);
+          if (!dailyCash)
+            return {
+              date: format(day, "EEE", { locale: es }),
+              ingresos: 0,
+              egresos: 0,
+              ganancia: 0,
+            };
+          const filteredMovements = dailyCash.movements.filter((m) =>
+            filterByRubro(m, rubro)
+          );
+          const ingresos = filteredMovements
+            .filter((m) => m.type === "INGRESO")
+            .reduce((sum, m) => sum + m.amount, 0);
+          const egresos = filteredMovements
+            .filter((m) => m.type === "EGRESO")
+            .reduce((sum, m) => sum + m.amount, 0);
+          const ganancia = filteredMovements
+            .filter((m) => m.type === "INGRESO")
+            .reduce((sum, m) => {
+              const productsProfit = m.profit || 0;
+              return sum + productsProfit;
+            }, 0);
+          return {
+            date: format(day, "EEE", { locale: es }),
             ingresos,
             egresos,
             ganancia,
@@ -229,34 +264,27 @@ const Metrics = () => {
           (_, i) => {
             const monthStart = new Date(selectedYear, i, 1);
             const monthEnd = new Date(selectedYear, i + 1, 0);
-
             const monthCashes = dailyCashes.filter((cash) => {
               const date = parseISO(cash.date);
               return date >= monthStart && date <= monthEnd;
             });
-
             const summary = monthCashes.reduce(
               (acc, cash) => {
                 const filteredMovements = cash.movements.filter((m) =>
                   filterByRubro(m, rubro)
                 );
-
                 const ingresos = filteredMovements
                   .filter((m) => m.type === "INGRESO")
                   .reduce((sum, m) => sum + m.amount, 0);
-
                 const egresos = filteredMovements
                   .filter((m) => m.type === "EGRESO")
                   .reduce((sum, m) => sum + m.amount, 0);
-
                 const ganancia = filteredMovements
                   .filter((m) => m.type === "INGRESO")
                   .reduce((sum, m) => {
                     const productsProfit = m.profit || 0;
-
                     return sum + productsProfit;
                   }, 0);
-
                 return {
                   ingresos: acc.ingresos + ingresos,
                   egresos: acc.egresos + egresos,
@@ -265,7 +293,6 @@ const Metrics = () => {
               },
               { ingresos: 0, egresos: 0, ganancia: 0 }
             );
-
             return {
               month: format(new Date(selectedYear, i, 1), "MMM", {
                 locale: es,
@@ -274,7 +301,6 @@ const Metrics = () => {
             };
           }
         );
-
         return monthlyData;
       }
     },
@@ -283,9 +309,11 @@ const Metrics = () => {
 
   const getProductMovements = useMemo(
     () =>
-      (period: "month" | "year", selectedUnit: Product["unit"] | "General") => {
+      (
+        period: "week" | "month" | "year",
+        selectedUnit: Product["unit"] | "General"
+      ) => {
         let filteredCashes = dailyCashes;
-
         if (period === "month") {
           filteredCashes = dailyCashes.filter((cash) => {
             const date = parseISO(cash.date);
@@ -295,6 +323,14 @@ const Metrics = () => {
           filteredCashes = dailyCashes.filter((cash) => {
             const date = parseISO(cash.date);
             return isSameYear(date, new Date(selectedYear, 0));
+          });
+        } else if (period === "week") {
+          const today = new Date();
+          const weekStart = startOfWeek(today);
+          const weekEnd = endOfWeek(today);
+          filteredCashes = dailyCashes.filter((cash) => {
+            const date = parseISO(cash.date);
+            return date >= weekStart && date <= weekEnd;
           });
         }
 
@@ -317,7 +353,6 @@ const Metrics = () => {
               movement.items.forEach((item) => {
                 const product = products.find((p) => p.id === item.productId);
                 const itemUnit = item.unit || "Unid.";
-
                 if (
                   product &&
                   (rubro === "Todos los rubros" || product.rubro === rubro) &&
@@ -332,7 +367,6 @@ const Metrics = () => {
                     },
                     product.rubro
                   );
-
                   const existing = productMap.get(displayName) || {
                     name: displayName,
                     quantity: 0,
@@ -341,13 +375,11 @@ const Metrics = () => {
                     unit: itemUnit,
                     rubro: product.rubro,
                   };
-
                   const profitPerUnit = calculateProfit(
                     product,
                     item.quantity,
                     itemUnit
                   );
-
                   productMap.set(displayName, {
                     name: displayName,
                     quantity: existing.quantity + item.quantity,
@@ -379,7 +411,6 @@ const Metrics = () => {
           ) {
             return Math.round(qty).toString();
           }
-
           const rounded = Math.round(qty * 100) / 100;
           return rounded % 1 === 0 ? rounded.toString() : rounded.toFixed(2);
         };
@@ -394,11 +425,11 @@ const Metrics = () => {
       },
     [dailyCashes, products, rubro, selectedYear, selectedMonth]
   );
+
   useEffect(() => {
     const today = new Date();
     const currentMonth = today.getMonth() + 1;
     const currentYear = today.getFullYear();
-
     if (selectedMonth !== currentMonth || selectedYear !== currentYear) {
       setSelectedMonth(currentMonth);
       setSelectedYear(currentYear);
@@ -411,10 +442,8 @@ const Metrics = () => {
         db.dailyCashes.toArray(),
         db.products.toArray(),
       ]);
-
       setDailyCashes(storedDailyCashes);
       setProducts(storedProducts);
-
       const years = new Set<number>();
       storedDailyCashes.forEach((cash) => {
         const date = parseISO(cash.date);
@@ -422,7 +451,6 @@ const Metrics = () => {
       });
       setAvailableYears(Array.from(years).sort((a, b) => b - a));
     };
-
     fetchData();
   }, []);
 
@@ -430,6 +458,7 @@ const Metrics = () => {
     if (rubro === "indumentaria") {
       setMonthlyRankingUnit("Unid.");
       setYearlyRankingUnit("Unid.");
+      setWeeklyRankingUnit("Unid.");
     }
   }, [rubro]);
 
@@ -457,12 +486,39 @@ const Metrics = () => {
     { value: "W", label: "Watts" },
   ];
 
+  const weeklySummary = getConsistentSummary("week");
   const monthlySummary = getConsistentSummary("month");
   const annualSummary = getConsistentSummary("year");
+
+  const dailyWeekData = getChartData("week");
   const dailyMonthData = getChartData("month");
   const monthlyYearData = getChartData("year") as MonthlyData[];
+
+  const topProductsWeekly = getProductMovements("week", weeklyRankingUnit);
   const topProductsMonthly = getProductMovements("month", monthlyRankingUnit);
   const topProductsYearly = getProductMovements("year", yearlyRankingUnit);
+
+  const weeklyBarChartData = {
+    labels: dailyWeekData.map((data) =>
+      "date" in data ? data.date : data.month
+    ),
+    datasets: [
+      {
+        label: "Ingresos",
+        data: dailyWeekData.map((data) => data.ingresos || 0),
+        backgroundColor: "rgba(75, 192, 192, 0.8)",
+        borderColor: "rgba(75, 192, 192, 1)",
+        borderWidth: 1,
+      },
+      {
+        label: "Egresos",
+        data: dailyWeekData.map((data) => data.egresos || 0),
+        backgroundColor: "rgba(255, 99, 132, 0.8)",
+        borderColor: "rgba(255, 99, 132, 1)",
+        borderWidth: 1,
+      },
+    ],
+  };
 
   const monthlyBarChartData = {
     labels: dailyMonthData.map((data) =>
@@ -472,14 +528,14 @@ const Metrics = () => {
       {
         label: "Ingresos",
         data: dailyMonthData.map((data) => data.ingresos || 0),
-        backgroundColor: "rgba(75, 192, 192, 0.6)",
+        backgroundColor: "rgba(75, 192, 192, 0.8)",
         borderColor: "rgba(75, 192, 192, 1)",
         borderWidth: 1,
       },
       {
         label: "Egresos",
         data: dailyMonthData.map((data) => data.egresos || 0),
-        backgroundColor: "rgba(255, 99, 132, 0.6)",
+        backgroundColor: "rgba(255, 99, 132, 0.8)",
         borderColor: "rgba(255, 99, 132, 1)",
         borderWidth: 1,
       },
@@ -495,7 +551,7 @@ const Metrics = () => {
         label: "Ganancia Diaria",
         data: dailyMonthData.map((data) => data.ganancia),
         borderColor: "rgba(153, 102, 255, 1)",
-        backgroundColor: "rgba(153, 102, 255, 0.2)",
+        backgroundColor: "rgba(153, 102, 255, 0.8)",
         borderWidth: 2,
         tension: 0.1,
         fill: true,
@@ -509,14 +565,14 @@ const Metrics = () => {
       {
         label: "Ingresos",
         data: monthlyYearData.map((data) => data.ingresos),
-        backgroundColor: "rgba(54, 162, 235, 0.6)",
-        borderColor: "rgba(54, 162, 235, 1)",
+        backgroundColor: "rgba(75, 192, 192, 0.8)",
+        borderColor: "rgba(75, 192, 192, 1)",
         borderWidth: 1,
       },
       {
         label: "Egresos",
         data: monthlyYearData.map((data) => data.egresos),
-        backgroundColor: "rgba(255, 99, 132, 0.6)",
+        backgroundColor: "rgba(255, 99, 132, 0.8)",
         borderColor: "rgba(255, 99, 132, 1)",
         borderWidth: 1,
       },
@@ -533,9 +589,9 @@ const Metrics = () => {
           monthlySummary.ganancia,
         ],
         backgroundColor: [
-          "rgba(75, 192, 192, 0.6)",
-          "rgba(255, 99, 132, 0.6)",
-          "rgba(153, 102, 255, 0.6)",
+          "rgba(75, 192, 192, 0.8)",
+          "rgba(255, 99, 132, 0.8)",
+          "rgba(153, 102, 255, 0.8)",
         ],
         borderColor: [
           "rgba(75, 192, 192, 1)",
@@ -552,7 +608,6 @@ const Metrics = () => {
       <div className="px-10 2xl:px-10 py-4 text-gray_l dark:text-white h-[calc(100vh-80px)]">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-2 gap-2">
           <h1 className="text-lg 2xl:text-xl font-semibold ">Métricas</h1>
-
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
             <div className="flex items-center gap-2">
               <label
@@ -585,7 +640,6 @@ const Metrics = () => {
                 isSearchable={false}
               />
             </div>
-
             <div className="flex items-center gap-2">
               <label
                 htmlFor="year"
@@ -617,7 +671,106 @@ const Metrics = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-1 2xl:grid-cols-3 gap-6 mb-6">
+          {/* Weekly Summary Card */}
+          <div className="bg-white dark:bg-gray_b rounded-xl shadow-md shadow-gray_m p-5 border border-gray_xl dark:border-gray_b ">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <span className="bg-orange-100 dark:bg-orange-900 p-2 rounded-full">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 text-orange-500 dark:text-orange-300"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M12 1.586l-4 4v12.828l4-4V1.586zM3.707 3.293A1 1 0 002 4v10a1 1 0 00.293.707L6 18.414V5.586L3.707 3.293zM17.707 5.293L14 1.586v12.828l2.293 2.293A1 1 0 0018 16V6a1 1 0 00-.293-.707z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </span>
+              Resumen Semanal
+            </h2>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center p-3 bg-green_xl dark:bg-green_b rounded-lg">
+                <span className="text-sm font-medium ">Ingresos</span>
+                <span className="font-bold">
+                  {formatCurrency(weeklySummary.ingresos)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-red_xl dark:bg-red_b/30 rounded-lg">
+                <span className="text-sm font-medium">Egresos</span>
+                <span className="font-bold">
+                  {formatCurrency(weeklySummary.egresos)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-indigo-100 dark:bg-indigo-900 rounded-lg">
+                <span className="text-sm font-medium">Ganancia</span>
+                <span className="font-bold">
+                  {formatCurrency(weeklySummary.ganancia)}
+                </span>
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="flex bg-gradient-to-bl from-blue_m to-blue_b dark:bg-gray_m text-white items-center mb-2 px-2">
+                <h3 className="w-full p-2 font-medium text-sm">
+                  5 Productos más vendidos{" "}
+                  {weeklyRankingUnit !== "General" &&
+                    `por ${unidadLegible[weeklyRankingUnit]}`}{" "}
+                  esta semana
+                </h3>
+                <Select
+                  placeholder="Seleccionar unidad"
+                  noOptionsMessage={() => "Sin opciones"}
+                  options={unitOptions}
+                  value={
+                    rubro === "indumentaria"
+                      ? { value: "Unid.", label: "Unidades" }
+                      : { value: weeklyRankingUnit, label: weeklyRankingUnit }
+                  }
+                  onChange={(selectedOption) => {
+                    if (selectedOption && rubro !== "indumentaria") {
+                      setWeeklyRankingUnit(
+                        selectedOption.value as Product["unit"]
+                      );
+                    }
+                  }}
+                  isDisabled={rubro === "indumentaria"}
+                  className={`text-gray_m min-w-40 ${
+                    rubro === "indumentaria"
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
+                  classNamePrefix="react-select"
+                  menuPosition="fixed"
+                />
+              </div>
+              {topProductsWeekly.length > 0 ? (
+                <div className="space-y-2">
+                  {topProductsWeekly.map((product, index) => (
+                    <div
+                      key={index}
+                      className="py-2 flex justify-between items-center text-sm"
+                    >
+                      <span className="truncate">
+                        <span className="font-bold text-blue_m dark:text-blue_l">
+                          {index + 1}- {""}
+                        </span>
+                        {product.name}
+                      </span>
+                      <span className="font-medium">{product.displayText}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray_m dark:text-gray_m">
+                  No hay datos de ventas esta semana
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Monthly Summary Card */}
           <div className="bg-white dark:bg-gray_b rounded-xl shadow-md shadow-gray_m p-5 border border-gray_xl dark:border-gray_b ">
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <span className="bg-purple-100 dark:bg-purple-900 p-2 rounded-full">
@@ -636,7 +789,6 @@ const Metrics = () => {
               </span>
               Resumen Mensual
             </h2>
-
             <div className="space-y-3">
               <div className="flex justify-between items-center p-3 bg-green_xl dark:bg-green_b rounded-lg">
                 <span className="text-sm font-medium ">Ingresos</span>
@@ -644,14 +796,12 @@ const Metrics = () => {
                   {formatCurrency(monthlySummary.ingresos)}
                 </span>
               </div>
-
               <div className="flex justify-between items-center p-3 bg-red_xl dark:bg-red_b/30 rounded-lg">
                 <span className="text-sm font-medium">Egresos</span>
                 <span className="font-bold">
                   {formatCurrency(monthlySummary.egresos)}
                 </span>
               </div>
-
               <div className="flex justify-between items-center p-3 bg-purple-100 dark:bg-purple-600/30 rounded-lg">
                 <span className="text-sm font-medium">Ganancia</span>
                 <span className="font-bold">
@@ -659,10 +809,9 @@ const Metrics = () => {
                 </span>
               </div>
             </div>
-
             <div className="mt-4">
               <div className="flex bg-gradient-to-bl from-blue_m to-blue_b dark:bg-gray_m text-white items-center mb-2 px-2">
-                <h3 className="w-full p-2 font-medium text-md">
+                <h3 className="w-full p-2 font-medium text-sm">
                   5 Productos más vendidos{" "}
                   {monthlyRankingUnit !== "General" &&
                     `por ${unidadLegible[monthlyRankingUnit]}`}{" "}
@@ -674,7 +823,7 @@ const Metrics = () => {
                   options={unitOptions}
                   value={
                     rubro === "indumentaria"
-                      ? { value: "unidad", label: "unidad" }
+                      ? { value: "Unid.", label: "Unidades" }
                       : { value: monthlyRankingUnit, label: monthlyRankingUnit }
                   }
                   onChange={(selectedOption) => {
@@ -694,7 +843,6 @@ const Metrics = () => {
                   menuPosition="fixed"
                 />
               </div>
-
               {topProductsMonthly.length > 0 ? (
                 <div className="space-y-2">
                   {topProductsMonthly.map((product, index) => (
@@ -763,7 +911,7 @@ const Metrics = () => {
 
             <div className="mt-4">
               <div className="flex bg-gradient-to-bl from-blue_m to-blue_b dark:bg-gray_m text-white items-center mb-2 px-2">
-                <h3 className="w-full p-2 font-medium text-md">
+                <h3 className="w-full p-2 font-medium text-sm">
                   5 Productos más vendidos{" "}
                   {yearlyRankingUnit !== "General" &&
                     `por ${unidadLegible[yearlyRankingUnit]}`}{" "}
@@ -832,6 +980,37 @@ const Metrics = () => {
                 { locale: es }
               )}
             </h2>
+            <Bar
+              data={weeklyBarChartData}
+              options={{
+                responsive: true,
+
+                plugins: {
+                  legend: {
+                    position: "top",
+                  },
+                  tooltip: {
+                    callbacks: {
+                      label: function (context) {
+                        return `${context.dataset.label}: ${formatCurrency(
+                          context.raw as number
+                        )}`;
+                      },
+                    },
+                  },
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    ticks: {
+                      callback: function (value) {
+                        return formatCurrency(value as number);
+                      },
+                    },
+                  },
+                },
+              }}
+            />
             <Bar
               data={monthlyBarChartData}
               options={{
