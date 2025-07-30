@@ -7,12 +7,19 @@ import {
   ClothingSizeOption,
   DailyCashMovement,
   Product,
-  ProductFilters,
   ProductReturn,
   Rubro,
+  UnifiedFilter,
   UnitOption,
 } from "@/app/lib/types/types";
-import { Edit, Trash, PackageX, AlertTriangle, Barcode } from "lucide-react";
+import {
+  Edit,
+  Trash,
+  PackageX,
+  AlertTriangle,
+  Barcode,
+  Plus,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { db } from "@/app/database/db";
 import SearchBar from "@/app/components/SearchBar";
@@ -91,7 +98,7 @@ const ProductsPage = () => {
     direction: "asc",
   });
 
-  const [filters, setFilters] = useState<ProductFilters>([]);
+  const [filters, setFilters] = useState<UnifiedFilter[]>([]);
   const [globalCustomCategories, setGlobalCustomCategories] = useState<
     Array<{ name: string; rubro: Rubro }>
   >([]);
@@ -351,7 +358,7 @@ const ProductsPage = () => {
           const fieldValue =
             filter.field === "customCategories"
               ? product.customCategories?.[0]?.name
-              : product[filter.field];
+              : product[filter.field as keyof Product];
 
           if (fieldValue === undefined || fieldValue === null) return false;
           return (
@@ -519,7 +526,7 @@ const ProductsPage = () => {
           className="text-red_b hover:text-red_m ml-2 cursor-pointer p-1 rounded-full hover:bg-red_l"
           title="Eliminar categoría"
         >
-          <Trash size={16} />
+          <Trash size={18} />
         </button>
       </div>
     );
@@ -1043,9 +1050,9 @@ const ProductsPage = () => {
             <SearchBar onSearch={handleSearch} />
 
             <AdvancedFilterPanel
+              data={products}
               onApplyFilters={setFilters}
               onApplySort={handleSort}
-              products={products}
               rubro={rubro}
             />
           </div>
@@ -1068,7 +1075,7 @@ const ProductsPage = () => {
               onClick={() => setIsSelectionModalOpen(true)}
               hotkey="F3"
             >
-              <PackageX size={20} />
+              <PackageX size={18} />
             </Button>
             <Button
               text="Ver Precio [F4]"
@@ -1254,7 +1261,7 @@ const ProductsPage = () => {
                           {rubro !== "Todos los rubros" && (
                             <td className="p-2 flex justify-center gap-2">
                               <Button
-                                icon={<Barcode size={20} />}
+                                icon={<Barcode size={18} />}
                                 colorText={isExpired ? "text-gray_b" : ""}
                                 colorTextHover="hover:text-white"
                                 colorBg="bg-transparent"
@@ -1265,7 +1272,7 @@ const ProductsPage = () => {
                                 title="Código de Barras"
                               />
                               <Button
-                                icon={<Edit size={20} />}
+                                icon={<Edit size={18} />}
                                 colorText={isExpired ? "text-gray_b" : ""}
                                 colorTextHover="hover:text-white"
                                 colorBg="bg-transparent"
@@ -1276,7 +1283,7 @@ const ProductsPage = () => {
                                 title="Editar Producto"
                               />
                               <Button
-                                icon={<Trash size={20} />}
+                                icon={<Trash size={18} />}
                                 colorText="text-gray_b"
                                 colorTextHover="hover:text-white"
                                 colorBg="bg-transparent"
@@ -1454,7 +1461,7 @@ const ProductsPage = () => {
         >
           <div className="flex flex-col gap-4">
             <div>
-              <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+              <label className="block text-gray_m dark:text-white text-sm font-semibold">
                 Seleccionar Producto
               </label>
               <Select
@@ -1522,7 +1529,7 @@ const ProductsPage = () => {
                     options={getCompatibleUnits(
                       selectedReturnProduct?.unit || "Unid."
                     )}
-                    noOptionsMessage={() => "No se encontraron opciones"}
+                    noOptionsMessage={() => "Sin opciones"}
                     value={unitOptions.find(
                       (opt) =>
                         opt.value ===
@@ -1541,7 +1548,7 @@ const ProductsPage = () => {
             )}
 
             <div>
-              <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+              <label className="block text-gray_m dark:text-white text-sm font-semibold">
                 Motivo de la devolución
               </label>
               <Input
@@ -1586,7 +1593,7 @@ const ProductsPage = () => {
           >
             <div className="w-full flex items-center space-x-4 ">
               <div className="w-full">
-                <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                <label className="block text-gray_m dark:text-white text-sm font-semibold">
                   Código de Barras
                 </label>
                 <div className="flex items-center gap-2">
@@ -1657,12 +1664,12 @@ const ProductsPage = () => {
                   onChange={handleInputChange}
                 />
                 <div className="w-full">
-                  <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                  <label className="block text-gray_m dark:text-white text-sm font-semibold">
                     Temporada
                   </label>
                   <Select
                     options={seasonOptions}
-                    noOptionsMessage={() => "No se encontraron opciones"}
+                    noOptionsMessage={() => "Sin opciones"}
                     value={
                       newProduct.season
                         ? seasonOptions.find(
@@ -1684,7 +1691,7 @@ const ProductsPage = () => {
               </div>
               {!editingProduct && (
                 <div className="w-full">
-                  <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                  <label className="block text-gray_m dark:text-white text-sm font-semibold">
                     Crear categoría
                   </label>
                   <div className="flex gap-2">
@@ -1697,6 +1704,7 @@ const ProductsPage = () => {
                     />
                     <Button
                       text="Agregar"
+                      icon={<Plus size={18} />}
                       colorText="text-white"
                       colorTextHover="text-white"
                       colorBg="bg-blue_b"
@@ -1709,7 +1717,7 @@ const ProductsPage = () => {
             </div>
             <div className="w-full grid grid-cols-2 gap-x-4 gap-y-2  ">
               <div className="w-full">
-                <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                <label className="block text-gray_m dark:text-white text-sm font-semibold">
                   Seleccionar categoría*
                 </label>
                 <Select
@@ -1743,7 +1751,7 @@ const ProductsPage = () => {
                         ]
                       : []),
                   ]}
-                  noOptionsMessage={() => "No se encontraron opciones"}
+                  noOptionsMessage={() => "Sin opciones"}
                   value={
                     newProduct.customCategories?.[0]
                       ? {
@@ -1778,12 +1786,12 @@ const ProductsPage = () => {
               {rubro === "indumentaria" ? (
                 <>
                   <div className="w-full">
-                    <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                    <label className="block text-gray_m dark:text-white text-sm font-semibold">
                       Talle
                     </label>
                     <Select
                       options={clothingSizes}
-                      noOptionsMessage={() => "No se encontraron opciones"}
+                      noOptionsMessage={() => "Sin opciones"}
                       value={
                         clothingSizes.find(
                           (opt) => opt.value === newProduct.size
@@ -1801,13 +1809,13 @@ const ProductsPage = () => {
                   </div>
 
                   <div className="w-full">
-                    <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                    <label className="block text-gray_m dark:text-white text-sm font-semibold">
                       Color
                     </label>
                     <div className="flex gap-2">
                       <Select
                         options={colorOptions}
-                        noOptionsMessage={() => "No se encontraron opciones"}
+                        noOptionsMessage={() => "Sin opciones"}
                         value={
                           newProduct.color
                             ? {
@@ -1827,8 +1835,8 @@ const ProductsPage = () => {
                         isClearable
                         className="w-full text-gray_b"
                       />
-                      <div className="w-full -mt-6">
-                        <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                      <div className="w-full -mt-5">
+                        <label className="block text-gray_m dark:text-white text-sm font-semibold">
                           {newProduct.color === ""
                             ? "Crear color"
                             : "Editar color"}
@@ -1857,13 +1865,13 @@ const ProductsPage = () => {
                     </div>
                   </div>
                   <div className="w-full">
-                    <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                    <label className="block text-gray_m dark:text-white text-sm font-semibold">
                       Marca
                     </label>
                     <div className="flex gap-2">
                       <Select
                         options={brandOptions}
-                        noOptionsMessage={() => "No se encontraron opciones"}
+                        noOptionsMessage={() => "Sin opciones"}
                         value={
                           newProduct.brand
                             ? {
@@ -1883,8 +1891,8 @@ const ProductsPage = () => {
                         isClearable
                         className="w-full text-gray_b"
                       />
-                      <div className="w-full -mt-6">
-                        <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                      <div className="w-full -mt-5">
+                        <label className="block text-gray_m dark:text-white text-sm font-semibold">
                           {newProduct.brand === ""
                             ? "Crear marca"
                             : "Editar marca"}
@@ -1915,12 +1923,12 @@ const ProductsPage = () => {
                 </>
               ) : (
                 <div className="w-full">
-                  <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                  <label className="block text-gray_m dark:text-white text-sm font-semibold">
                     Unidad*
                   </label>
                   <Select
                     options={unitOptions}
-                    noOptionsMessage={() => "No se encontraron opciones"}
+                    noOptionsMessage={() => "Sin opciones"}
                     value={selectedUnit}
                     onChange={(selectedOption) => {
                       setNewProduct({
@@ -2028,7 +2036,7 @@ const ProductsPage = () => {
             {categoryToDelete && (
               <div className="bg-yellow-50 dark:bg-gray-700 p-3 rounded-lg">
                 <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                  <AlertTriangle className="inline mr-2" size={16} />
+                  <AlertTriangle className="inline mr-2" size={18} />
                   Esta acción afectará a todos los productos con esta categoría.
                 </p>
               </div>

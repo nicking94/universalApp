@@ -33,6 +33,7 @@ const menuItems = [
   { label: "Cuentas Corrientes", href: "/cuentascorrientes", icon: <Wallet /> },
   { label: "Proveedores", href: "/proveedores", icon: <Truck /> },
   { label: "Presupuestos", href: "/presupuestos", icon: <ClipboardList /> },
+  { label: "Movimientos", href: "/movimientos", icon: <Repeat /> },
   { label: "Métricas", href: "/metricas", icon: <LineChart /> },
   {
     label: "Soporte técnico",

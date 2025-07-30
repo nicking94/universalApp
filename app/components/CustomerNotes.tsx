@@ -139,7 +139,7 @@ const CustomerNotes = ({
               </>
             ) : (
               <Button
-                icon={<Plus size={16} />}
+                icon={<Plus size={18} />}
                 text="Agregar Nota"
                 colorText="text-white"
                 colorTextHover="text-white"
@@ -164,7 +164,7 @@ const CustomerNotes = ({
                 </p>
                 <div className="flex absolute top-2 right-2 gap-2">
                   <Button
-                    icon={<Edit size={20} />}
+                    icon={<Edit size={18} />}
                     colorText="text-gray_b"
                     colorTextHover="hover:text-white"
                     colorBg="bg-transparent"
@@ -175,7 +175,7 @@ const CustomerNotes = ({
                     onClick={() => setEditingNote(note)}
                   />
                   <Button
-                    icon={<Trash size={20} />}
+                    icon={<Trash size={18} />}
                     colorText="text-gray_b"
                     colorTextHover="hover:text-white"
                     colorBg="bg-transparent"

@@ -372,7 +372,7 @@ const ProveedoresPage = () => {
           </div>
           {rubro !== "Todos los rubros" && (
             <Button
-              icon={<Plus size={20} />}
+              icon={<Plus size={18} />}
               text="Nuevo Proveedor"
               colorText="text-white"
               colorTextHover="text-white mt-3"
@@ -465,7 +465,7 @@ const ProveedoresPage = () => {
                         <td className="p-2 space-x-4 border border-gray_xl">
                           <div className="flex justify-center gap-2">
                             <Button
-                              icon={<Package size={20} />}
+                              icon={<Package size={18} />}
                               colorText="text-gray_b"
                               colorTextHover="hover:text-white"
                               colorBg="bg-transparent"
@@ -478,7 +478,7 @@ const ProveedoresPage = () => {
                               }
                             />
                             <Button
-                              icon={<Edit size={20} />}
+                              icon={<Edit size={18} />}
                               colorText="text-gray_b"
                               colorTextHover="hover:text-white"
                               colorBg="bg-transparent"
@@ -488,7 +488,7 @@ const ProveedoresPage = () => {
                               onClick={() => handleEdit(supplier)}
                             />
                             <Button
-                              icon={<Trash size={20} />}
+                              icon={<Trash size={18} />}
                               colorText="text-gray_b"
                               colorTextHover="hover:text-white"
                               colorBg="bg-transparent"
@@ -598,7 +598,7 @@ const ProveedoresPage = () => {
                         </div>
                         <div className="ml-4">
                           <Button
-                            icon={<Plus size={20} />}
+                            icon={<Plus size={18} />}
                             colorText="text-white"
                             colorTextHover="text-white"
                             onClick={() => assignProduct(product)}
@@ -642,7 +642,7 @@ const ProveedoresPage = () => {
 
                           <Button
                             minwidth="min-w-[2rem]"
-                            icon={<Trash size={20} />}
+                            icon={<Trash size={18} />}
                             colorText="text-white"
                             colorTextHover="text-white"
                             colorBg="bg-red_b"
@@ -715,7 +715,7 @@ const ProveedoresPage = () => {
                     {contacts.length > 1 && (
                       <Button
                         type="button"
-                        icon={<Trash size={20} />}
+                        icon={<Trash size={18} />}
                         px="px-3"
                         py="py-1"
                         minwidth="min-w-0"
@@ -756,7 +756,7 @@ const ProveedoresPage = () => {
                 onClick={handleAddContact}
                 className={`cursor-pointer text-sm text-blue_b dark:text-blue_l hover:text-blue_m flex items-center transition-all duration-300`}
               >
-                <Plus size={16} className="mr-1" /> Agregar otro proveedor
+                <Plus size={18} className="mr-1" /> Agregar otro proveedor
               </button>
             </div>
 

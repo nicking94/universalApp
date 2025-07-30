@@ -61,7 +61,7 @@ export default function BarcodeScanner({
       onChange={handleBarcodeChange}
       placeholder={placeholder}
       autoFocus={true}
-      icon={<Barcode size={20} />}
+      icon={<Barcode size={18} />}
     />
   );
 }

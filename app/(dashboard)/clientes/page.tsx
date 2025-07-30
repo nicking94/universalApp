@@ -392,7 +392,7 @@ const ClientesPage = () => {
                         <td className="p-2 border border-gray_xl">
                           <div className="flex justify-center items-center gap-2 h-full">
                             <Button
-                              icon={<ClipboardList size={20} />}
+                              icon={<ClipboardList size={18} />}
                               colorText="text-gray_b"
                               colorTextHover="hover:text-white"
                               colorBg="bg-transparent"
@@ -407,7 +407,7 @@ const ClientesPage = () => {
                               title="Ver presupuestos"
                             />
                             <Button
-                              icon={<Edit size={20} />}
+                              icon={<Edit size={18} />}
                               colorText="text-gray_b"
                               colorTextHover="hover:text-white"
                               colorBg="bg-transparent"
@@ -419,7 +419,7 @@ const ClientesPage = () => {
                               title="Editar cliente"
                             />
                             <Button
-                              icon={<Trash size={20} />}
+                              icon={<Trash size={18} />}
                               colorText="text-gray_b"
                               colorTextHover="hover:text-white"
                               colorBg="bg-transparent"

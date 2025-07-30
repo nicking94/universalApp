@@ -86,9 +86,7 @@ const InputCash: React.FC<InputCashProps> = ({
 
   return (
     <div className={`w-full flex flex-col`}>
-      {label && (
-        <label className="block text-sm font-semibold mb-1">{label}</label>
-      )}
+      {label && <label className="block text-sm font-semibold">{label}</label>}
       <div className="relative rounded-md shadow-sm w-full">
         <input
           ref={inputRef}

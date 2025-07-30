@@ -204,7 +204,7 @@ const BarcodeGenerator = ({
       <div className="flex flex-col gap-4 ">
         <div className="flex items-center gap-4">
           <div className="w-full">
-            <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+            <label className="block text-gray_m dark:text-white text-sm font-semibold">
               Valor del Código
             </label>
             <Input
@@ -235,7 +235,6 @@ const BarcodeGenerator = ({
               fontOptions="600"
               textMargin={2}
               margin={0}
-              fontSize={20}
             />
             <div className="text-center mt-4">
               <p className="product-name">{product.name}</p>

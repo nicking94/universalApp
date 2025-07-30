@@ -376,65 +376,68 @@ const VentasPage = () => {
       const today = getLocalDateString();
       let dailyCash = await db.dailyCashes.get({ date: today });
 
-      const movements: DailyCashMovement[] = [];
-      const totalSaleAmount = sale.total;
-      const totalProfit = calculateTotalProfit(
-        sale.products,
-        sale.manualAmount || 0,
-        sale.manualProfitPercentage || 0
+      const movements: DailyCashMovement[] = sale.paymentMethods.map(
+        (payment) => {
+          return {
+            id: Date.now() + Math.random(),
+            amount: payment.amount,
+            description: `VENTA ${payment.method}`,
+            type: "INGRESO",
+            date: new Date().toISOString(),
+            paymentMethod: payment.method,
+            items: sale.products.map((p) => ({
+              productId: p.id,
+              productName: p.name,
+              quantity: p.quantity,
+              unit: p.unit,
+              price: p.price,
+              costPrice: p.costPrice,
+            })),
+            // Asegurar que el profit se calcule correctamente
+            profit:
+              calculateTotalProfit(
+                sale.products,
+                sale.manualAmount || 0,
+                sale.manualProfitPercentage || 0
+              ) *
+              (payment.amount / sale.total),
+          };
+        }
       );
-
-      sale.paymentMethods.forEach((payment) => {
-        const paymentRatio = payment.amount / totalSaleAmount;
-
-        const movement: DailyCashMovement = {
-          id: Date.now() + Math.random(),
-          amount: payment.amount,
-          description: sale.manualAmount
-            ? `Venta + Monto manual (${formatCurrency(sale.manualAmount || 0)})`
-            : "Venta regular",
-          type: "INGRESO",
-          date: new Date().toISOString(),
-          paymentMethod: payment.method,
-          items: sale.products.map((p) => ({
-            productId: p.id,
-            productName: p.name,
-            quantity: p.quantity,
-            unit: p.unit,
-            price: p.price,
-            costPrice: p.costPrice,
-          })),
-          manualAmount: sale.manualAmount,
-          manualProfitPercentage: sale.manualProfitPercentage,
-          profit: totalProfit * paymentRatio,
-          profitPercentage: (totalProfit / totalSaleAmount) * 100,
-        };
-
-        movements.push(movement);
-      });
 
       if (!dailyCash) {
         dailyCash = {
           id: Date.now(),
           date: today,
-          initialAmount: 0,
+
           movements: movements,
           closed: false,
-          totalIncome: movements.reduce((sum, m) => sum + m.amount, 0),
+          totalIncome: sale.total,
           totalExpense: 0,
-          totalProfit: movements.reduce((sum, m) => sum + (m.profit || 0), 0),
+          cashIncome: sale.paymentMethods
+            .filter((m) => m.method === "EFECTIVO")
+            .reduce((sum, m) => sum + m.amount, 0),
+          cashExpense: 0,
+          otherIncome: sale.paymentMethods
+            .filter((m) => m.method !== "EFECTIVO")
+            .reduce((sum, m) => sum + m.amount, 0),
         };
         await db.dailyCashes.add(dailyCash);
       } else {
         const updatedCash = {
           ...dailyCash,
           movements: [...dailyCash.movements, ...movements],
-          totalIncome:
-            (dailyCash.totalIncome || 0) +
-            movements.reduce((sum, m) => sum + m.amount, 0),
-          totalProfit:
-            (dailyCash.totalProfit || 0) +
-            movements.reduce((sum, m) => sum + (m.profit || 0), 0),
+          totalIncome: (dailyCash.totalIncome || 0) + sale.total,
+          cashIncome:
+            (dailyCash.cashIncome || 0) +
+            sale.paymentMethods
+              .filter((m) => m.method === "EFECTIVO")
+              .reduce((sum, m) => sum + m.amount, 0),
+          otherIncome:
+            (dailyCash.otherIncome || 0) +
+            sale.paymentMethods
+              .filter((m) => m.method !== "EFECTIVO")
+              .reduce((sum, m) => sum + m.amount, 0),
         };
         await db.dailyCashes.update(dailyCash.id, updatedCash);
       }
@@ -1227,7 +1230,7 @@ const VentasPage = () => {
         <div className="flex justify-between mb-2">
           <div className="flex w-full max-w-[20rem] gap-2">
             <Select
-              noOptionsMessage={() => "No se encontraron opciones"}
+              noOptionsMessage={() => "Sin opciones"}
               options={monthOptions}
               value={monthOptions.find(
                 (option) => option.value === selectedMonth
@@ -1245,7 +1248,7 @@ const VentasPage = () => {
             />
             <Select
               options={yearOptions}
-              noOptionsMessage={() => "No se encontraron opciones"}
+              noOptionsMessage={() => "Sin opciones"}
               value={
                 yearOptions.find((option) => option.value === selectedYear) || {
                   value: selectedYear,
@@ -1385,7 +1388,7 @@ const VentasPage = () => {
                             <div className="flex justify-center items-center gap-2 h-full">
                               <Button
                                 title="Imprimir ticket"
-                                icon={<Printer size={20} />}
+                                icon={<Printer size={18} />}
                                 colorText="text-gray_b"
                                 colorTextHover="hover:text-white"
                                 colorBg="bg-transparent"
@@ -1424,7 +1427,7 @@ const VentasPage = () => {
                   <Button
                     title="Imprimir ticket"
                     text="Imprimir"
-                    icon={<Printer size={20} />}
+                    icon={<Printer size={18} />}
                     colorText="text-white"
                     colorTextHover="hover:text-white"
                     px="px-1"
@@ -1527,7 +1530,7 @@ const VentasPage = () => {
                     </label>
                     <Select
                       placeholder="Seleccionar productos"
-                      noOptionsMessage={() => "No se encontraron opciones"}
+                      noOptionsMessage={() => "Sin opciones"}
                       isMulti
                       options={productOptions}
                       value={newSale.products.map((p) => ({
@@ -1713,7 +1716,7 @@ const VentasPage = () => {
                                   }
                                   className="cursor-pointer hover:bg-red_m text-gray_b hover:text-white p-1 rounded-sm transition-all duration-300"
                                 >
-                                  <Trash size={20} />
+                                  <Trash size={18} />
                                 </button>
                               </td>
                               <div></div>
@@ -1887,7 +1890,7 @@ const VentasPage = () => {
                                 onClick={() => removePaymentMethod(index)}
                                 className="cursor-pointer text-red_m hover:text-red_b"
                               >
-                                <Trash size={16} />
+                                <Trash size={18} />
                               </button>
                             )}
                           </div>
@@ -1899,7 +1902,7 @@ const VentasPage = () => {
                             onClick={addPaymentMethod}
                             className="cursor-pointer text-sm text-blue_b dark:text-blue_l hover:text-blue_m flex items-center transition-all duration-300"
                           >
-                            <Plus size={16} className="mr-1" /> Agregar otro
+                            <Plus size={18} className="mr-1" /> Agregar otro
                             método de pago
                           </button>
                         )}
@@ -1925,7 +1928,7 @@ const VentasPage = () => {
                     </label>
                     <Select
                       options={customerOptions}
-                      noOptionsMessage={() => "No se encontraron opciones"}
+                      noOptionsMessage={() => "Sin opciones"}
                       value={selectedCustomer}
                       onChange={(selected) => {
                         setSelectedCustomer(selected);

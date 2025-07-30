@@ -103,7 +103,7 @@ const Pagination: React.FC<
             value: n,
             label: n.toString(),
           }))}
-          noOptionsMessage={() => "No se encontraron opciones"}
+          noOptionsMessage={() => "Sin opciones"}
           value={{ value: itemsPerPage, label: itemsPerPage.toString() }}
           onChange={(selectedOption) => {
             if (selectedOption) {
@@ -134,7 +134,7 @@ const Pagination: React.FC<
                   : "text-gray_b dark:text-gray_xl hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
               }`}
             >
-              <ChevronLeft size={20} aria-hidden="true" />
+              <ChevronLeft size={18} aria-hidden="true" />
             </button>
           </li>
           {currentPage > 2 && (
@@ -212,7 +212,7 @@ const Pagination: React.FC<
                   : "text-gray_b dark:text-gray_xl hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
               }`}
             >
-              <ChevronRight size={20} aria-hidden="true" />
+              <ChevronRight size={18} aria-hidden="true" />
             </button>
           </li>
         </ul>

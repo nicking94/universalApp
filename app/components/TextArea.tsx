@@ -24,7 +24,7 @@ const TextArea: React.FC<TextAreaProps> = ({
   return (
     <div className={`flex flex-col w-full ${className}`}>
       {label && (
-        <label className="block text-sm font-medium leading-none text-gray_m dark:text-white mb-1">
+        <label className="block text-sm font-medium leading-none text-gray_m dark:text-white">
           {label}
         </label>
       )}

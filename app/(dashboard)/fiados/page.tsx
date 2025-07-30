@@ -259,7 +259,7 @@ const FiadosPage = () => {
         dailyCash = {
           id: Date.now(),
           date: today,
-          initialAmount: 0,
+
           movements: movements,
           closed: false,
           totalIncome: movements.reduce((sum, m) => sum + m.amount, 0),

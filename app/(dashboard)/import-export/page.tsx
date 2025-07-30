@@ -47,6 +47,8 @@ export default function ImportExportPage() {
       const businessData = await db.businessData.toArray();
       const deletedActualizations = await db.deletedActualizations.toArray();
       const notifications = await db.notifications.toArray();
+      const expenses = await db.expenses.toArray();
+      const expensesCategories = await db.expenseCategories.toArray();
 
       const data = {
         theme,
@@ -64,6 +66,8 @@ export default function ImportExportPage() {
         businessData,
         deletedActualizations,
         notifications,
+        expenses,
+        expensesCategories,
         customCategories: await db.customCategories.toArray(),
         returns: await db.returns.toArray(),
       };
@@ -147,6 +151,8 @@ export default function ImportExportPage() {
           db.notifications,
           db.customCategories,
           db.returns,
+          db.expenses,
+          db.expenseCategories,
         ],
         async () => {
           await db.theme.clear();
@@ -166,6 +172,8 @@ export default function ImportExportPage() {
           await db.notifications.clear();
           await db.customCategories.clear();
           await db.returns.clear();
+          await db.expenses.clear();
+          await db.expenseCategories.clear();
 
           try {
             await db.theme.bulkAdd(data.theme || []);
@@ -187,6 +195,8 @@ export default function ImportExportPage() {
             await db.notifications.bulkAdd(data.notifications || []);
             await db.customCategories.bulkAdd(data.customCategories || []);
             await db.returns.bulkAdd(data.returns || []);
+            await db.expenses.bulkAdd(data.expenses || []);
+            await db.expenseCategories.bulkAdd(data.expenseCategories || []);
           } catch (e) {
             console.error("Error al importar datos:", e);
             throw e;

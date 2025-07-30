@@ -270,7 +270,7 @@ const CuentasCorrientesPage = () => {
         dailyCash = {
           id: Date.now(),
           date: today,
-          initialAmount: 0,
+
           movements: movements,
           closed: false,
           totalIncome: movements.reduce((sum, m) => sum + m.amount, 0),
@@ -354,7 +354,7 @@ const CuentasCorrientesPage = () => {
         await db.dailyCashes.add({
           id: Date.now(),
           date: today,
-          initialAmount: 0,
+
           movements: [movement],
           closed: false,
           totalIncome: payment.amount,
@@ -782,7 +782,7 @@ const CuentasCorrientesPage = () => {
                           <td className="border border-gray_xl p-2">
                             <div className="flex justify-center items-center h-full gap-2">
                               <Button
-                                icon={<Wallet size={20} />}
+                                icon={<Wallet size={18} />}
                                 colorText="text-gray_b"
                                 colorTextHover="hover:text-white"
                                 colorBg="bg-transparent"
@@ -795,7 +795,7 @@ const CuentasCorrientesPage = () => {
                                 title="Ver cheques"
                               />
                               <Button
-                                icon={<Info size={20} />}
+                                icon={<Info size={18} />}
                                 iconPosition="left"
                                 colorText="text-gray_b"
                                 colorTextHover="hover:text-white"
@@ -807,7 +807,7 @@ const CuentasCorrientesPage = () => {
                               />
 
                               <Button
-                                icon={<Trash size={20} />}
+                                icon={<Trash size={18} />}
                                 iconPosition="left"
                                 colorText="text-gray_b"
                                 colorTextHover="hover:text-white"
@@ -967,7 +967,7 @@ const CuentasCorrientesPage = () => {
                           <div className="flex justify-center items-center gap-2">
                             {cheque.checkStatus === "pendiente" && (
                               <Button
-                                icon={<CheckCircle size={16} />}
+                                icon={<CheckCircle size={18} />}
                                 onClick={() => handleMarkCheckAsPaid(cheque.id)}
                                 colorText="text-white"
                                 colorTextHover="hover:text-white"
@@ -979,7 +979,7 @@ const CuentasCorrientesPage = () => {
                             )}
 
                             <Button
-                              icon={<Trash size={20} />}
+                              icon={<Trash size={18} />}
                               iconPosition="left"
                               colorText="text-gray_b dark:text-red_l"
                               colorTextHover="hover:text-white"
@@ -1329,7 +1329,7 @@ const CuentasCorrientesPage = () => {
               {paymentMethods.map((method, index) => (
                 <div key={index} className="flex items-center gap-2">
                   <Select
-                    noOptionsMessage={() => "No se encontraron opciones"}
+                    noOptionsMessage={() => "Sin opciones"}
                     value={paymentOptions.find(
                       (option) => option.value === method.method
                     )}
@@ -1362,7 +1362,7 @@ const CuentasCorrientesPage = () => {
                       onClick={() => removePaymentMethod(index)}
                       className="bg-red_m rounded p-2 cursor-pointer text-red_l  transition-all duration-300"
                     >
-                      <Trash size={16} />
+                      <Trash size={18} />
                     </button>
                   )}
                 </div>
@@ -1373,7 +1373,7 @@ const CuentasCorrientesPage = () => {
                   onClick={addPaymentMethod}
                   className="cursor-pointer text-sm text-blue_b dark:text-blue_l hover:text-blue_xl flex items-center transition-all duration-300 mt-4"
                 >
-                  <Plus size={16} className="mr-1" /> Agregar otro método
+                  <Plus size={18} className="mr-1" /> Agregar otro método
                 </button>
               )}
             </div>

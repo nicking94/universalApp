@@ -237,7 +237,7 @@ export const ConvertToSaleModal = ({
             <div key={index} className="flex items-center gap-2 mb-2">
               <Select
                 options={paymentOptions}
-                noOptionsMessage={() => "No se encontraron opciones"}
+                noOptionsMessage={() => "Sin opciones"}
                 value={paymentOptions.find((o) => o.value === method.method)}
                 onChange={(selected) =>
                   selected &&
@@ -273,7 +273,7 @@ export const ConvertToSaleModal = ({
                   onClick={() => removePaymentMethod(index)}
                   className="text-red-500 hover:text-red-700 cursor-pointer"
                 >
-                  <Trash size={16} />
+                  <Trash size={18} />
                 </button>
               )}
             </div>
@@ -284,7 +284,7 @@ export const ConvertToSaleModal = ({
               onClick={addPaymentMethod}
               className="text-blue-500 hover:text-blue-700 text-sm flex items-center"
             >
-              <Plus size={16} className="mr-1" />
+              <Plus size={18} className="mr-1" />
               Agregar otro método de pago
             </button>
           )}

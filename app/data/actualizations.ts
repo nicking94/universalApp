@@ -8,52 +8,59 @@ export type Actualization = {
 };
 
 export const systemActualizations: Actualization[] = [
-  {
-    id: 1,
-    title: `Versión 1.4.1`,
-    message:
-      "- Agregado sistema de notificaciones.\n- Ordenadas alfabéticamente las tablas de clientes y proveedores\n- Los filtros de meses ahora se actualizan automáticamente acorde al mes actual.\n- Corrección de errores.\n- Mejoras en el rendimiento.",
-    date: new Date().toISOString(),
-  },
-  {
-    id: 2,
-    title: `Versión 1.4.2`,
-    message:
-      "- Agregado nuevo selector de filtros y ordenamiento en la sección de productos\n- Corrección de errores.",
-    date: new Date().toISOString(),
-  },
-  {
-    id: 3,
-    title: `Versión 1.4.3`,
-    message:
-      "- Cambiado el nombre de FIADOS a CUENTAS CORRIENTES\n- Agregado el campo TEMPORADA\n- Mejoras visuales.",
-    date: new Date().toISOString(),
-  },
-  {
-    id: 4,
-    title: `Versión 1.4.4`,
-    message: "- Se agregó el método de pago CHEQUE\n- Correciones varias.",
-    date: new Date().toISOString(),
-  },
-  {
-    id: 5,
-    title: `Versión 1.4.5`,
-    message:
-      "- Se agregó la posibilidad de DEVOLVER productos y un historial de devoluciones. podés verlo en la sección de PRODUCTOS\n- Correciones visuales",
-    date: new Date().toISOString(),
-  },
-  {
-    id: 6,
-    title: `Versión 1.4.6`,
-    message:
-      "Ya no se pueden crear, editar o eliminar productos desde TODOS LOS RUBROS. Solo servirá a modo de información para administrar los reportes de todos los rubros. si tu negocio solo gestiona un solo rubro, no se ve afectado por la actualizacion\n- Correciones visuales y mejoras varias",
-    date: new Date().toISOString(),
-  },
+  // {
+  //   id: 1,
+  //   title: `Versión 1.4.1`,
+  //   message:
+  //     "- Agregado sistema de notificaciones.\n- Ordenadas alfabéticamente las tablas de clientes y proveedores\n- Los filtros de meses ahora se actualizan automáticamente acorde al mes actual.\n- Corrección de errores.\n- Mejoras en el rendimiento.",
+  //   date: new Date().toISOString(),
+  // },
+  // {
+  //   id: 2,
+  //   title: `Versión 1.4.2`,
+  //   message:
+  //     "- Agregado nuevo selector de filtros y ordenamiento en la sección de productos\n- Corrección de errores.",
+  //   date: new Date().toISOString(),
+  // },
+  // {
+  //   id: 3,
+  //   title: `Versión 1.4.3`,
+  //   message:
+  //     "- Cambiado el nombre de FIADOS a CUENTAS CORRIENTES\n- Agregado el campo TEMPORADA\n- Mejoras visuales.",
+  //   date: new Date().toISOString(),
+  // },
+  // {
+  //   id: 4,
+  //   title: `Versión 1.4.4`,
+  //   message: "- Se agregó el método de pago CHEQUE\n- Correciones varias.",
+  //   date: new Date().toISOString(),
+  // },
+  // {
+  //   id: 5,
+  //   title: `Versión 1.4.5`,
+  //   message:
+  //     "- Se agregó la posibilidad de DEVOLVER productos y un historial de devoluciones. podés verlo en la sección de PRODUCTOS\n- Correciones visuales",
+  //   date: new Date().toISOString(),
+  // },
+  // {
+  //   id: 6,
+  //   title: `Versión 1.4.6`,
+  //   message:
+  //     "Ya no se pueden crear, editar o eliminar productos desde TODOS LOS RUBROS. Solo servirá a modo de información para administrar los reportes de todos los rubros. si tu negocio solo gestiona un solo rubro, no se ve afectado por la actualizacion\n- Correciones visuales y mejoras varias",
+  //   date: new Date().toISOString(),
+  // },
   {
     id: 7,
     title: `FORMA PARTE DE NUESTRO PROGRAMA DE REFERIDOS`,
     message:
       "Si conoces a alguien que tenga un negocio, recomendá Universal App y por cada cliente que se sume te damos $15.000!\n- Consultá al soporte técnico para saber más... (Link en el menú del sistema)",
+    date: new Date().toISOString(),
+  },
+  {
+    id: 8,
+    title: `Versión 1.4.7 - Actualización`,
+    message:
+      "- Nuevo módulo MOVIMIENTOS para registrar ingresos y/o egresos de dinero y controlar gastos a través de estadísticas\n- Eliminado el botón de NUEVO MOVIMIENTO en la caja diaria (ahora se administra todo desde el nuevo módulo MOVIMIENTOS)\n- Apertura, reapertura y cierre de caja simplificados. La gestión de ingresos y egresos ahora es mucho mas fácil! gestioná lo que debería haber en caja desde los detalles de la caja diaria (botón de información en la columna de acciones de cada caja abierta o cerrada)\n- Mejoras en el rendimiento",
     date: new Date().toISOString(),
   },
 ];

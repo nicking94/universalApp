@@ -17,6 +17,9 @@ import {
   CustomCategory,
   NotificationType,
   ProductReturn,
+  Expense,
+  ExpenseCategory,
+  DailyCashMovement,
 } from "../lib/types/types";
 
 class MyDatabase extends Dexie {
@@ -47,10 +50,12 @@ class MyDatabase extends Dexie {
     number
   >;
   returns!: Table<ProductReturn, number>;
+  expenses!: Table<Expense, number>;
+  expenseCategories!: Table<ExpenseCategory, number>;
 
   constructor() {
     super("MyDatabase");
-    this.version(21)
+    this.version(23)
       .stores({
         theme: "id",
         products: "++id, name, barcode, stock, rubro",
@@ -77,8 +82,31 @@ class MyDatabase extends Dexie {
         notifications:
           "++id, title, message, date, read, type, actualizationId, isDeleted, [read+date]",
         deletedActualizations: "++id, actualizationId",
+        expenses: "++id, date, amount, description, category, type",
+        expenseCategories: "++id, name, rubro, type",
       })
       .upgrade(async (trans) => {
+        await trans
+          .table("expenseCategories")
+          .toCollection()
+          .modify((cat: ExpenseCategory) => {
+            cat.type = "EGRESO";
+          });
+        await trans
+          .table("expenses")
+          .toCollection()
+          .modify((expense: Expense) => {
+            expense.type = "EGRESO";
+          });
+        await trans
+          .table("dailyCashMovements")
+          .toCollection()
+          .modify((movement: DailyCashMovement) => {
+            if (movement.type === "EGRESO" && !movement.expenseCategory) {
+              movement.expenseCategory = "Otros";
+            }
+          });
+
         const deletedSystemNotifs = await trans
           .table("notifications")
           .where("isDeleted")
@@ -162,6 +190,7 @@ class MyDatabase extends Dexie {
             if (budget.customerName)
               budget.customerName = this.formatString(budget.customerName);
           });
+
         const allProducts = await trans.table("products").toArray();
         const categoriesMap = new Map<string, { name: string; rubro: Rubro }>();
         allProducts.forEach((product: Product) => {

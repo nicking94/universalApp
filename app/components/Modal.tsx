@@ -12,6 +12,7 @@ const Modal: React.FC<ModalProps> = ({
   onConfirm,
   buttons,
   minheight = "auto",
+  zIndex = "z-50",
 }) => {
   useEffect(() => {
     if (!isOpen) return;
@@ -37,7 +38,9 @@ const Modal: React.FC<ModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed top-0 left-0 w-full h-full bg-gray_b/80 dark:bg-gray_l/80 flex justify-center items-center z-50">
+    <div
+      className={`${zIndex} fixed top-0 left-0 w-full h-full bg-gray_b/80 dark:bg-gray_l/80 flex justify-center items-center`}
+    >
       <div
         className={`${bgColor} max-h-[95vh] min-h-[23vh] w-[93vw] 2xl:w-[70vw] rounded-sm shadow-lg shadow-gray_b p-6 text-gray_b dark:text-white flex flex-col`}
       >

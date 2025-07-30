@@ -427,7 +427,7 @@ const PresupuestosPage = () => {
           movements.push({
             id: Date.now() + Math.random(),
             amount: methodAmount,
-            description: `Venta desde presupuesto de ${budgetToConvert.customerName}`,
+            description: `Venta - presupuesto de ${budgetToConvert.customerName}`,
             type: "INGRESO",
             date: new Date().toISOString(),
             paymentMethod: method.method,
@@ -952,7 +952,7 @@ const PresupuestosPage = () => {
       >
         {({ loading }) => (
           <Button
-            icon={<Download size={20} />}
+            icon={<Download size={18} />}
             colorText="text-gray_b"
             colorTextHover="hover:text-white"
             colorBg="bg-transparent"
@@ -1104,7 +1104,7 @@ const PresupuestosPage = () => {
                         <td className="p-2 border border-gray_xl">
                           <div className="flex justify-center items-center gap-2 h-full">
                             <Button
-                              icon={<ShoppingCart size={20} />}
+                              icon={<ShoppingCart size={18} />}
                               colorText={
                                 budget.status === "cobrado"
                                   ? "text-gray-400"
@@ -1139,7 +1139,7 @@ const PresupuestosPage = () => {
                             />
                             {handleDownloadPDF(budget)}
                             <Button
-                              icon={<StickyNote size={20} />}
+                              icon={<StickyNote size={18} />}
                               colorText="text-gray_b"
                               colorTextHover="hover:text-white"
                               colorBg="bg-transparent"
@@ -1151,13 +1151,13 @@ const PresupuestosPage = () => {
                               disabled={!budget.customerId}
                               title={
                                 !budget.customerId
-                                  ? "No hay cliente asociado"
-                                  : "Ver notas del cliente"
+                                  ? "No hay presupuesto asociado"
+                                  : "Ver notas del presupuesto"
                               }
                             />
 
                             <Button
-                              icon={<Edit size={20} />}
+                              icon={<Edit size={18} />}
                               colorText="text-gray_b"
                               colorTextHover="hover:text-white"
                               colorBg="bg-transparent"
@@ -1169,7 +1169,7 @@ const PresupuestosPage = () => {
                               title="Editar presupuesto"
                             />
                             <Button
-                              icon={<Trash size={20} />}
+                              icon={<Trash size={18} />}
                               colorText="text-gray_b"
                               colorTextHover="hover:text-white"
                               colorBg="bg-transparent"
@@ -1280,12 +1280,12 @@ const PresupuestosPage = () => {
           <div className="space-y-2">
             <div className="flex items-center space-x-4">
               <div className="w-full">
-                <label className="block text-sm font-medium text-gray_m dark:text-white mb-1">
+                <label className="block text-sm font-medium text-gray_m dark:text-white">
                   Cliente existente
                 </label>
                 <Select
                   options={customerOptions}
-                  noOptionsMessage={() => "No se encontraron opciones"}
+                  noOptionsMessage={() => "Sin opciones"}
                   value={selectedCustomer}
                   onChange={handleCustomerSelect}
                   placeholder="Buscar cliente"
@@ -1331,7 +1331,7 @@ const PresupuestosPage = () => {
                 }
               />
               <div className="w-full">
-                <label className="block text-sm font-medium text-gray_b dark:text-white mb-1">
+                <label className="block text-sm font-medium text-gray_b dark:text-white">
                   Estado
                 </label>
                 <Select
@@ -1340,7 +1340,7 @@ const PresupuestosPage = () => {
                     { value: "aprobado", label: "Aprobado" },
                     { value: "rechazado", label: "Rechazado" },
                   ]}
-                  noOptionsMessage={() => "No se encontraron opciones"}
+                  noOptionsMessage={() => "Sin opciones"}
                   value={
                     newBudget?.status
                       ? {
@@ -1375,7 +1375,7 @@ const PresupuestosPage = () => {
                 <Select
                   isMulti
                   options={productOptions}
-                  noOptionsMessage={() => "No se encontraron opciones"}
+                  noOptionsMessage={() => "Sin opciones"}
                   placeholder="Buscar productos"
                   className="text-gray_m"
                   classNamePrefix="react-select"
@@ -1598,7 +1598,7 @@ const PresupuestosPage = () => {
                                   }
                                   className="text-red-500 hover:text-red-700 cursor-pointer w-full flex items-center justify-center"
                                 >
-                                  <Trash size={16} />
+                                  <Trash size={18} />
                                 </button>
                               </td>
                             </tr>
