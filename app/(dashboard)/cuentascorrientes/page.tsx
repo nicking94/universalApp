@@ -868,139 +868,150 @@ const CuentasCorrientesPage = () => {
             </div>
           }
         >
-          <div className="space-y-4">
-            <div className="flex items-center gap-4 mb-4">
-              <label className="text-sm font-medium">Filtrar por estado:</label>
-              <select
-                value={chequeFilter}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                  setChequeFilter(e.target.value as ChequeFilter)
-                }
-                className="border border-gray_xl rounded p-1 text-gray_b bg-white"
-              >
-                <option value="todos">Todos</option>
-                <option value="pendiente">Pendientes</option>
-                <option value="cobrado">Cobrados</option>
-              </select>
+          {currentCustomerCheques.length === 0 ? (
+            <div className="mt-10 flex flex-col items-center justify-center h-[30vh] text-gray_m dark:text-white">
+              <Wallet size={64} className="mb-4" />
+              <p>El cliente no tiene cheques registrados</p>
             </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center gap-4 mb-4">
+                <label className="text-sm font-medium">
+                  Filtrar por estado:
+                </label>
+                <select
+                  value={chequeFilter}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                    setChequeFilter(e.target.value as ChequeFilter)
+                  }
+                  className="border border-gray_xl rounded p-1 text-gray_b bg-white"
+                >
+                  <option value="todos">Todos</option>
+                  <option value="pendiente">Pendientes</option>
+                  <option value="cobrado">Cobrados</option>
+                </select>
+              </div>
 
-            <div className="max-h-[55vh] overflow-y-auto">
-              <table className="w-full border-collapse">
-                <thead className="bg-gray_xxl dark:bg-blue_b">
-                  <tr>
-                    <th className="p-2 border text-left">Monto</th>
-                    <th className="p-2 border">Fecha</th>
-                    <th className="p-2 border">Estado</th>
-                    <th className="p-2 border">Productos</th>
-                    <th className="p-2 border">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {currentCustomerCheques
-                    .filter(
-                      (cheque) =>
-                        chequeFilter === "todos" ||
-                        cheque.checkStatus === chequeFilter
-                    )
-                    .map((cheque, index) => (
-                      <tr
-                        key={index}
-                        className="border-b hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
-                      >
-                        <td className="p-2 border text-left">
-                          {cheque.amount.toLocaleString("es-AR", {
-                            style: "currency",
-                            currency: "ARS",
-                          })}
-                        </td>
-                        <td className="p-2 border text-center">
-                          {format(new Date(cheque.date), "dd/MM/yyyy")}
-                        </td>
-                        <td className="p-2 border text-center">
-                          <span
-                            className={`px-2 py-1 rounded text-xs ${
-                              cheque.checkStatus === "cobrado"
-                                ? "bg-green-100 text-green-800"
-                                : cheque.checkStatus === "pendiente"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : "bg-red-100 text-red-800"
-                            }`}
-                          >
-                            {cheque.checkStatus || "pendiente"}
-                          </span>
-                        </td>
-                        <td className="p-2 border">
-                          <div className="max-h-20 overflow-y-auto">
-                            {cheque.products?.map((product, idx) => (
-                              <div
-                                key={idx}
-                                className="text-xs py-1 border-b last:border-b-0"
-                              >
-                                <div className="flex justify-between">
-                                  <span>
-                                    {getDisplayProductName(
-                                      {
-                                        name: product.productName,
-                                        size: product.size,
-                                        color: product.color,
-                                        rubro: product.rubro,
-                                      },
-                                      rubro,
-                                      true
-                                    )}
-                                  </span>
-                                  <span>
-                                    {product.quantity} {product.unit}
-                                  </span>
-                                  <span>
-                                    {product.price.toLocaleString("es-AR", {
-                                      style: "currency",
-                                      currency: "ARS",
-                                    })}
-                                  </span>
+              <div className="max-h-[55vh] overflow-y-auto">
+                <table className="w-full border-collapse">
+                  <thead className="bg-gray_xxl dark:bg-blue_b">
+                    <tr>
+                      <th className="p-2 border text-left">Monto</th>
+                      <th className="p-2 border">Fecha</th>
+                      <th className="p-2 border">Estado</th>
+                      <th className="p-2 border">Productos</th>
+                      <th className="p-2 border">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentCustomerCheques
+                      .filter(
+                        (cheque) =>
+                          chequeFilter === "todos" ||
+                          cheque.checkStatus === chequeFilter
+                      )
+                      .map((cheque, index) => (
+                        <tr
+                          key={index}
+                          className="border-b hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
+                        >
+                          <td className="p-2 border text-left">
+                            {cheque.amount.toLocaleString("es-AR", {
+                              style: "currency",
+                              currency: "ARS",
+                            })}
+                          </td>
+                          <td className="p-2 border text-center">
+                            {format(new Date(cheque.date), "dd/MM/yyyy")}
+                          </td>
+                          <td className="p-2 border text-center">
+                            <span
+                              className={`px-2 py-1 rounded text-xs ${
+                                cheque.checkStatus === "cobrado"
+                                  ? "bg-green-100 text-green-800"
+                                  : cheque.checkStatus === "pendiente"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}
+                            >
+                              {cheque.checkStatus || "pendiente"}
+                            </span>
+                          </td>
+                          <td className="p-2 border">
+                            <div className="max-h-20 overflow-y-auto">
+                              {cheque.products?.map((product, idx) => (
+                                <div
+                                  key={idx}
+                                  className="text-xs py-1 border-b last:border-b-0"
+                                >
+                                  <div className="flex justify-between">
+                                    <span>
+                                      {getDisplayProductName(
+                                        {
+                                          name: product.productName,
+                                          size: product.size,
+                                          color: product.color,
+                                          rubro: product.rubro,
+                                        },
+                                        rubro,
+                                        true
+                                      )}
+                                    </span>
+                                    <span>
+                                      {product.quantity} {product.unit}
+                                    </span>
+                                    <span>
+                                      {product.price.toLocaleString("es-AR", {
+                                        style: "currency",
+                                        currency: "ARS",
+                                      })}
+                                    </span>
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="p-2 border text-center">
-                          <div className="flex justify-center items-center gap-2">
-                            {cheque.checkStatus === "pendiente" && (
-                              <Button
-                                icon={<CheckCircle size={18} />}
-                                onClick={() => handleMarkCheckAsPaid(cheque.id)}
-                                colorText="text-white"
-                                colorTextHover="hover:text-white"
-                                colorBg="bg-green_b"
-                                colorBgHover="hover:bg-green_m"
-                                minwidth="min-w-0"
-                                title="Marcar como cobrado"
-                              />
-                            )}
+                              ))}
+                            </div>
+                          </td>
+                          <td className="p-2 border text-center">
+                            <div className="flex justify-center items-center gap-2">
+                              {cheque.checkStatus === "pendiente" && (
+                                <Button
+                                  icon={<CheckCircle size={18} />}
+                                  onClick={() =>
+                                    handleMarkCheckAsPaid(cheque.id)
+                                  }
+                                  colorText="text-white"
+                                  colorTextHover="hover:text-white"
+                                  colorBg="bg-green_b"
+                                  colorBgHover="hover:bg-green_m"
+                                  minwidth="min-w-0"
+                                  title="Marcar como cobrado"
+                                />
+                              )}
 
-                            <Button
-                              icon={<Trash size={18} />}
-                              iconPosition="left"
-                              colorText="text-gray_b dark:text-red_l"
-                              colorTextHover="hover:text-white"
-                              colorBg="bg-transparent dark:bg-red_b"
-                              colorBgHover="hover:bg-red_m"
-                              px="px-2"
-                              py="py-1"
-                              minwidth="min-w-0"
-                              onClick={() => {
-                                handleDeleteCheck(cheque.id);
-                              }}
-                              title="Eliminar cheque"
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
+                              <Button
+                                icon={<Trash size={18} />}
+                                iconPosition="left"
+                                colorText="text-gray_b dark:text-red_l"
+                                colorTextHover="hover:text-white"
+                                colorBg="bg-transparent dark:bg-red_b"
+                                colorBgHover="hover:bg-red_m"
+                                px="px-2"
+                                py="py-1"
+                                minwidth="min-w-0"
+                                onClick={() => {
+                                  handleDeleteCheck(cheque.id);
+                                }}
+                                title="Eliminar cheque"
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
         </Modal>
         <Modal
           isOpen={isInfoModalOpen}
