@@ -124,7 +124,6 @@ const MovimientosPage = () => {
     label: String(new Date().getFullYear() - i),
   }));
 
-  // Agregar esta función fuera del componente
   const recalculateTotals = (movements: DailyCashMovement[]) => {
     return movements.reduce(
       (totals, m) => {
@@ -139,7 +138,7 @@ const MovimientosPage = () => {
           } else {
             totals.otherIncome += amount;
           }
-        } else {
+        } else if (m.type === "EGRESO") {
           totals.totalExpense += amount;
           if (isCash) {
             totals.cashExpense += amount;
@@ -196,37 +195,45 @@ const MovimientosPage = () => {
     setCategories(filtered);
   }, [rubro]);
 
-  // Asegurarse de que loadExpenses también actualice el contexto de caja diaria
   const loadExpenses = useCallback(async () => {
-    const storedExpenses = await db.expenses.toArray();
-    const sortedExpenses = storedExpenses.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
+    try {
+      const storedExpenses = await db.expenses.toArray();
+      const sortedExpenses = storedExpenses.sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
 
-    // Actualizar también las cajas diarias si es necesario
-    const uniqueDates = [
-      ...new Set(storedExpenses.map((e) => e.date.split("T")[0])),
-    ];
-    for (const date of uniqueDates) {
-      const dailyCash = await db.dailyCashes.get({ date });
-      if (dailyCash) {
-        // Verificar que todos los movimientos existan
-        const validMovements = dailyCash.movements.filter((m) =>
-          storedExpenses.some((e) => e.id === m.id)
-        );
+      setExpenses(sortedExpenses);
 
-        if (validMovements.length !== dailyCash.movements.length) {
-          const updatedCash = {
-            ...dailyCash,
-            movements: validMovements,
-            ...recalculateTotals(validMovements),
-          };
-          await db.dailyCashes.update(dailyCash.id, updatedCash);
+      // Sincronizar con cajas diarias
+      const expenseDates = [
+        ...new Set(storedExpenses.map((e) => e.date.split("T")[0])),
+      ];
+
+      for (const date of expenseDates) {
+        const dailyCash = await db.dailyCashes.get({ date });
+        if (dailyCash) {
+          // Mantener solo movimientos que existen en expenses o no son de expenses
+          const validMovements = dailyCash.movements.filter((m) => {
+            return (
+              storedExpenses.some((e) => e.id === m.id) ||
+              (m.type !== "EGRESO" && m.type !== "INGRESO")
+            );
+          });
+
+          if (validMovements.length !== dailyCash.movements.length) {
+            const updatedCash = {
+              ...dailyCash,
+              movements: validMovements,
+              ...recalculateTotals(validMovements),
+            };
+            await db.dailyCashes.update(dailyCash.id, updatedCash);
+          }
         }
       }
+    } catch (error) {
+      console.error("Error al cargar gastos:", error);
+      showNotification("Error al cargar gastos", "error");
     }
-
-    setExpenses(sortedExpenses);
   }, []);
   const handleOpenModal = async () => {
     const { needsRedirect } = await ensureCashIsOpen();
@@ -301,14 +308,61 @@ const MovimientosPage = () => {
       // 1. Registrar el movimiento en la tabla de expenses
       await db.expenses.add(expenseToAdd);
 
-      // 2. Registrar en caja diaria
-      const today = new Date(newExpense.date).toISOString().split("T")[0];
-      let dailyCash = await db.dailyCashes.get({ date: today });
+      // 2. Obtener la fecha local correctamente
+      const expenseDate = new Date(newExpense.date);
+      const localDateString = expenseDate
+        .toLocaleDateString("es-AR", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        })
+        .split("/")
+        .reverse()
+        .join("-");
+
+      // 3. Registrar en caja diaria
+      let dailyCash = await db.dailyCashes.get({ date: localDateString });
+
+      // Verificar si existe una caja para esta fecha
+      if (!dailyCash) {
+        // Si no existe, verificar si hay cajas abiertas de días anteriores
+        const allCashes = await db.dailyCashes.toArray();
+        const openPreviousCashes = allCashes.filter(
+          (cash) => !cash.closed && cash.date < localDateString
+        );
+
+        // Si hay cajas abiertas de días anteriores, cerrarlas primero
+        if (openPreviousCashes.length > 0) {
+          for (const cash of openPreviousCashes) {
+            const updatedCash = {
+              ...cash,
+              closed: true,
+              closingDate: new Date().toISOString(),
+              ...recalculateTotals(cash.movements),
+            };
+            await db.dailyCashes.update(cash.id, updatedCash);
+          }
+          showNotification(
+            `Se cerraron ${openPreviousCashes.length} caja(s) de días anteriores automáticamente.`,
+            "info"
+          );
+        }
+
+        // Ahora crear la nueva caja para la fecha correcta
+        dailyCash = {
+          id: Date.now(),
+          date: localDateString,
+          movements: [],
+          closed: false,
+          ...recalculateTotals([]),
+        };
+        await db.dailyCashes.add(dailyCash);
+      }
 
       const movement = {
-        id: Date.now() + Math.random(),
+        id: expenseToAdd.id, // Usar el mismo ID que el expense
         amount: totalPayment,
-        description: ` ${newExpense.description}`,
+        description: `Movimiento: ${newExpense.description}`,
         type: newExpense.type,
         paymentMethod: newExpense.paymentMethod,
         date: newExpense.date,
@@ -318,23 +372,13 @@ const MovimientosPage = () => {
         combinedPaymentMethods: newExpense.combinedPaymentMethods,
       };
 
-      if (!dailyCash) {
-        dailyCash = {
-          id: Date.now(),
-          date: today,
-          movements: [movement],
-          closed: false,
-          ...recalculateTotals([movement]),
-        };
-        await db.dailyCashes.add(dailyCash);
-      } else {
-        const updatedCash = {
-          ...dailyCash,
-          movements: [...dailyCash.movements, movement],
-          ...recalculateTotals([...dailyCash.movements, movement]),
-        };
-        await db.dailyCashes.update(dailyCash.id, updatedCash);
-      }
+      // Actualizar la caja diaria
+      const updatedCash = {
+        ...dailyCash,
+        movements: [...dailyCash.movements, movement],
+        ...recalculateTotals([...dailyCash.movements, movement]),
+      };
+      await db.dailyCashes.update(dailyCash.id, updatedCash);
 
       // 3. Actualizar el estado local
       setExpenses((prev) => [...prev, expenseToAdd]);
@@ -352,7 +396,6 @@ const MovimientosPage = () => {
     }
   };
 
-  // Modificar la función handleDeleteExpense
   const handleDeleteExpense = async () => {
     if (!expenseToDelete || !expenseToDelete.id) return;
 
@@ -361,30 +404,73 @@ const MovimientosPage = () => {
       await db.expenses.delete(expenseToDelete.id);
 
       // 2. Actualizar la caja diaria correspondiente
-      const expenseDate = new Date(expenseToDelete.date)
-        .toISOString()
-        .split("T")[0];
-      const dailyCash = await db.dailyCashes.get({ date: expenseDate });
+      const expenseDate = new Date(expenseToDelete.date);
+      const localDateString = expenseDate
+        .toLocaleDateString("es-AR", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        })
+        .split("/")
+        .reverse()
+        .join("-");
+
+      const dailyCash = await db.dailyCashes.get({ date: localDateString });
 
       if (dailyCash) {
+        // Filtrar el movimiento eliminado
         const updatedMovements = dailyCash.movements.filter(
           (m) => m.id !== expenseToDelete.id
         );
 
+        // Calcular nuevos totales
+        const totals = updatedMovements.reduce(
+          (acc, m) => {
+            const amount = m.amount || 0;
+            const isIncome = m.type === "INGRESO";
+            const isCash = m.paymentMethod === "EFECTIVO";
+
+            if (isIncome) {
+              acc.totalIncome += amount;
+              if (isCash) {
+                acc.cashIncome += amount;
+              } else {
+                acc.otherIncome += amount;
+              }
+            } else if (m.type === "EGRESO") {
+              acc.totalExpense += amount;
+              if (isCash) {
+                acc.cashExpense += amount;
+              }
+            }
+            return acc;
+          },
+          {
+            totalIncome: 0,
+            totalExpense: 0,
+            cashIncome: 0,
+            cashExpense: 0,
+            otherIncome: 0,
+          }
+        );
+
+        // Actualizar la caja diaria con los nuevos totales
         const updatedCash = {
           ...dailyCash,
           movements: updatedMovements,
-          ...recalculateTotals(updatedMovements),
+          ...totals,
         };
 
         await db.dailyCashes.update(dailyCash.id, updatedCash);
+
+        // Si no quedan movimientos y la caja está cerrada, eliminarla
+        if (updatedMovements.length === 0 && dailyCash.closed) {
+          await db.dailyCashes.delete(dailyCash.id);
+        }
       }
 
-      // 3. Actualizar el estado local
-      setExpenses((prev) =>
-        prev.filter((expense) => expense.id !== expenseToDelete.id)
-      );
-
+      // 3. Actualizar el estado local y recargar datos
+      await loadExpenses();
       showNotification("Movimiento eliminado correctamente", "success");
       setIsDeleteModalOpen(false);
       setExpenseToDelete(null);

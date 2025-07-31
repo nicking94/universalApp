@@ -66,7 +66,6 @@ const AdvancedFilterPanel = <T extends Product | Expense>({
     { value: { name: "EFECTIVO", rubro }, label: "Efectivo" },
     { value: { name: "TRANSFERENCIA", rubro }, label: "Transferencia" },
     { value: { name: "TARJETA", rubro }, label: "Tarjeta" },
-    { value: { name: "CHEQUE", rubro }, label: "Cheque" },
   ];
 
   const expenseCategoryOptions = useMemo(() => {
