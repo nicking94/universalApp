@@ -389,7 +389,6 @@ const Metrics = () => {
         let filteredCashes = dailyCashes;
 
         if (period === "month") {
-          // Siempre filtrar por mes completo
           const monthStart = new Date(selectedYear, selectedMonth - 1, 1);
           const monthEnd = new Date(selectedYear, selectedMonth, 0);
           filteredCashes = dailyCashes.filter((cash) => {

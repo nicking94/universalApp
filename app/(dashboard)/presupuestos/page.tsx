@@ -348,10 +348,14 @@ const PresupuestosPage = () => {
     if (!budgetToConvert) return;
 
     try {
-      const deposit = budgetToConvert.deposit
-        ? parseFloat(budgetToConvert.deposit)
-        : 0;
-      const totalToPay = budgetToConvert.total - deposit;
+      const deposit =
+        budgetToConvert.deposit && parseFloat(budgetToConvert.deposit) > 0
+          ? parseFloat(budgetToConvert.deposit)
+          : undefined;
+      const totalToPay =
+        deposit !== undefined
+          ? budgetToConvert.total - deposit
+          : budgetToConvert.total;
       if (
         Math.abs(
           paymentMethods.reduce((sum, m) => sum + m.amount, 0) - totalToPay
@@ -445,7 +449,11 @@ const PresupuestosPage = () => {
           )
         );
 
-        if (depositMovementIndex !== -1 && deposit > 0) {
+        if (
+          depositMovementIndex !== -1 &&
+          deposit !== undefined &&
+          deposit > 0
+        ) {
           const depositRatio = deposit / budgetToConvert.total;
           const depositProfit = totalProfit * depositRatio;
 

@@ -1342,8 +1342,8 @@ const VentasPage = () => {
                             </span>
                           ) : (
                             <>
-                              {/* Solo mostrar seña si existe y es mayor a 0 */}
-                              {sale.deposit && sale.deposit > 0 ? (
+                              {sale.deposit !== undefined &&
+                              sale.deposit > 0 ? (
                                 <div className="text-xs flex justify-between">
                                   <span>SEÑA:</span>
                                   <span>{formatCurrency(sale.deposit)}</span>
