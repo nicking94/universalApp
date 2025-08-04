@@ -204,7 +204,6 @@ const MovimientosPage = () => {
 
       setExpenses(sortedExpenses);
 
-      // Sincronizar con cajas diarias
       const expenseDates = [
         ...new Set(storedExpenses.map((e) => e.date.split("T")[0])),
       ];
@@ -212,13 +211,7 @@ const MovimientosPage = () => {
       for (const date of expenseDates) {
         const dailyCash = await db.dailyCashes.get({ date });
         if (dailyCash) {
-          // Mantener solo movimientos que existen en expenses o no son de expenses
-          const validMovements = dailyCash.movements.filter((m) => {
-            return (
-              storedExpenses.some((e) => e.id === m.id) ||
-              (m.type !== "EGRESO" && m.type !== "INGRESO")
-            );
-          });
+          const validMovements = dailyCash.movements.filter(() => true);
 
           if (validMovements.length !== dailyCash.movements.length) {
             const updatedCash = {
@@ -292,11 +285,12 @@ const MovimientosPage = () => {
     }
 
     try {
-      const totalPayment =
-        newExpense.combinedPaymentMethods?.reduce(
-          (sum, m) => sum + (m.amount || 0),
-          0
-        ) || newExpense.amount;
+      const totalPayment = newExpense.combinedPaymentMethods
+        ? newExpense.combinedPaymentMethods.reduce(
+            (sum, m) => sum + (m.amount || 0),
+            0
+          )
+        : newExpense.amount;
 
       const expenseToAdd = {
         ...newExpense,
@@ -305,64 +299,42 @@ const MovimientosPage = () => {
         amount: totalPayment,
       };
 
-      // 1. Registrar el movimiento en la tabla de expenses
+      // Registrar el movimiento en expenses
       await db.expenses.add(expenseToAdd);
 
-      // 2. Obtener la fecha local correctamente
+      // Obtener la fecha correctamente formateada
       const expenseDate = new Date(newExpense.date);
-      const localDateString = expenseDate
-        .toLocaleDateString("es-AR", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        })
-        .split("/")
-        .reverse()
-        .join("-");
+      const localDateString = expenseDate.toISOString().split("T")[0];
 
-      // 3. Registrar en caja diaria
+      // Obtener o crear la caja diaria
       let dailyCash = await db.dailyCashes.get({ date: localDateString });
 
-      // Verificar si existe una caja para esta fecha
       if (!dailyCash) {
-        // Si no existe, verificar si hay cajas abiertas de días anteriores
-        const allCashes = await db.dailyCashes.toArray();
-        const openPreviousCashes = allCashes.filter(
-          (cash) => !cash.closed && cash.date < localDateString
-        );
+        // Si no existe, obtener los movimientos existentes para esa fecha
+        const existingMovements = await db.dailyCashes
+          .where("date")
+          .equals(localDateString)
+          .first();
 
-        // Si hay cajas abiertas de días anteriores, cerrarlas primero
-        if (openPreviousCashes.length > 0) {
-          for (const cash of openPreviousCashes) {
-            const updatedCash = {
-              ...cash,
-              closed: true,
-              closingDate: new Date().toISOString(),
-              ...recalculateTotals(cash.movements),
-            };
-            await db.dailyCashes.update(cash.id, updatedCash);
-          }
-          showNotification(
-            `Se cerraron ${openPreviousCashes.length} caja(s) de días anteriores automáticamente.`,
-            "info"
-          );
-        }
-
-        // Ahora crear la nueva caja para la fecha correcta
         dailyCash = {
           id: Date.now(),
           date: localDateString,
-          movements: [],
+          movements: existingMovements?.movements || [],
           closed: false,
-          ...recalculateTotals([]),
+          totalIncome: 0,
+          totalExpense: 0,
+          cashIncome: 0,
+          cashExpense: 0,
+          otherIncome: 0,
         };
         await db.dailyCashes.add(dailyCash);
       }
 
+      // Crear el movimiento para la caja diaria
       const movement = {
-        id: expenseToAdd.id, // Usar el mismo ID que el expense
+        id: expenseToAdd.id,
         amount: totalPayment,
-        description: `Movimiento: ${newExpense.description}`,
+        description: newExpense.description,
         type: newExpense.type,
         paymentMethod: newExpense.paymentMethod,
         date: newExpense.date,
@@ -373,21 +345,33 @@ const MovimientosPage = () => {
       };
 
       // Actualizar la caja diaria
+      const updatedMovements = [...dailyCash.movements, movement];
+
       const updatedCash = {
         ...dailyCash,
-        movements: [...dailyCash.movements, movement],
-        ...recalculateTotals([...dailyCash.movements, movement]),
+        movements: updatedMovements,
+        totalIncome: updatedMovements
+          .filter((m) => m.type === "INGRESO")
+          .reduce((sum, m) => sum + m.amount, 0),
+        totalExpense: updatedMovements
+          .filter((m) => m.type === "EGRESO")
+          .reduce((sum, m) => sum + m.amount, 0),
+        cashIncome: updatedMovements
+          .filter((m) => m.type === "INGRESO" && m.paymentMethod === "EFECTIVO")
+          .reduce((sum, m) => sum + m.amount, 0),
+        cashExpense: updatedMovements
+          .filter((m) => m.type === "EGRESO" && m.paymentMethod === "EFECTIVO")
+          .reduce((sum, m) => sum + m.amount, 0),
+        otherIncome: updatedMovements
+          .filter((m) => m.type === "INGRESO" && m.paymentMethod !== "EFECTIVO")
+          .reduce((sum, m) => sum + m.amount, 0),
       };
+
       await db.dailyCashes.update(dailyCash.id, updatedCash);
 
-      // 3. Actualizar el estado local
+      // Actualizar el estado
       setExpenses((prev) => [...prev, expenseToAdd]);
-      showNotification(
-        `${
-          newExpense.type === "INGRESO" ? "Ingreso" : "Egreso"
-        } registrado correctamente`,
-        "success"
-      );
+      showNotification("Movimiento registrado correctamente", "success");
       resetExpenseForm();
       setIsOpenModal(false);
     } catch (error) {

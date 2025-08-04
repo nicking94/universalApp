@@ -332,9 +332,6 @@ const CajaDiariaPage = () => {
         gananciaNeta: number;
         movements: DailyCashMovement[];
         closed: boolean;
-
-        closingAmount?: number;
-        closingDifference?: number;
       }
     > = {};
 
@@ -349,25 +346,15 @@ const CajaDiariaPage = () => {
           egresos: 0,
           ganancia: 0,
           gananciaNeta: 0,
-          movements: [],
+          movements: [...movements], // Mantener todos los movimientos
           closed: dailyCash.closed || false,
-
-          closingAmount: dailyCash.closingAmount,
-          closingDifference: dailyCash.closingDifference,
         };
       }
 
-      const processedMovementIds = new Set();
-
-      // Modifica esta parte en getDailySummary
+      // Calcular totales sin filtrar
       movements.forEach((movement) => {
-        if (processedMovementIds.has(movement.id)) return;
-        processedMovementIds.add(movement.id);
-
-        summary[date].movements.push(movement);
-
         const amount = Number(movement.amount) || 0;
-        // Actualizar totales según el tipo de movimiento
+
         if (movement.type === "INGRESO") {
           summary[date].ingresos += amount;
           summary[date].gananciaNeta += Number(movement.profit) || 0;
@@ -376,6 +363,7 @@ const CajaDiariaPage = () => {
           summary[date].gananciaNeta -= Math.abs(Number(movement.profit) || 0);
         }
       });
+
       summary[date].ganancia = summary[date].ingresos - summary[date].egresos;
     });
 
