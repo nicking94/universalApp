@@ -44,28 +44,6 @@ import {
 } from "@/app/lib/utils/calculations";
 import { getLocalDateString } from "@/app/lib/utils/getLocalDate";
 
-// Eliminamos el array estático de talles y lo reemplazaremos con uno dinámico
-const initialClothingSizes: ClothingSizeOption[] = [
-  { value: "XXS", label: "XXS" },
-  { value: "XS", label: "XS" },
-  { value: "S", label: "S" },
-  { value: "M", label: "M" },
-  { value: "L", label: "L" },
-  { value: "XL", label: "XL" },
-  { value: "XXL", label: "XXL" },
-  { value: "XXXL", label: "XXXL" },
-  { value: "34", label: "34" },
-  { value: "36", label: "36" },
-  { value: "38", label: "38" },
-  { value: "40", label: "40" },
-  { value: "42", label: "42" },
-  { value: "44", label: "44" },
-  { value: "46", label: "46" },
-  { value: "unico", label: "Único" },
-  { value: "kids", label: "Kids" },
-  { value: "prematuro", label: "Prematuro" },
-];
-
 const ProductsPage = () => {
   const { rubro } = useRubro();
 
@@ -139,14 +117,11 @@ const ProductsPage = () => {
   const [returnQuantity, setReturnQuantity] = useState<number>(0);
   const [returnUnit, setReturnUnit] = useState<string>("");
 
-  // Nuevos estados para la gestión dinámica de talles
-  const [clothingSizes, setClothingSizes] =
-    useState<ClothingSizeOption[]>(initialClothingSizes);
+  const [clothingSizes, setClothingSizes] = useState<ClothingSizeOption[]>([]);
   const [newSize, setNewSize] = useState("");
   const [sizeToDelete, setSizeToDelete] = useState<string | null>(null);
   const [isSizeDeleteModalOpen, setIsSizeDeleteModalOpen] = useState(false);
 
-  // Función para cargar los talles desde la base de datos
   const loadClothingSizes = async () => {
     try {
       // Obtener todos los productos de indumentaria
@@ -164,18 +139,12 @@ const ProductsPage = () => {
         )
       );
 
-      // Combinar talles predefinidos con los existentes en la base de datos
-      const allSizes = [
-        ...initialClothingSizes,
-        ...uniqueSizes
-          .filter((size) => !initialClothingSizes.some((s) => s.value === size))
-          .map((size) => ({ value: size, label: size })),
-      ];
+      // Crear opciones para los talles encontrados
+      const sizeOptions = uniqueSizes
+        .map((size) => ({ value: size, label: size }))
+        .sort((a, b) => a.label.localeCompare(b.label));
 
-      // Ordenar alfabéticamente
-      allSizes.sort((a, b) => a.label.localeCompare(b.label));
-
-      setClothingSizes(allSizes);
+      setClothingSizes(sizeOptions);
     } catch (error) {
       console.error("Error al cargar talles:", error);
     }
@@ -220,12 +189,13 @@ const ProductsPage = () => {
     }
   };
 
-  // Cargar talles al montar el componente y cuando cambie el rubro
   useEffect(() => {
     if (rubro === "indumentaria") {
       loadClothingSizes();
+    } else {
+      setClothingSizes([]);
     }
-  }, [rubro]);
+  }, [rubro, products]);
 
   const handleReturnProduct = async () => {
     if (!selectedReturnProduct) {
@@ -363,6 +333,32 @@ const ProductsPage = () => {
     direction: "asc" | "desc";
   }) => {
     setSortConfig(sort);
+  };
+  const handleSizeInputBlur = () => {
+    if (newSize.trim() && newSize !== newProduct.size) {
+      // Actualizar el producto con el nuevo talle
+      setNewProduct({
+        ...newProduct,
+        size: newSize.trim(),
+      });
+
+      // Si el talle no existe en la lista, agregarlo
+      if (
+        !clothingSizes.some(
+          (size) => size.value.toLowerCase() === newSize.toLowerCase().trim()
+        )
+      ) {
+        const newSizeOption = {
+          value: newSize.trim(),
+          label: newSize.trim(),
+        };
+        setClothingSizes((prev) =>
+          [...prev, newSizeOption].sort((a, b) =>
+            a.label.localeCompare(b.label)
+          )
+        );
+      }
+    }
   };
   const unitOptions: UnitOption[] = [
     { value: "Unid.", label: "Unidad", convertible: false },
@@ -594,6 +590,7 @@ const ProductsPage = () => {
       setCategoryToDelete(null);
     }
   };
+
   const formatOptionLabel = ({
     value,
     label,
@@ -876,6 +873,8 @@ const ProductsPage = () => {
   const handleCloseModal = () => {
     setIsOpenModal(false);
     setNewBrand("");
+    setNewSize("");
+    setNewColor("");
     setNewProduct({
       id: Date.now(),
       name: "",
@@ -1901,21 +1900,17 @@ const ProductsPage = () => {
                             <div>
                               <span>{label}</span>
                             </div>
-                            {!initialClothingSizes.some(
-                              (s) => s.value === value
-                            ) && (
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  handleDeleteSize(value);
-                                }}
-                                className="text-red_b hover:text-red_m ml-2 cursor-pointer p-1 rounded-full hover:bg-red_l"
-                                title="Eliminar talle"
-                              >
-                                <Trash size={18} />
-                              </button>
-                            )}
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleDeleteSize(value);
+                              }}
+                              className="text-red_b hover:text-red_m ml-2 cursor-pointer p-1 rounded-full hover:bg-red_l"
+                              title="Eliminar talle"
+                            >
+                              <Trash size={18} />
+                            </button>
                           </div>
                         )}
                       />
@@ -1937,33 +1932,12 @@ const ProductsPage = () => {
                           onChange={(e) => {
                             const value = e.target.value;
                             setNewSize(value);
-
-                            // Actualizar automáticamente el producto con el nuevo talle
                             setNewProduct({
                               ...newProduct,
                               size: value,
                             });
-
-                            // Si el talle no existe en la lista, agregarlo automáticamente
-                            if (
-                              value.trim() &&
-                              !clothingSizes.some(
-                                (size) =>
-                                  size.value.toLowerCase() ===
-                                  value.toLowerCase().trim()
-                              )
-                            ) {
-                              const newSizeOption = {
-                                value: value.trim(),
-                                label: value.trim(),
-                              };
-                              setClothingSizes((prev) =>
-                                [...prev, newSizeOption].sort((a, b) =>
-                                  a.label.localeCompare(b.label)
-                                )
-                              );
-                            }
                           }}
+                          onBlur={handleSizeInputBlur}
                           className="w-full"
                         />
                       </div>

@@ -213,7 +213,7 @@ const AdvancedFilterPanel = <T extends Product | Expense>({
               p[field] !== null &&
               String(p[field]).trim() !== ""
           )
-          .map((p) => String(p[field]).trim()) // Limpiar espacios
+          .map((p) => String(p[field]).trim())
       )
     ).sort((a, b) => a.localeCompare(b));
 
