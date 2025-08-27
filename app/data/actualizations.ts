@@ -63,6 +63,13 @@ export const systemActualizations: Actualization[] = [
       "- Nuevo módulo MOVIMIENTOS para registrar ingresos y/o egresos de dinero y controlar gastos a través de estadísticas\n- Eliminado el botón de NUEVO MOVIMIENTO en la caja diaria (ahora se administra todo desde el nuevo módulo MOVIMIENTOS)\n- Apertura, reapertura y cierre de caja simplificados. La gestión de ingresos y egresos ahora es mucho mas fácil! gestioná lo que debería haber en caja desde los detalles de la caja diaria (botón de información en la columna de acciones de cada caja abierta o cerrada)\n- Agregadas métricas SEMANALES en el módulo de MÉTRICAS\n- Mejoras en el rendimiento",
     date: new Date().toISOString(),
   },
+  {
+    id: 9,
+    title: `Versión 1.4.8 - Actualización`,
+    message:
+      "- Modificada la opción de talles en el rubro INDUMENTARIA. Ahora se pueden crear talles personalizados\n- Se arregló un error en el filtro de marca y color del rubro INDUMENTARIA\n- Mejoras en el rendimiento",
+    date: new Date().toISOString(),
+  },
 ];
 
 export const getUnshownActualizations = async (): Promise<Actualization[]> => {

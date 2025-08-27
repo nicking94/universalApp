@@ -44,7 +44,8 @@ import {
 } from "@/app/lib/utils/calculations";
 import { getLocalDateString } from "@/app/lib/utils/getLocalDate";
 
-const clothingSizes: ClothingSizeOption[] = [
+// Eliminamos el array estático de talles y lo reemplazaremos con uno dinámico
+const initialClothingSizes: ClothingSizeOption[] = [
   { value: "XXS", label: "XXS" },
   { value: "XS", label: "XS" },
   { value: "S", label: "S" },
@@ -137,6 +138,94 @@ const ProductsPage = () => {
   const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
   const [returnQuantity, setReturnQuantity] = useState<number>(0);
   const [returnUnit, setReturnUnit] = useState<string>("");
+
+  // Nuevos estados para la gestión dinámica de talles
+  const [clothingSizes, setClothingSizes] =
+    useState<ClothingSizeOption[]>(initialClothingSizes);
+  const [newSize, setNewSize] = useState("");
+  const [sizeToDelete, setSizeToDelete] = useState<string | null>(null);
+  const [isSizeDeleteModalOpen, setIsSizeDeleteModalOpen] = useState(false);
+
+  // Función para cargar los talles desde la base de datos
+  const loadClothingSizes = async () => {
+    try {
+      // Obtener todos los productos de indumentaria
+      const clothingProducts = await db.products
+        .where("rubro")
+        .equals("indumentaria")
+        .toArray();
+
+      // Extraer talles únicos de los productos
+      const uniqueSizes = Array.from(
+        new Set(
+          clothingProducts
+            .filter((product) => product.size && product.size.trim() !== "")
+            .map((product) => product.size as string)
+        )
+      );
+
+      // Combinar talles predefinidos con los existentes en la base de datos
+      const allSizes = [
+        ...initialClothingSizes,
+        ...uniqueSizes
+          .filter((size) => !initialClothingSizes.some((s) => s.value === size))
+          .map((size) => ({ value: size, label: size })),
+      ];
+
+      // Ordenar alfabéticamente
+      allSizes.sort((a, b) => a.label.localeCompare(b.label));
+
+      setClothingSizes(allSizes);
+    } catch (error) {
+      console.error("Error al cargar talles:", error);
+    }
+  };
+
+  // Función para eliminar un talle
+  const handleDeleteSize = async (sizeValue: string) => {
+    setSizeToDelete(sizeValue);
+    setIsSizeDeleteModalOpen(true);
+  };
+  const handleConfirmDeleteSize = async () => {
+    if (!sizeToDelete) return;
+
+    try {
+      // Verificar si hay productos usando este talle
+      const productsWithSize = await db.products
+        .where("size")
+        .equals(sizeToDelete)
+        .and((product) => product.rubro === "indumentaria")
+        .count();
+
+      if (productsWithSize > 0) {
+        showNotification(
+          `No se puede eliminar el talle porque ${productsWithSize} producto(s) lo están usando`,
+          "error"
+        );
+        return;
+      }
+
+      // Eliminar el talle de la lista
+      setClothingSizes((prev) =>
+        prev.filter((size) => size.value !== sizeToDelete)
+      );
+
+      showNotification("Talle eliminado correctamente", "success");
+    } catch (error) {
+      console.error("Error al eliminar talle:", error);
+      showNotification("Error al eliminar el talle", "error");
+    } finally {
+      setIsSizeDeleteModalOpen(false);
+      setSizeToDelete(null);
+    }
+  };
+
+  // Cargar talles al montar el componente y cuando cambie el rubro
+  useEffect(() => {
+    if (rubro === "indumentaria") {
+      loadClothingSizes();
+    }
+  }, [rubro]);
 
   const handleReturnProduct = async () => {
     if (!selectedReturnProduct) {
@@ -1789,23 +1878,96 @@ const ProductsPage = () => {
                     <label className="block text-gray_m dark:text-white text-sm font-semibold">
                       Talle
                     </label>
-                    <Select
-                      options={clothingSizes}
-                      noOptionsMessage={() => "Sin opciones"}
-                      value={
-                        clothingSizes.find(
-                          (opt) => opt.value === newProduct.size
-                        ) || null
-                      }
-                      onChange={(selectedOption) => {
-                        setNewProduct({
-                          ...newProduct,
-                          size: selectedOption?.value || "",
-                        });
-                      }}
-                      className="text-gray_m"
-                      placeholder="Seleccionar talle"
-                    />
+                    <div className="flex gap-2">
+                      <Select
+                        options={clothingSizes}
+                        noOptionsMessage={() => "Sin opciones"}
+                        value={
+                          clothingSizes.find(
+                            (opt) => opt.value === newProduct.size
+                          ) || null
+                        }
+                        onChange={(selectedOption) => {
+                          setNewProduct({
+                            ...newProduct,
+                            size: selectedOption?.value || "",
+                          });
+                          setNewSize("");
+                        }}
+                        className="text-gray_m w-full"
+                        placeholder="Seleccionar talle"
+                        formatOptionLabel={({ value, label }) => (
+                          <div className="flex justify-between items-center w-full">
+                            <div>
+                              <span>{label}</span>
+                            </div>
+                            {!initialClothingSizes.some(
+                              (s) => s.value === value
+                            ) && (
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleDeleteSize(value);
+                                }}
+                                className="text-red_b hover:text-red_m ml-2 cursor-pointer p-1 rounded-full hover:bg-red_l"
+                                title="Eliminar talle"
+                              >
+                                <Trash size={18} />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      />
+                      <div className="w-full -mt-5">
+                        <label className="block text-gray_m dark:text-white text-sm font-semibold">
+                          {newProduct.size === ""
+                            ? "Crear talle"
+                            : "Editar talle"}
+                        </label>
+                        <Input
+                          type="text"
+                          name="newSize"
+                          placeholder={
+                            newProduct.size === ""
+                              ? "Nuevo talle"
+                              : "Editar talle"
+                          }
+                          value={newSize}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setNewSize(value);
+
+                            // Actualizar automáticamente el producto con el nuevo talle
+                            setNewProduct({
+                              ...newProduct,
+                              size: value,
+                            });
+
+                            // Si el talle no existe en la lista, agregarlo automáticamente
+                            if (
+                              value.trim() &&
+                              !clothingSizes.some(
+                                (size) =>
+                                  size.value.toLowerCase() ===
+                                  value.toLowerCase().trim()
+                              )
+                            ) {
+                              const newSizeOption = {
+                                value: value.trim(),
+                                label: value.trim(),
+                              };
+                              setClothingSizes((prev) =>
+                                [...prev, newSizeOption].sort((a, b) =>
+                                  a.label.localeCompare(b.label)
+                                )
+                              );
+                            }
+                          }}
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   <div className="w-full">
@@ -1994,6 +2156,46 @@ const ProductsPage = () => {
               </div>
             )}
           </form>
+        </Modal>
+        <Modal
+          isOpen={isSizeDeleteModalOpen}
+          onClose={() => setIsSizeDeleteModalOpen(false)}
+          title="Eliminar Talle"
+          bgColor="bg-white dark:bg-gray_b"
+          buttons={
+            <>
+              <Button
+                text="Confirmar"
+                colorText="text-white dark:text-white"
+                colorTextHover="hover:dark:text-white"
+                colorBg="bg-red_m border-b-1 dark:bg-blue_b"
+                colorBgHover="hover:bg-red_b hover:dark:bg-blue_m"
+                onClick={handleConfirmDeleteSize}
+              />
+              <Button
+                text="Cancelar"
+                colorText="text-gray_b dark:text-white"
+                colorTextHover="hover:dark:text-white"
+                colorBg="bg-transparent dark:bg-gray_m"
+                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
+                onClick={() => setIsSizeDeleteModalOpen(false)}
+              />
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <p>
+              ¿Está seguro que desea eliminar el talle{" "}
+              <span className="font-bold">{sizeToDelete}</span>?
+            </p>
+            <div className="bg-yellow-50 dark:bg-gray-700 p-3 rounded-lg">
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                <AlertTriangle className="inline mr-2" size={18} />
+                Solo se pueden eliminar talles que no estén siendo utilizados
+                por ningún producto.
+              </p>
+            </div>
+          </div>
         </Modal>
         <Modal
           isOpen={isCategoryDeleteModalOpen}

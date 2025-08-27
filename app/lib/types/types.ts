@@ -341,7 +341,6 @@ export type DailyCashMovement = {
 export type DailyCash = {
   id: number;
   date: string;
-
   movements: DailyCashMovement[];
   closed: boolean;
   closingAmount?: number;

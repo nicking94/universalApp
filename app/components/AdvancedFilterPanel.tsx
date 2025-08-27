@@ -209,9 +209,11 @@ const AdvancedFilterPanel = <T extends Product | Expense>({
           .filter(
             (p) =>
               (rubro === "Todos los rubros" ? true : p.rubro === rubro) &&
-              p[field]
+              p[field] !== undefined &&
+              p[field] !== null &&
+              String(p[field]).trim() !== ""
           )
-          .map((p) => String(p[field]))
+          .map((p) => String(p[field]).trim()) // Limpiar espacios
       )
     ).sort((a, b) => a.localeCompare(b));
 
@@ -277,38 +279,30 @@ const AdvancedFilterPanel = <T extends Product | Expense>({
   const sizeOptions = useMemo(
     () =>
       rubro === "indumentaria" && !isExpense ? getUniqueValues("size") : [],
-    [rubro, isExpense]
+    [rubro, isExpense, data]
   );
 
   const colorOptions = useMemo(
     () =>
       rubro === "indumentaria" && !isExpense ? getUniqueValues("color") : [],
-    [rubro, isExpense]
+    [rubro, isExpense, data]
   );
 
   const brandOptions = useMemo(
     () =>
       rubro === "indumentaria" && !isExpense ? getUniqueValues("brand") : [],
-    [rubro, isExpense]
+    [rubro, isExpense, data]
   );
 
   const seasonOptionsDynamic = useMemo(
     () => (!isExpense ? getUniqueValues("season") : []),
-    [isExpense]
+    [rubro, isExpense, data]
   );
 
   const sortOptions: SortOption<T>[] = useMemo(
     () =>
       isExpense
         ? [
-            {
-              value: { field: "description" as keyof T, direction: "asc" },
-              label: "Descripción (A-Z)",
-            },
-            {
-              value: { field: "description" as keyof T, direction: "desc" },
-              label: "Descripción (Z-A)",
-            },
             {
               value: { field: "amount" as keyof T, direction: "asc" },
               label: "Monto (Menor a Mayor)",
