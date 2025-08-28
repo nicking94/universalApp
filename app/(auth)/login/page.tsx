@@ -61,8 +61,8 @@ const LoginPage = () => {
       if (!adminUser || adminUser.username !== "administrador") {
         await db.users.put({
           id: 2,
-          username: "administrador",
-          password: "administrador",
+          username: "demo",
+          password: "demo",
         });
       }
     };

@@ -215,7 +215,7 @@ const VentasPage = () => {
     const salesCount = await db.sales
       .filter((sale) => sale.date.startsWith(today))
       .count();
-    return salesCount >= 20;
+    return salesCount >= 30;
   };
   const checkStockAvailability = (
     product: Product,
@@ -741,7 +741,7 @@ const VentasPage = () => {
       const isLimitReached = await checkSalesLimit();
       if (isLimitReached) {
         showNotification(
-          `Límite alcanzado: máximo 20 ventas por día para el administrador`,
+          `Límite alcanzado: máximo 30 ventas por día para el administrador`,
           "error"
         );
         return;

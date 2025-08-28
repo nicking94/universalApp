@@ -396,7 +396,7 @@ const ProductsPage = () => {
 
   const checkProductLimit = async (rubro: Rubro) => {
     const products = await db.products.where("rubro").equals(rubro).count();
-    return products >= 20;
+    return products >= 30;
   };
   const CONVERSION_FACTORS = {
     Gr: { base: "Kg", factor: 0.001 },
@@ -780,7 +780,7 @@ const ProductsPage = () => {
       const isLimitReached = await checkProductLimit(rubro);
       if (isLimitReached) {
         showNotification(
-          `Límite alcanzado: máximo 20 productos por rubro para el administrador`,
+          `Límite alcanzado: máximo 30 productos por rubro para el administrador`,
           "error"
         );
         return;
