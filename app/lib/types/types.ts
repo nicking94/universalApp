@@ -130,6 +130,9 @@ export type Product = {
   stock: number;
   costPrice: number;
   price: number;
+  costPriceWithIva?: number;
+  priceWithIva?: number;
+  hasIvaIncluded?: boolean;
   expiration?: string;
   quantity: number;
   unit:

@@ -55,6 +55,7 @@ const ProductsPage = () => {
     stock: 0,
     costPrice: 0,
     price: 0,
+    hasIvaIncluded: true,
     expiration: "",
     quantity: 0,
     unit: "Unid.",
@@ -122,6 +123,15 @@ const ProductsPage = () => {
   const [sizeToDelete, setSizeToDelete] = useState<string | null>(null);
   const [isSizeDeleteModalOpen, setIsSizeDeleteModalOpen] = useState(false);
 
+  const IVA_PERCENTAGE = 21;
+
+  const calculatePriceWithIva = (price: number): number => {
+    return price * (1 + IVA_PERCENTAGE / 100);
+  };
+
+  const calculatePriceWithoutIva = (priceWithIva: number): number => {
+    return priceWithIva / (1 + IVA_PERCENTAGE / 100);
+  };
   const loadClothingSizes = async () => {
     try {
       // Obtener todos los productos de indumentaria
@@ -148,6 +158,34 @@ const ProductsPage = () => {
     } catch (error) {
       console.error("Error al cargar talles:", error);
     }
+  };
+
+  const handleIvaCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const hasIvaIncluded = e.target.checked;
+
+    setNewProduct((prev) => {
+      let newCostPrice = prev.costPrice;
+      let newPrice = prev.price;
+
+      if (hasIvaIncluded && !prev.hasIvaIncluded) {
+        // Si se activa el IVA, calcular precios con IVA
+        newCostPrice = calculatePriceWithIva(prev.costPrice);
+        newPrice = calculatePriceWithIva(prev.price);
+      } else if (!hasIvaIncluded && prev.hasIvaIncluded) {
+        // Si se desactiva el IVA, calcular precios sin IVA
+        newCostPrice = calculatePriceWithoutIva(prev.costPrice);
+        newPrice = calculatePriceWithoutIva(prev.price);
+      }
+
+      return {
+        ...prev,
+        hasIvaIncluded,
+        costPrice: newCostPrice,
+        price: newPrice,
+        costPriceWithIva: hasIvaIncluded ? newCostPrice : prev.costPrice,
+        priceWithIva: hasIvaIncluded ? newPrice : prev.price,
+      };
+    });
   };
 
   // Función para eliminar un talle
@@ -703,6 +741,7 @@ const ProductsPage = () => {
       originalProduct.stock !== updatedProduct.stock ||
       originalProduct.costPrice !== updatedProduct.costPrice ||
       originalProduct.price !== updatedProduct.price ||
+      originalProduct.hasIvaIncluded !== updatedProduct.hasIvaIncluded ||
       originalProduct.expiration !== updatedProduct.expiration ||
       originalProduct.unit !== updatedProduct.unit ||
       originalProduct.barcode !== updatedProduct.barcode ||
@@ -797,6 +836,10 @@ const ProductsPage = () => {
       stock: Number(newProduct.stock),
       costPrice: Number(newProduct.costPrice),
       price: Number(newProduct.price),
+      hasIvaIncluded:
+        newProduct.hasIvaIncluded !== undefined
+          ? newProduct.hasIvaIncluded
+          : true,
       quantity: Number(newProduct.quantity),
       ...(newProduct.customCategories?.length
         ? {
@@ -932,8 +975,12 @@ const ProductsPage = () => {
       ];
     }
 
+    const hasIvaIncluded =
+      product.hasIvaIncluded !== undefined ? product.hasIvaIncluded : true;
+
     setNewProduct({
       ...product,
+      hasIvaIncluded,
       customCategories: categoriesToSet,
       category: "",
       customCategory: "",
@@ -1310,7 +1357,7 @@ const ProductsPage = () => {
                             {product.season || "-"}
                           </td>
 
-                          <td className=" p-2 border border-gray_xl">
+                          <td className="p-2 border border-gray_xl">
                             {formatCurrency(product.costPrice)}
                           </td>
                           <td className="p-2 border border-gray_xl">
@@ -2080,21 +2127,42 @@ const ProductsPage = () => {
 
             <div className="flex items-center space-x-4">
               <div className="w-full flex items-center space-x-4">
-                <InputCash
-                  label="Precio de costo*"
-                  value={newProduct.costPrice}
-                  onChange={(value) =>
-                    setNewProduct({ ...newProduct, costPrice: value })
-                  }
-                />
-
-                <InputCash
-                  label="Precio de venta*"
-                  value={newProduct.price}
-                  onChange={(value) =>
-                    setNewProduct({ ...newProduct, price: value })
-                  }
-                />
+                <div className="flex items-center w-1/2">
+                  <InputCash
+                    label="Precio de costo*"
+                    value={newProduct.costPrice}
+                    onChange={(value) =>
+                      setNewProduct({ ...newProduct, costPrice: value })
+                    }
+                  />
+                </div>
+                <div className="flex items-center w-1/2 gap-2">
+                  <div className="flex items-center w-1/2">
+                    <InputCash
+                      label="Precio de venta*"
+                      value={newProduct.price}
+                      onChange={(value) =>
+                        setNewProduct({ ...newProduct, price: value })
+                      }
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2 min-w-60 mt-5">
+                    <input
+                      type="checkbox"
+                      id="hasIvaIncluded"
+                      name="hasIvaIncluded"
+                      checked={newProduct.hasIvaIncluded || false}
+                      onChange={handleIvaCheckboxChange}
+                      className="cursor-pointer w-4 h-4 text-blue_b bg-gray_xxl border-gray_l rounded "
+                    />
+                    <label
+                      htmlFor="hasIvaIncluded"
+                      className="text-sm text-gray_m dark:text-white"
+                    >
+                      Incluir IVA
+                    </label>
+                  </div>
+                </div>
               </div>
             </div>
 
