@@ -165,6 +165,7 @@ export type Product = {
   size?: string;
   rubro: Rubro;
   discount?: number;
+  surcharge?: number;
   basePrice?: number;
   lot?: string;
   location?: string;
@@ -236,6 +237,7 @@ export type SaleItem = {
   size?: string;
   color?: string;
   discount?: number;
+  surcharge?: number;
   basePrice?: number;
   notes?: string;
   description?: string;

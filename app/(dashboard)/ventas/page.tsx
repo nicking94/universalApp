@@ -35,7 +35,6 @@ import PrintableTicket, {
   PrintableTicketHandle,
 } from "@/app/components/PrintableTicket";
 import { useBusinessData } from "@/app/context/BusinessDataContext";
-import { calculateTotalProfit } from "@/app/lib/utils/calculations";
 import { usePagination } from "@/app/context/PaginationContext";
 
 type SelectOption = {
@@ -177,13 +176,33 @@ const VentasPage = () => {
     (product: Product, quantity: number, unit: string) => {
       try {
         const quantityInProductUnit = convertUnit(quantity, unit, product.unit);
-        const priceWithoutDiscount = product.price * quantityInProductUnit;
+        const costPrice = product.costPrice || 0;
+
+        // Precio sin descuentos/recargos
+        const priceWithoutModifiers = product.price * quantityInProductUnit;
+
+        // Aplicar descuento
         const discount = product.discount || 0;
-        const discountAmount = (priceWithoutDiscount * discount) / 100;
-        return parseFloat((priceWithoutDiscount - discountAmount).toFixed(2));
+        const discountAmount = (priceWithoutModifiers * discount) / 100;
+        const priceAfterDiscount = priceWithoutModifiers - discountAmount;
+
+        // Aplicar recargo
+        const surcharge = product.surcharge || 0;
+        const surchargeAmount = (priceAfterDiscount * surcharge) / 100;
+        const finalPrice = priceAfterDiscount + surchargeAmount;
+
+        // Calcular ganancia (precio final - costo)
+        const totalCost = costPrice * quantityInProductUnit;
+        const profit = finalPrice - totalCost;
+
+        return {
+          finalPrice: parseFloat(finalPrice.toFixed(2)),
+          profit: parseFloat(profit.toFixed(2)),
+          quantityInProductUnit,
+        };
       } catch (error) {
-        console.error("Error calculating price:", error);
-        return 0;
+        console.error("Error calculating price and profit:", error);
+        return { finalPrice: 0, profit: 0, quantityInProductUnit: 0 };
       }
     },
     [convertUnit]
@@ -194,7 +213,7 @@ const VentasPage = () => {
     manualAmount: number = 0
   ): number => {
     const productsTotal = products.reduce(
-      (sum, p) => sum + calculatePrice(p, p.quantity, p.unit),
+      (sum, p) => sum + calculatePrice(p, p.quantity, p.unit).finalPrice,
       0
     );
 
@@ -204,12 +223,31 @@ const VentasPage = () => {
   const calculateCombinedTotal = useCallback(
     (products: Product[]) => {
       return products.reduce(
-        (sum, p) => sum + calculatePrice(p, p.quantity, p.unit),
+        (sum, p) => sum + calculatePrice(p, p.quantity, p.unit).finalPrice,
         0
       );
     },
     [calculatePrice]
   );
+
+  const calculateTotalProfit = useCallback(
+    (
+      products: Product[],
+      manualAmount: number = 0,
+      manualProfitPercentage: number = 0
+    ) => {
+      const productsProfit = products.reduce(
+        (sum, p) => sum + calculatePrice(p, p.quantity, p.unit).profit,
+        0
+      );
+
+      const manualProfit = (manualAmount * manualProfitPercentage) / 100;
+
+      return parseFloat((productsProfit + manualProfit).toFixed(2));
+    },
+    [calculatePrice]
+  );
+
   const checkSalesLimit = async () => {
     const today = new Date().toISOString().split("T")[0];
     const salesCount = await db.sales
@@ -376,8 +414,16 @@ const VentasPage = () => {
       const today = getLocalDateString();
       let dailyCash = await db.dailyCashes.get({ date: today });
 
+      // Calcular la ganancia total correctamente
+      const totalProfit = calculateTotalProfit(
+        sale.products,
+        sale.manualAmount || 0,
+        sale.manualProfitPercentage || 0
+      );
+
       const movements: DailyCashMovement[] = sale.paymentMethods.map(
         (payment) => {
+          const paymentShare = payment.amount / sale.total;
           return {
             id: Date.now() + Math.random(),
             amount: payment.amount,
@@ -385,22 +431,19 @@ const VentasPage = () => {
             type: "INGRESO",
             date: new Date().toISOString(),
             paymentMethod: payment.method,
-            items: sale.products.map((p) => ({
-              productId: p.id,
-              productName: p.name,
-              quantity: p.quantity,
-              unit: p.unit,
-              price: p.price,
-              costPrice: p.costPrice,
-            })),
-            // Asegurar que el profit se calcule correctamente
-            profit:
-              calculateTotalProfit(
-                sale.products,
-                sale.manualAmount || 0,
-                sale.manualProfitPercentage || 0
-              ) *
-              (payment.amount / sale.total),
+            items: sale.products.map((p) => {
+              const priceInfo = calculatePrice(p, p.quantity, p.unit);
+              return {
+                productId: p.id,
+                productName: p.name,
+                quantity: p.quantity,
+                unit: p.unit,
+                price: priceInfo.finalPrice / p.quantity, // Precio unitario final
+                costPrice: p.costPrice,
+                profit: priceInfo.profit * paymentShare, // Ganancia proporcional
+              };
+            }),
+            profit: totalProfit * paymentShare, // Ganancia total proporcional
           };
         }
       );
@@ -409,7 +452,6 @@ const VentasPage = () => {
         dailyCash = {
           id: Date.now(),
           date: today,
-
           movements: movements,
           closed: false,
           totalIncome: sale.total,
@@ -421,6 +463,7 @@ const VentasPage = () => {
           otherIncome: sale.paymentMethods
             .filter((m) => m.method !== "EFECTIVO")
             .reduce((sum, m) => sum + m.amount, 0),
+          totalProfit: totalProfit, // Agregar ganancia total
         };
         await db.dailyCashes.add(dailyCash);
       } else {
@@ -438,6 +481,7 @@ const VentasPage = () => {
             sale.paymentMethods
               .filter((m) => m.method !== "EFECTIVO")
               .reduce((sum, m) => sum + m.amount, 0),
+          totalProfit: (dailyCash.totalProfit || 0) + totalProfit, // Sumar ganancia
         };
         await db.dailyCashes.update(dailyCash.id, updatedCash);
       }
@@ -482,7 +526,7 @@ const VentasPage = () => {
           quantity: existingProduct.quantity + 1,
         };
         const newTotal = updatedProducts.reduce(
-          (sum, p) => sum + calculatePrice(p, p.quantity, p.unit),
+          (sum, p) => sum + calculatePrice(p, p.quantity, p.unit).finalPrice,
           0
         );
 
@@ -504,7 +548,7 @@ const VentasPage = () => {
 
         const updatedProducts = [...prevState.products, newProduct];
         const newTotal = updatedProducts.reduce(
-          (sum, p) => sum + calculatePrice(p, p.quantity, p.unit),
+          (sum, p) => sum + calculatePrice(p, p.quantity, p.unit).finalPrice,
           0
         );
 
@@ -1570,6 +1614,7 @@ const VentasPage = () => {
                           <th className="p-2 text-center">Unidad</th>
                           <th className="p-2 text-center">Cantidad</th>
                           <th className="w-32">% descuento</th>
+                          <th className="w-32">% recargo</th>
                           <th className="p-2 text-center">Total</th>
 
                           <th className="w-30 max-w-[8rem] p-2 text-center">
@@ -1694,6 +1739,42 @@ const VentasPage = () => {
                                   step="1"
                                 />
                               </td>
+                              <td className="w-20 max-w-20 p-2">
+                                <Input
+                                  textPosition="text-center"
+                                  type="number"
+                                  value={product.surcharge?.toString() || "0"}
+                                  onChange={(e) => {
+                                    const value = Math.min(
+                                      100,
+                                      Math.max(0, Number(e.target.value))
+                                    );
+                                    setNewSale((prev) => {
+                                      const updatedProducts = prev.products.map(
+                                        (p) =>
+                                          p.id === product.id
+                                            ? { ...p, surcharge: value }
+                                            : p
+                                      );
+
+                                      // Recalcular total y ganancias
+                                      const productsTotal =
+                                        calculateCombinedTotal(updatedProducts);
+                                      const manualAmount =
+                                        prev.manualAmount || 0;
+                                      const total =
+                                        productsTotal + manualAmount;
+
+                                      return {
+                                        ...prev,
+                                        products: updatedProducts,
+                                        total: total,
+                                      };
+                                    });
+                                  }}
+                                  step="1"
+                                />
+                              </td>
                               <td className="w-30 max-w-30 p-2 text-center ">
                                 {formatCurrency(
                                   calculatePrice(
@@ -1702,10 +1783,11 @@ const VentasPage = () => {
                                       price: product.price || 0,
                                       quantity: product.quantity || 0,
                                       unit: product.unit || "Unid.",
+                                      costPrice: product.costPrice || 0,
                                     },
                                     product.quantity || 0,
                                     product.unit || "Unid."
-                                  )
+                                  ).finalPrice
                                 )}
                               </td>
                               <td className=" p-2 text-center">

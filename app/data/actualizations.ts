@@ -56,18 +56,19 @@ export const systemActualizations: Actualization[] = [
       "Si conoces a alguien que tenga un negocio, recomendá Universal App y por cada cliente que se sume te damos $15.000!\n- Consultá al soporte técnico para saber más... (Link en el menú del sistema)",
     date: new Date().toISOString(),
   },
+
+  // {
+  //   id: 9,
+  //   title: `Versión 1.4.7 - Actualización`,
+  //   message:
+  //     "- Modificada la opción de talles en el rubro INDUMENTARIA. Ahora se pueden crear talles personalizados\n- Se arregló un error en el filtro de marca y color del rubro INDUMENTARIA\n- Mejoras en el rendimiento",
+  //   date: new Date().toISOString(),
+  // },
   {
-    id: 8,
-    title: `Versión 1.4.7 - Actualización`,
+    id: 10,
+    title: `Versión 1.4.9 - Actualización`,
     message:
-      "- Nuevo módulo MOVIMIENTOS para registrar ingresos y/o egresos de dinero y controlar gastos a través de estadísticas\n- Eliminado el botón de NUEVO MOVIMIENTO en la caja diaria (ahora se administra todo desde el nuevo módulo MOVIMIENTOS)\n- Apertura, reapertura y cierre de caja simplificados. La gestión de ingresos y egresos ahora es mucho mas fácil! gestioná lo que debería haber en caja desde los detalles de la caja diaria (botón de información en la columna de acciones de cada caja abierta o cerrada)\n- Agregadas métricas SEMANALES en el módulo de MÉTRICAS\n- Mejoras en el rendimiento",
-    date: new Date().toISOString(),
-  },
-  {
-    id: 9,
-    title: `Versión 1.4.8 - Actualización`,
-    message:
-      "- Modificada la opción de talles en el rubro INDUMENTARIA. Ahora se pueden crear talles personalizados\n- Se arregló un error en el filtro de marca y color del rubro INDUMENTARIA\n- Mejoras en el rendimiento",
+      "- Agregada la opción de incluir o no el IVA en los precios al crear un producto.\n- Se aregó un campo de RECARGO a cada producto al hacer ventas",
     date: new Date().toISOString(),
   },
 ];
