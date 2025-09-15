@@ -36,11 +36,10 @@ const BarcodeGenerator = ({
       setCopies(1);
     }
   };
-
   const handlePrint = () => {
-    const copiesToUse = copies < 1 ? 1 : copies;
+    const copiesToUse = displayCopies === "" ? 1 : copies;
 
-    if (!barcodeRef.current || isPrinting) return;
+    if (!barcodeRef.current || isPrinting || copiesToUse < 1) return;
 
     setIsPrinting(true);
 
@@ -57,105 +56,60 @@ const BarcodeGenerator = ({
       try {
         const printContent = barcodeRef.current?.cloneNode(true) as HTMLElement;
 
-        // Configuración para hoja A4
-        const ticketsPerRow = 4; // 4 tickets por fila
-        const ticketsPerColumn = 10; // 10 filas por página A4
-        const ticketsPerPage = ticketsPerRow * ticketsPerColumn; // 40 tickets por página
-
-        // Calcular cuántas páginas necesitamos
-        const totalPages = Math.ceil(copiesToUse / ticketsPerPage);
-
         let ticketsHTML = "";
-
-        for (let page = 0; page < totalPages; page++) {
-          ticketsHTML += `<div class="page">`;
-
-          for (let row = 0; row < ticketsPerColumn; row++) {
-            ticketsHTML += `<div class="ticket-row">`;
-
-            for (let col = 0; col < ticketsPerRow; col++) {
-              const index = page * ticketsPerPage + row * ticketsPerRow + col;
-              if (index < copiesToUse) {
-                ticketsHTML += `
-                  <div class="ticket">
-                    ${printContent.innerHTML}
-                  </div>
-                `;
-              }
-            }
-
-            ticketsHTML += `</div>`;
-          }
-
-          ticketsHTML += `</div>`;
-          if (page < totalPages - 1) {
-            ticketsHTML += '<div class="page-break"></div>';
-          }
+        for (let i = 0; i < copies; i++) {
+          ticketsHTML += `
+            <div class="ticket">
+              ${printContent.innerHTML}
+            </div>
+            ${i < copies - 1 ? '<div class="page-break"></div>' : ""}
+          `;
         }
 
         const styles = `
           <style>
             @page {
-              size: A4;
-              margin: 5mm;
+              size: 80mm auto;
+              margin: 0;
+              padding: 0;
             }
             @media print {
               body {
-                width: 210mm;
-                margin: 0;
-                padding: 0;
+                width: 80mm !important;
+                margin: 0 !important;
+                padding: 2mm !important;
                 font-family: Arial, sans-serif;
               }
-              .page {
-                width: 100%;
-                height: 297mm;
-                display: flex;
-                flex-direction: column;
-                justify-content: space-between;
-                page-break-after: always;
-              }
-              .ticket-row {
-                display: flex;
-                justify-content: space-between;
-                width: 100%;
-                margin-bottom: 2mm;
-                flex: 1;
-              }
               .ticket {
-                width: 48mm;
-                height: 20mm;
+                width: 76mm;
+                min-height: 30mm;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                border: 0.5px dotted #ccc;
-                box-sizing: border-box;
-                overflow: hidden;
-                page-break-inside: avoid;
+                page-break-after: always;
               }
               .ticket svg {
                 width: 100% !important;
-                max-width: 100% !important;
-                height: 10mm !important;
-                margin: 0 !important;
+                max-width: 70mm !important;
+                height: auto !important;
+                margin: 1mm 0 !important;
               }
               .product-name {
                 font-weight: bold;
-                font-size: 7px;
+                font-size: 14px;
                 text-align: center;
-                margin: 0.5mm 0 0.2mm 0;
+                margin: 2mm 0 1mm 0;
                 width: 100%;
-                white-space: nowrap;
+                white-space: normal;
                 overflow: hidden;
                 text-overflow: ellipsis;
-                line-height: 1;
               }
               .product-price {
-                font-size: 8px;
+                font-size: 16px;
                 font-weight: bold;
                 text-align: center;
-                margin: 0.2mm 0 0.5mm 0;
-                line-height: 1;
+                margin: 1mm 0 2mm 0;
               }
               .page-break {
                 page-break-after: always;
@@ -218,7 +172,7 @@ const BarcodeGenerator = ({
       bgColor="bg-white dark:bg-gray_b"
       buttons={
         <>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 max-w-[7vw]">
             <span className="text-sm">Copias:</span>
             <Input
               type="number"
@@ -247,7 +201,7 @@ const BarcodeGenerator = ({
         </>
       }
     >
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 ">
         <div className="flex items-center gap-4">
           <div className="w-full">
             <label className="block text-gray_m dark:text-white text-sm font-semibold">
@@ -263,55 +217,31 @@ const BarcodeGenerator = ({
                 }
               }}
               className="w-full p-2 border border-gray_xl bg-white text-gray_b rounded outline-none"
+              disabled={isPrinting}
               readOnly
             />
           </div>
         </div>
-
-        <div className="text-sm text-gray-500">
-          <p>Previsualización (se muestran máximo 8 copias):</p>
-        </div>
-
-        <div className="flex flex-wrap gap-2 justify-center p-2">
-          {Array.from({ length: Math.min(copies, 8) }, (_, index) => (
-            <div
-              key={index}
-              ref={index === 0 ? barcodeRef : null}
-              className="flex flex-col items-center p-2 bg-white border border-gray_xl rounded shadow-sm"
-            >
-              <Barcode
-                value={barcodeValue}
-                width={1}
-                height={50}
-                displayValue={true}
-                fontOptions="600"
-                textMargin={1}
-                margin={0}
-                fontSize={10}
-              />
-              <div className="text-center mt-0">
-                <p className="product-name" style={{ fontSize: "12px" }}>
-                  {product.name}
-                </p>
-                <p className="product-price" style={{ fontSize: "13px" }}>
-                  {formatCurrency(product.price)}
-                </p>
-              </div>
+        <div className="flex justify-center">
+          <div
+            ref={barcodeRef}
+            className="w-full flex flex-col items-center p-2  "
+            style={{ width: "76mm", minHeight: "30mm" }}
+          >
+            <Barcode
+              value={barcodeValue}
+              width={2}
+              height={80}
+              displayValue={true}
+              fontOptions="600"
+              textMargin={2}
+              margin={0}
+            />
+            <div className="text-center mt-4">
+              <p className="product-name">{product.name}</p>
+              <p className="product-price">{formatCurrency(product.price)}</p>
             </div>
-          ))}
-        </div>
-
-        <div className="text-sm text-gray-500 mt-2">
-          <p>
-            {copies === 1
-              ? "Se imprimirá " + copies + "  copia"
-              : " Se imprimirán " + copies + " copias"}
-            .
-          </p>
-          <p>
-            Se utilizará papel tamaño A4 con 4 tickets por fila y 10 filas por
-            página (40 tickets por página).
-          </p>
+          </div>
         </div>
       </div>
     </Modal>
