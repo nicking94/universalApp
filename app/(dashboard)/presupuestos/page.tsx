@@ -1115,7 +1115,7 @@ const PresupuestosPage = () => {
                               icon={<ShoppingCart size={18} />}
                               colorText={
                                 budget.status === "cobrado"
-                                  ? "text-gray-400"
+                                  ? "text-gray_m"
                                   : "text-gray_b"
                               }
                               colorTextHover={
@@ -1127,7 +1127,7 @@ const PresupuestosPage = () => {
                               colorBgHover={
                                 budget.status === "cobrado"
                                   ? ""
-                                  : "hover:bg-green-500"
+                                  : "hover:bg-green_m"
                               }
                               px="px-1"
                               py="py-1"
@@ -1427,7 +1427,7 @@ const PresupuestosPage = () => {
               {newBudget.items.length > 0 && (
                 <div className="border border-gray_xl rounded-lg overflow-hidden">
                   <div className="overflow-y-auto max-h-[15vh] 2xl:max-h-[26vh]">
-                    <table className="min-w-full divide-y divide-gray-200 text-gray_b">
+                    <table className="min-w-full divide-y divide-gray_xl text-gray_b">
                       <thead className="bg-gradient-to-r from-blue_b to-blue_m text-white">
                         <tr>
                           <th className="p-2 text-left text-xs font-medium  tracking-wider">
@@ -1470,7 +1470,7 @@ const PresupuestosPage = () => {
                               </td>
                               <td className="p-2 whitespace-nowrap w-50 max-w-50">
                                 {product?.unit === "Unid." ? (
-                                  <div className="flex items-center justify-center h-full text-gray-700">
+                                  <div className="flex items-center justify-center h-full text-gray_b">
                                     Unidad
                                   </div>
                                 ) : (
@@ -1604,7 +1604,7 @@ const PresupuestosPage = () => {
                                   onClick={() =>
                                     handleRemoveProduct(item.productId)
                                   }
-                                  className="text-red-500 hover:text-red-700 cursor-pointer w-full flex items-center justify-center"
+                                  className="text-red_m hover:text-red_b cursor-pointer w-full flex items-center justify-center"
                                 >
                                   <Trash size={18} />
                                 </button>
@@ -1659,7 +1659,7 @@ const PresupuestosPage = () => {
                         <label className="block text-sm font-medium text-gray_m  mb-1">
                           Saldo restante
                         </label>
-                        <div className="p-2 border border-gray_xl rounded-md bg-gray-100">
+                        <div className="p-2 border border-gray_xl rounded-md bg-gray_xxl">
                           {formatCurrency(newBudget.remaining)}
                         </div>
                       </div>

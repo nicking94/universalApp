@@ -161,7 +161,7 @@ const TrialNotification = () => {
     }
     return (
       <div className="flex items-center gap-2">
-        <BadgePercent className="w-5 h-5 text-red-500 animate-pulse" />
+        <BadgePercent className="w-5 h-5 text-red_m animate-pulse" />
         <span className="font-bold">20% OFF</span>
         <span>hasta el {discountDate}</span>
       </div>

@@ -2,7 +2,7 @@ const TermsAndConditionsPage = () => {
   return (
     <div className="p-8 max-w-5xl mx-auto min-h-screen">
       <main className="overflow-y-auto max-h-[93vh]">
-        <div className="bg-white italic dark:bg-gray-800 rounded-lg shadow-lg p-6 prose dark:prose-invert max-w-none">
+        <div className="bg-white italic dark:bg-gray_b rounded-lg shadow-lg p-6 prose dark:prose-invert max-w-none">
           <h1 className="text-3xl font-bold mb-6 text-center text-blue_b underline">
             Términos y Condiciones
           </h1>

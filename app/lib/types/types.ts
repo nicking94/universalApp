@@ -2,6 +2,7 @@ export type Theme = {
   id: number;
   value: string;
 };
+export type PrinterType = "80mm" | "40mm" | "unknown";
 
 export type User = {
   id: number;

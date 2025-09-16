@@ -592,9 +592,9 @@ const ClientesPage = () => {
                   <span
                     className={`px-2 py-1 rounded-full text-xs ${
                       selectedBudget.status === "aprobado"
-                        ? "bg-green-100 text-green-800"
+                        ? "bg-green_xl text-green_b"
                         : selectedBudget.status === "rechazado"
-                        ? "bg-red-100 text-red-800"
+                        ? "bg-red_xl text-red_b"
                         : "bg-yellow-100 text-yellow-800"
                     }`}
                   >
@@ -656,12 +656,12 @@ const ClientesPage = () => {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-gray-500">
+                    <p className="text-gray_m">
                       No hay items en este presupuesto
                     </p>
                   )
                 ) : (
-                  <p className="text-gray-500">
+                  <p className="text-gray_m">
                     No se encontraron items (propiedad items no existe)
                   </p>
                 )}
@@ -695,9 +695,9 @@ const ClientesPage = () => {
                           <span
                             className={`px-2 py-1 rounded-full text-xs ${
                               budget.status === "aprobado"
-                                ? "bg-green-100 text-green-800"
+                                ? "bg-green_xl text-green_b"
                                 : budget.status === "rechazado"
-                                ? "bg-red-100 text-red-800"
+                                ? "bg-red_xl text-red_b"
                                 : "bg-yellow-100 text-yellow-800"
                             }`}
                           >

@@ -169,8 +169,8 @@ export const ConvertToSaleModal = ({
         <div className="border border-gray_xl rounded-lg p-4">
           <h3 className="font-medium mb-2">Productos del presupuesto</h3>
           <div className="max-h-40 overflow-y-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray_xl">
+              <thead className="bg-gray_xxl">
                 <tr>
                   <th className="px-2 py-1 text-left text-xs font-medium text-gray_l uppercase tracking-wider">
                     Producto
@@ -186,24 +186,24 @@ export const ConvertToSaleModal = ({
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-gray_xl">
                 {budget.items.map((item, index) => (
                   <tr
                     key={index}
                     className="hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
                   >
-                    <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-2 py-1 whitespace-nowrap text-sm text-gray_b">
                       {item.productName}
                       {item.size && ` (${item.size})`}
                       {item.color && ` - ${item.color}`}
                     </td>
-                    <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-500 text-center">
+                    <td className="px-2 py-1 whitespace-nowrap text-sm text-gray_m text-center">
                       {item.quantity} {item.unit}
                     </td>
-                    <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-500 text-center">
+                    <td className="px-2 py-1 whitespace-nowrap text-sm text-gray_m text-center">
                       {item.discount || 0}%
                     </td>
-                    <td className="px-2 py-1 whitespace-nowrap text-sm text-gray-500 text-right">
+                    <td className="px-2 py-1 whitespace-nowrap text-sm text-gray_m text-right">
                       {formatCurrency(
                         item.price *
                           item.quantity *
@@ -258,7 +258,7 @@ export const ConvertToSaleModal = ({
                 {index === paymentMethods.length - 1 &&
                   paymentMethods.reduce((sum, m) => sum + m.amount, 0) >
                     totalToPay + 0.1 && (
-                    <span className="text-xs text-red-500 ml-2">
+                    <span className="text-xs text-red_m ml-2">
                       Exceso:{" "}
                       {formatCurrency(
                         paymentMethods.reduce((sum, m) => sum + m.amount, 0) -
@@ -271,7 +271,7 @@ export const ConvertToSaleModal = ({
               {paymentMethods.length > 1 && (
                 <button
                   onClick={() => removePaymentMethod(index)}
-                  className="text-red-500 hover:text-red-700 cursor-pointer"
+                  className="text-red_m hover:text-red_b cursor-pointer"
                 >
                   <Trash size={18} />
                 </button>
@@ -282,7 +282,7 @@ export const ConvertToSaleModal = ({
           {paymentMethods.length < paymentOptions.length && (
             <button
               onClick={addPaymentMethod}
-              className="text-blue-500 hover:text-blue-700 text-sm flex items-center"
+              className="text-blue_m hover:text-blue_b text-sm flex items-center"
             >
               <Plus size={18} className="mr-1" />
               Agregar otro método de pago

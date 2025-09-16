@@ -928,10 +928,10 @@ const CuentasCorrientesPage = () => {
                             <span
                               className={`px-2 py-1 rounded text-xs ${
                                 cheque.checkStatus === "cobrado"
-                                  ? "bg-green-100 text-green-800"
+                                  ? "bg-green_xl text-green_b"
                                   : cheque.checkStatus === "pendiente"
                                   ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-red-100 text-red-800"
+                                  : "bg-red_xl text-red_b"
                               }`}
                             >
                               {cheque.checkStatus || "pendiente"}

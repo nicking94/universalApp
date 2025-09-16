@@ -106,11 +106,11 @@ const AuthForm: React.FC<AuthFormProps> = ({
               type="checkbox"
               checked={acceptedTerms}
               onChange={handleTermsChange}
-              className="cursor-pointer w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded "
+              className="cursor-pointer w-4 h-4 text-blue_b bg-gray_xxl border-gray_m rounded "
             />
             <label
               htmlFor="terms-checkbox"
-              className="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300"
+              className="ms-2 text-sm font-medium text-gray_b dark:text-gray_m"
             >
               Acepto los términos y condiciones
             </label>
@@ -119,7 +119,7 @@ const AuthForm: React.FC<AuthFormProps> = ({
             href="/terminos-y-condiciones"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-600 dark:text-blue-400 text-xs hover:underline"
+            className="text-blue_b dark:text-blue_m text-xs hover:underline"
           >
             Leer términos y condiciones
           </a>

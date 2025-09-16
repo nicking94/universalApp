@@ -20,7 +20,7 @@ const Common: React.FC<CommonProps> = ({
   whatsappLink = "https://wa.me/5492613077147",
   titleClassName = "italic text-5xl mb-2 text-center font-medium text-blue_b",
   textClassName = "text-lg text-blue_b italic",
-  linkClassName = "border-b-2 border-blue_xl cursor-pointer hover:text-blue-500 transition-colors duration-300",
+  linkClassName = "border-b-2 border-blue_xl cursor-pointer hover:text-blue_m transition-colors duration-300",
 }) => {
   return (
     <div className="flex items-center justify-center w-[65%] xl:w-[75%]  bg-gradient-to-bl from-blue_m to-blue_xl">

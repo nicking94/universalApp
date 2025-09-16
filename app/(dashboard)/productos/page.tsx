@@ -2230,7 +2230,7 @@ const ProductsPage = () => {
               ¿Está seguro que desea eliminar el talle{" "}
               <span className="font-bold">{sizeToDelete}</span>?
             </p>
-            <div className="bg-yellow-50 dark:bg-gray-700 p-3 rounded-lg">
+            <div className="bg-yellow-50 dark:bg-gray_b p-3 rounded-lg">
               <p className="text-sm text-yellow-800 dark:text-yellow-200">
                 <AlertTriangle className="inline mr-2" size={18} />
                 Solo se pueden eliminar talles que no estén siendo utilizados
@@ -2278,7 +2278,7 @@ const ProductsPage = () => {
             </p>
 
             {categoryToDelete && (
-              <div className="bg-yellow-50 dark:bg-gray-700 p-3 rounded-lg">
+              <div className="bg-yellow-50 dark:bg-gray_b p-3 rounded-lg">
                 <p className="text-sm text-yellow-800 dark:text-yellow-200">
                   <AlertTriangle className="inline mr-2" size={18} />
                   Esta acción afectará a todos los productos con esta categoría.

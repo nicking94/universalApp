@@ -32,7 +32,7 @@ const NotificationIcon = () => {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="cursor-pointer hover:scale-105 transition-all duration-300 p-1 rounded-full text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 focus:outline-none relative"
+        className="cursor-pointer hover:scale-105 transition-all duration-300 p-1 rounded-full text-gray_m hover:text-gray_m dark:hover:text-gray_m focus:outline-none relative"
         title="Notificaciones"
       >
         {unreadCount > 0 ? (

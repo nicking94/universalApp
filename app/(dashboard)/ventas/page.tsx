@@ -1436,7 +1436,7 @@ const VentasPage = () => {
                                 colorText="text-gray_b"
                                 colorTextHover="hover:text-white"
                                 colorBg="bg-transparent"
-                                colorBgHover="hover:bg-blue-500"
+                                colorBgHover="hover:bg-blue_m"
                                 px="px-1"
                                 py="py-1"
                                 minwidth="min-w-0"
@@ -1491,7 +1491,7 @@ const VentasPage = () => {
                 </div>
               }
             >
-              <div className=" overflow-y-auto dark:bg-gray_b">
+              <div className=" w-full min-w-[180mm] overflow-y-auto dark:bg-gray_b">
                 <PrintableTicket
                   ref={ticketRef}
                   sale={selectedSale}
@@ -1626,7 +1626,7 @@ const VentasPage = () => {
                         {newSale.products.map((product) => {
                           return (
                             <tr
-                              className="text-sm border-b border-gray-xl hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
+                              className=" text-sm border-b border-gray_xl hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
                               key={product.id}
                             >
                               <td className=" p-2">
@@ -1814,7 +1814,7 @@ const VentasPage = () => {
                 <div className="flex items-center space-x-4">
                   <div className="w-full flex flex-col">
                     {isCredit ? (
-                      <div className="p-2 bg-gray-100 text-gray-800 rounded-md mt-9 ">
+                      <div className="p-2 bg-gray_xxl text-gray_b rounded-md mt-9 ">
                         <p className="font-semibold">
                           Monto manual deshabilitado
                         </p>
