@@ -43,4 +43,4 @@ export const USERS = [
 ];
 export const PAYMENT_NOTIFICATION_USERNAME = "El pollo loco";
 
-export const APP_VERSION = "1.4.8";
+export const APP_VERSION = "1.4.9";

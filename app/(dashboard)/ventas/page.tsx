@@ -781,7 +781,7 @@ const VentasPage = () => {
 
   const handleConfirmAddSale = async () => {
     const authData = await db.auth.get(1);
-    if (authData?.userId === 2) {
+    if (authData?.userId === 1) {
       const isLimitReached = await checkSalesLimit();
       if (isLimitReached) {
         showNotification(
