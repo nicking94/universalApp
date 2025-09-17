@@ -63,7 +63,7 @@ const BarcodeGenerator = ({
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                page-break-after: always;
+                
               }
               .ticket svg {
                 width: 100% !important;
@@ -192,19 +192,19 @@ const BarcodeGenerator = ({
         <div className="flex justify-center">
           <div
             ref={barcodeRef}
-            className="w-full flex flex-col items-center p-2  "
-            style={{ width: "80mm", minHeight: "30mm" }}
+            className="bg-white w-full flex flex-col items-center p-2"
           >
             <Barcode
               value={barcodeValue}
-              width={2}
+              width={1.5}
               height={40}
               displayValue={true}
               fontOptions="600"
               textMargin={2}
               margin={0}
             />
-            <div className="text-center mt-4">
+
+            <div className="text-center text-black mt-4">
               <p className="product-name">{product.name}</p>
               <p className="product-price">{formatCurrency(product.price)}</p>
             </div>

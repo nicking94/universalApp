@@ -575,12 +575,12 @@ const ProveedoresPage = () => {
                     {filteredAvailableProducts.map((product) => (
                       <div
                         key={product.id}
-                        className={`p-2 border rounded hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300 flex justify-between items-center `}
+                        className={` p-2 border rounded hover:bg-gray_xxl dark:hover:bg-gray_m transition-all duration-300 flex justify-between items-center `}
                       >
                         <div className="flex-grow ">
                           <div className="flex justify-between">
                             <span className="font-medium">{product.name}</span>
-                            <span className="text-sm text-gray_m">
+                            <span className="text-xs text-gray_l">
                               {product.barcode || "Sin código"}
                             </span>
                           </div>
