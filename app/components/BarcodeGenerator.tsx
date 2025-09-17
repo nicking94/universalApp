@@ -27,8 +27,6 @@ const BarcodeGenerator = ({
   const [barcodeValue, setBarcodeValue] = useState(product.barcode || "");
   const [isPrinting, setIsPrinting] = useState(false);
   const barcodeRef = useRef<HTMLDivElement>(null);
-  const [copies, setCopies] = useState(1);
-  const [displayCopies, setDisplayCopies] = useState("1");
   const printerType = usePrinterType();
 
   // Estado para el tamaño de impresión seleccionado
@@ -144,21 +142,8 @@ const BarcodeGenerator = ({
     printerType === "unknown" ? "unknown" : selectedPrintSize;
   const config = printerConfig[effectivePrintSize];
 
-  const handleCopiesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setDisplayCopies(value);
-    const numValue = parseInt(value);
-    if (!isNaN(numValue) && numValue >= 1) {
-      setCopies(numValue);
-    } else if (value === "") {
-      setCopies(1);
-    }
-  };
-
   const handlePrint = () => {
-    const copiesToUse = displayCopies === "" ? 1 : copies;
-
-    if (!barcodeRef.current || isPrinting || copiesToUse < 1) return;
+    if (!barcodeRef.current || isPrinting) return;
 
     setIsPrinting(true);
 
@@ -175,16 +160,6 @@ const BarcodeGenerator = ({
       try {
         const printContent = barcodeRef.current?.cloneNode(true) as HTMLElement;
 
-        let ticketsHTML = "";
-        for (let i = 0; i < copies; i++) {
-          ticketsHTML += `
-            <div class="ticket">
-              ${printContent.innerHTML}
-            </div>
-            ${i < copies - 1 ? '<div class="page-break"></div>' : ""}
-          `;
-        }
-
         const isSmallSize = effectivePrintSize === "40mm";
         const isCustomSize = effectivePrintSize === "custom";
 
@@ -197,99 +172,100 @@ const BarcodeGenerator = ({
             : 60;
 
         const styles = `
-          <style>
-            @page {
-              size: ${config.pageWidth} auto;
-              margin: 0;
-              padding: 0;
+        <style>
+          @page {
+            size: ${config.pageWidth} auto;
+            margin: 0;
+            padding: 0;
+          }
+          @media print {
+            body {
+              width: ${config.pageWidth} !important;
+              margin: 0 !important;
+              padding: 2mm !important;
+              font-family: Arial, sans-serif;
+              font-size: ${config.fontSize};
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              min-height: 100vh;
             }
-            @media print {
-              body {
-                width: ${config.pageWidth} !important;
-                margin: 0 !important;
-                padding: 2mm !important;
-                font-family: Arial, sans-serif;
-                font-size: ${config.fontSize};
-              }
-              .ticket {
-                width: ${config.contentWidth};
-                min-height: ${
-                  isSmallSize
-                    ? "25mm"
-                    : isCustomSize
-                    ? `${heightToUse}mm`
-                    : "30mm"
-                };
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                page-break-after: always;
-              }
-              .ticket svg {
-                width: 100% !important;
-                max-width: ${
-                  isSmallSize
-                    ? "34mm"
-                    : isCustomSize
-                    ? `${widthToUse - 6}mm`
-                    : "70mm"
-                } !important;
-                height: auto !important;
-                margin: 1mm 0 !important;
-              }
-              .product-name {
-                font-weight: bold;
-                text-align: center;
-                margin: 2mm 0 1mm 0;
-                width: 100%;
-                white-space: normal;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                font-size: ${
-                  isSmallSize ? "9px" : isCustomSize ? "11px" : "14px"
-                };
-                line-height: 1.2;
-              }
-              .product-price {
-                font-weight: bold;
-                text-align: center;
-                margin: 1mm 0 2mm 0;
-                font-size: ${
-                  isSmallSize ? "10px" : isCustomSize ? "13px" : "16px"
-                };
-              }
-              .page-break {
-                page-break-after: always;
-              }
-              * {
-                -webkit-print-color-adjust: exact !important;
-                color-adjust: exact !important;
-              }
+            .ticket {
+              width: ${config.contentWidth};
+              min-height: ${
+                isSmallSize
+                  ? "25mm"
+                  : isCustomSize
+                  ? `${heightToUse}mm`
+                  : "30mm"
+              };
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              text-align: center;
             }
-          </style>
-        `;
+            .ticket svg {
+              width: 100% !important;
+              max-width: ${
+                isSmallSize
+                  ? "34mm"
+                  : isCustomSize
+                  ? `${widthToUse - 6}mm`
+                  : "70mm"
+              } !important;
+              height: auto !important;
+              margin: 1mm 0 !important;
+            }
+            .product-name {
+              font-weight: bold;
+              margin: 2mm 0 1mm 0;
+              width: 100%;
+              white-space: normal;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              font-size: ${
+                isSmallSize ? "9px" : isCustomSize ? "11px" : "14px"
+              };
+              line-height: 1.2;
+            }
+            .product-price {
+              font-weight: bold;
+              margin: 1mm 0 2mm 0;
+              font-size: ${
+                isSmallSize ? "10px" : isCustomSize ? "13px" : "16px"
+              };
+            }
+            * {
+              -webkit-print-color-adjust: exact !important;
+              color-adjust: exact !important;
+            }
+          }
+        </style>
+      `;
 
         printFrame.contentDocument?.open();
         printFrame.contentDocument?.write(`
-          <html>
-            <head>
-              <title>Ticket de Código de Barras</title>
-              ${styles}
-            </head>
-            <body>
-              ${ticketsHTML}
-              <script>
-                setTimeout(function() {
-                  window.print();
-                  window.onafterprint = function() {
-                    window.close();
-                  };
-                }, 100);
-              </script>
-            </body>
-          </html>
-        `);
+        <html>
+          <head>
+            <title>Ticket de Código de Barras</title>
+            ${styles}
+          </head>
+          <body>
+            <div class="ticket">
+              ${printContent.innerHTML}
+            </div>
+            <script>
+              setTimeout(function() {
+                window.print();
+                window.onafterprint = function() {
+                  window.close();
+                };
+              }, 100);
+            </script>
+          </body>
+        </html>
+      `);
         printFrame.contentDocument?.close();
 
         const handleAfterPrint = () => {
@@ -320,18 +296,8 @@ const BarcodeGenerator = ({
       bgColor="bg-white dark:bg-gray_b"
       buttons={
         <>
-          <div className="flex items-center gap-2 max-w-[7vw]">
-            <span className="text-sm">Copias:</span>
-            <Input
-              type="number"
-              value={displayCopies}
-              onChange={handleCopiesChange}
-              className="w-16 p-1 border border-gray_xl bg-white text-gray_b rounded outline-none"
-              disabled={isPrinting}
-            />
-          </div>
           <Button
-            text={isPrinting ? "Imprimiendo..." : "Imprimir Tickets"}
+            text={isPrinting ? "Imprimiendo..." : "Imprimir Ticket"}
             colorText="text-white"
             colorTextHover="text-white"
             onClick={handlePrint}
@@ -454,7 +420,7 @@ const BarcodeGenerator = ({
         <div className="w-full flex justify-center overflow-hidden">
           <div
             ref={barcodeRef}
-            className="flex flex-col items-center p-2 border border-dashed border-gray_l rounded overflow-hidden"
+            className="flex flex-col items-center justify-center p-2 border border-dashed border-gray_l rounded overflow-hidden"
             style={{
               width: config.contentWidth,
               minHeight:
@@ -487,7 +453,7 @@ const BarcodeGenerator = ({
                 }
               />
             </div>
-            <div className="text-center mt-2 w-full">
+            <div className="text-center w-full">
               <p
                 className="product-name"
                 style={{

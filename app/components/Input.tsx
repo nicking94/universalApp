@@ -43,7 +43,6 @@ const Input: React.FC<InputProps & { icon?: React.ReactNode }> = ({
           name={name}
           value={value}
           onChange={readOnly ? undefined : onChange}
-          onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
           readOnly={readOnly}
           placeholder={placeholder}
           accept={accept}
