@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Input from "./Input";
 import { Barcode } from "lucide-react";
 
@@ -20,37 +20,76 @@ export default function BarcodeScanner({
   const inputRef = useRef<HTMLInputElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastInputTimeRef = useRef<number>(0);
+  const [isMac, setIsMac] = useState(false);
 
   useEffect(() => {
-    if (inputRef.current) inputRef.current.focus();
-  }, []);
+    // Detectar si es macOS
+    setIsMac(navigator.platform.includes("Mac"));
+
+    // Enfoque con retraso para macOS
+    const timer = setTimeout(
+      () => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          inputRef.current.select();
+        }
+      },
+      isMac ? 200 : 100
+    );
+
+    return () => clearTimeout(timer);
+  }, [isMac]);
 
   const handleBarcodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     const now = Date.now();
 
     onChange(newValue);
-    if (newValue.length >= 8) {
+
+    // Configuración diferente para macOS
+    const minLength = isMac ? 3 : 8;
+    const timeThreshold = isMac ? 100 : 30;
+
+    if (newValue.length >= minLength) {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
 
-      const isScannerInput = now - lastInputTimeRef.current < 30;
+      const isScannerInput = now - lastInputTimeRef.current < timeThreshold;
 
       timeoutRef.current = setTimeout(
         () => {
           if (onScanComplete) {
             onScanComplete(newValue);
             if (inputRef.current) {
-              inputRef.current.focus();
+              // Limpiar después del escaneo para macOS
+              setTimeout(() => {
+                if (inputRef.current) {
+                  inputRef.current.value = "";
+                  inputRef.current.focus();
+                }
+              }, 50);
             }
           }
         },
-        isScannerInput ? 50 : 500
+        isMac ? 150 : isScannerInput ? 50 : 500
       );
     }
 
     lastInputTimeRef.current = now;
+  };
+
+  // Handler especial para macOS
+  const handleMacKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isMac && e.key === "Enter" && value.length >= 3) {
+      e.preventDefault();
+      if (onScanComplete) {
+        onScanComplete(value);
+        if (inputRef.current) {
+          inputRef.current.value = "";
+        }
+      }
+    }
   };
 
   return (
@@ -59,6 +98,7 @@ export default function BarcodeScanner({
       ref={inputRef}
       value={value}
       onChange={handleBarcodeChange}
+      onKeyDown={handleMacKeyDown}
       placeholder={placeholder}
       autoFocus={true}
       icon={<Barcode size={18} />}
