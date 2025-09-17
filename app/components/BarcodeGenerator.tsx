@@ -96,7 +96,7 @@ const BarcodeGenerator = ({
   const printerConfig = {
     "80mm": {
       pageWidth: "80mm",
-      contentWidth: "76mm",
+      contentWidth: "80mm",
       barcodeWidth: 2,
       barcodeHeight: 40,
       fontSize: "14px",
@@ -104,7 +104,7 @@ const BarcodeGenerator = ({
     },
     "40mm": {
       pageWidth: "40mm",
-      contentWidth: "36mm",
+      contentWidth: "40mm",
       barcodeWidth: 1,
       barcodeHeight: 20,
       fontSize: "10px",
@@ -129,7 +129,7 @@ const BarcodeGenerator = ({
     },
     unknown: {
       pageWidth: "80mm",
-      contentWidth: "76mm",
+      contentWidth: "80mm",
       barcodeWidth: 2,
       barcodeHeight: 60,
       fontSize: "14px",
@@ -191,6 +191,7 @@ const BarcodeGenerator = ({
               min-height: 100vh;
             }
             .ticket {
+              margin: 0 auto !important;
               width: ${config.contentWidth};
               min-height: ${
                 isSmallSize
