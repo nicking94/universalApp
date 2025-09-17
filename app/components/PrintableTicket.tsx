@@ -1,5 +1,11 @@
 "use client";
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import {
+  forwardRef,
+  useRef,
+  useEffect,
+  useImperativeHandle,
+  useState,
+} from "react";
 import { BusinessData, Rubro, Sale } from "@/app/lib/types/types";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
@@ -18,12 +24,52 @@ export type PrintableTicketHandle = {
   print: () => Promise<void>;
 };
 
+// Configuración de la impresora
+const PRINTER_CONFIG = {
+  name: "NexusPOS", // Nombre de tu impresora
+  type: "escpos", // Tipo de impresora
+  options: {
+    encoding: "ISO-8859-1", // Codificación para caracteres en español
+  },
+};
+
 const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
   ({ sale, rubro, businessData, onPrint, autoPrint = false }, ref) => {
+    const [qzLoaded, setQzLoaded] = useState(false);
+    const [isPrinting, setIsPrinting] = useState(false);
     const ticketRef = useRef<HTMLDivElement>(null);
+
     const fecha = format(parseISO(sale.date), "dd/MM/yyyy HH:mm", {
       locale: es,
     });
+
+    // Cargar QZ Tray
+    useEffect(() => {
+      const loadQZ = async () => {
+        try {
+          if (typeof window.qz !== "undefined") {
+            await window.qz.websocket.connect();
+            setQzLoaded(true);
+            console.log("QZ Tray conectado");
+          } else {
+            console.warn("QZ Tray no está instalado o no está disponible");
+          }
+        } catch (error) {
+          console.error("Error conectando con QZ Tray:", error);
+        }
+      };
+
+      loadQZ();
+
+      return () => {
+        if (
+          typeof window.qz !== "undefined" &&
+          window.qz.websocket.isConnected()
+        ) {
+          window.qz.websocket.disconnect();
+        }
+      };
+    }, []);
 
     const calculateDiscountedPrice = (
       price: number,
@@ -34,13 +80,155 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
       return price * quantity * (1 - discountPercent / 100);
     };
 
-    const printTicket = async () => {
+    // Función para formatear el ticket en ESC/POS
+    const formatEscPosTicket = (): string => {
+      let ticketContent = "";
+
+      // Comandos ESC/POS iniciales
+      ticketContent += "\x1B\x40"; // Inicializar impresora
+      ticketContent += "\x1B\x61\x01"; // Centrar texto
+
+      // Encabezado del negocio
+      ticketContent += `\n${businessData?.name || "Universal App"}\n`;
+      ticketContent += "\x1B\x61\x00"; // Alinear izquierda
+      ticketContent += `Dirección: ${
+        businessData?.address || "Calle Falsa 123"
+      }\n`;
+      ticketContent += `Tel: ${businessData?.phone || "123-456789"}\n`;
+      ticketContent += `CUIT: ${businessData?.cuit || "12-34567890-1"}\n\n`;
+
+      // Línea separadora
+      ticketContent += "--------------------------------\n";
+
+      // Información del ticket
+      ticketContent += "\x1B\x45\x01"; // Texto en negrita
+      ticketContent += `TICKET #${sale.id}\n`;
+      ticketContent += "\x1B\x45\x00"; // Quitar negrita
+      ticketContent += `${fecha}\n`;
+      ticketContent += "--------------------------------\n\n";
+
+      // Productos
+      sale.products.forEach((product) => {
+        const discountedPrice = calculateDiscountedPrice(
+          product.price,
+          product.quantity,
+          product.discount
+        );
+
+        const productName = getDisplayProductName(product, rubro);
+        const quantityText = `${product.quantity} ${
+          product.unit?.toLowerCase() || "un"
+        }`;
+        const priceText = formatCurrency(discountedPrice);
+
+        // Asegurar que el nombre del producto no sea demasiado largo
+        const maxNameLength = 20;
+        const truncatedName =
+          productName.length > maxNameLength
+            ? productName.substring(0, maxNameLength - 3) + "..."
+            : productName;
+
+        ticketContent += truncatedName.padEnd(maxNameLength);
+        ticketContent += quantityText.padStart(10);
+        ticketContent += priceText.padStart(12) + "\n";
+
+        if (product.discount) {
+          ticketContent += `  Descuento: -${product.discount}%\n`;
+        }
+      });
+
+      // Monto manual si existe
+      if (sale.manualAmount !== undefined && sale.manualAmount > 0) {
+        ticketContent += "--------------------------------\n";
+        ticketContent += "Monto Manual:".padEnd(30);
+        ticketContent += formatCurrency(sale.manualAmount).padStart(10) + "\n";
+        ticketContent += "--------------------------------\n";
+      }
+
+      ticketContent += "\n";
+
+      // Métodos de pago
+      if (sale.paymentMethods?.length > 0 && !sale.credit) {
+        sale.paymentMethods.forEach((method) => {
+          ticketContent += `${method.method}:`.padEnd(20);
+          ticketContent += formatCurrency(method.amount).padStart(20) + "\n";
+        });
+        ticketContent += "\n";
+      }
+
+      // Cuenta corriente
+      if (sale.credit) {
+        ticketContent += "\x1B\x45\x01"; // Texto en negrita
+        ticketContent += "** CUENTA CORRIENTE **\n";
+        ticketContent += "\x1B\x45\x00"; // Quitar negrita
+        if (sale.customerName) {
+          ticketContent += `Cliente: ${sale.customerName}\n`;
+        }
+        ticketContent += "\n";
+      }
+
+      // Total
+      ticketContent += "--------------------------------\n";
+      ticketContent += "\x1B\x45\x01"; // Texto en negrita
+      ticketContent += "TOTAL:".padEnd(20);
+      ticketContent += formatCurrency(sale.total).padStart(20) + "\n";
+      ticketContent += "\x1B\x45\x00"; // Quitar negrita
+      ticketContent += "--------------------------------\n\n";
+
+      // Pie de página
+      ticketContent += "\x1B\x61\x01"; // Centrar texto
+      ticketContent += "¡Gracias por su compra!\n";
+      ticketContent += "Conserve este ticket\n";
+      ticketContent += "---\n";
+      ticketContent += "Ticket no válido como factura\n\n";
+
+      // Cortar papel (si la impresora lo soporta)
+      ticketContent += "\x1D\x56\x00"; // Cortar papel
+
+      return ticketContent;
+    };
+
+    const printWithQZ = async (): Promise<void> => {
       if (onPrint) {
         onPrint();
       }
 
-      // Usar el diálogo de impresión del navegador
-      window.print();
+      if (!qzLoaded || typeof window.qz === "undefined") {
+        alert(
+          "QZ Tray no está disponible. Por favor, instálalo o usa la impresión normal."
+        );
+        window.print();
+        return;
+      }
+
+      setIsPrinting(true);
+      try {
+        const ticketContent = formatEscPosTicket();
+
+        const config = window.qz.configs.create(
+          PRINTER_CONFIG.name,
+          PRINTER_CONFIG.options
+        );
+
+        await window.qz.print(config, [
+          {
+            type: "raw",
+            format: "plain",
+            data: ticketContent,
+          },
+        ]);
+
+        console.log("Ticket impreso exitosamente con QZ Tray");
+      } catch (error) {
+        console.error("Error al imprimir con QZ Tray:", error);
+        window.print();
+      } finally {
+        setIsPrinting(false);
+      }
+    };
+
+    const printTicket = async () => {
+      await printWithQZ();
     };
 
     useImperativeHandle(ref, () => ({
@@ -48,13 +236,12 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
     }));
 
     useEffect(() => {
-      if (autoPrint) {
-        // Pequeño retraso para asegurar que el componente esté renderizado
+      if (autoPrint && qzLoaded) {
         setTimeout(() => {
           printTicket().catch(console.error);
         }, 100);
       }
-    }, [autoPrint]);
+    }, [autoPrint, qzLoaded]);
 
     return (
       <div className="print-container">
@@ -166,6 +353,13 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
             <p>Ticket no válido como factura</p>
           </div>
         </div>
+        {isPrinting && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-4 rounded-lg">
+              <p>Imprimiendo ticket...</p>
+            </div>
+          </div>
+        )}
 
         {/* Estilos para impresión */}
         <style jsx global>{`

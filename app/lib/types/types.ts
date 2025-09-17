@@ -4,6 +4,39 @@ export type Theme = {
 };
 export type PrinterType = "80mm" | "40mm" | "unknown";
 
+export interface QzWebsocket {
+  connect: () => Promise<void>;
+  disconnect: () => void;
+  isConnected: () => boolean;
+}
+export interface PrinterOptions {
+  encoding?: string;
+}
+export interface QzConfigs {
+  create: (printerName: string, options?: PrinterOptions) => unknown;
+}
+export interface PrintJob {
+  type: string;
+  format: string;
+  data: string;
+}
+
+export interface QzApi {
+  websocket: QzWebsocket;
+  configs: QzConfigs;
+  printers: {
+    find: () => Promise<string[]>;
+    default?: string;
+  };
+  print: (config: unknown, data: PrintJob[]) => Promise<void>;
+}
+
+declare global {
+  interface Window {
+    qz?: QzApi;
+  }
+}
+
 export type User = {
   id: number;
   username?: string;
