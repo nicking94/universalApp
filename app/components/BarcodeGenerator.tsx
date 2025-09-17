@@ -57,7 +57,7 @@ const BarcodeGenerator = ({
                 font-family: Arial, sans-serif;
               }
               .ticket {
-                width: 76mm;
+                width: 80mm;
                 min-height: 30mm;
                 display: flex;
                 flex-direction: column;
@@ -193,12 +193,12 @@ const BarcodeGenerator = ({
           <div
             ref={barcodeRef}
             className="w-full flex flex-col items-center p-2  "
-            style={{ width: "76mm", minHeight: "30mm" }}
+            style={{ width: "80mm", minHeight: "30mm" }}
           >
             <Barcode
               value={barcodeValue}
               width={2}
-              height={80}
+              height={40}
               displayValue={true}
               fontOptions="600"
               textMargin={2}
