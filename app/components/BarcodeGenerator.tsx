@@ -17,6 +17,7 @@ type BarcodeGeneratorProps = {
 
 // Definir tipos para los tamaños de impresión
 type PrintSize = "80mm" | "40mm" | "custom";
+type PrinterLanguage = "zpl" | "escpos" | "unknown";
 
 const BarcodeGenerator = ({
   product,
@@ -26,6 +27,9 @@ const BarcodeGenerator = ({
 }: BarcodeGeneratorProps) => {
   const [barcodeValue, setBarcodeValue] = useState(product.barcode || "");
   const [isPrinting, setIsPrinting] = useState(false);
+  const [printerLanguage, setPrinterLanguage] =
+    useState<PrinterLanguage>("unknown");
+  const [qzAvailable, setQzAvailable] = useState(false);
   const barcodeRef = useRef<HTMLDivElement>(null);
   const printerType = usePrinterType();
 
@@ -35,6 +39,40 @@ const BarcodeGenerator = ({
   const [customWidth, setCustomWidth] = useState("80");
   const [customHeight, setCustomHeight] = useState("60");
   const [showCustomInputs, setShowCustomInputs] = useState(false);
+
+  // Cargar QZ Tray y detectar el tipo de impresora
+  useEffect(() => {
+    const initializeQZ = async () => {
+      try {
+        if (typeof window.qz === "undefined") {
+          console.warn("QZ Tray no está disponible");
+          return;
+        }
+
+        // Conectar con QZ Tray
+        if (!window.qz.websocket.isConnected()) {
+          await window.qz.websocket.connect();
+        }
+        setQzAvailable(true);
+
+        // Intentar detectar el tipo de impresora
+        await detectPrinterType();
+      } catch (error) {
+        console.error("Error inicializando QZ Tray:", error);
+      }
+    };
+
+    initializeQZ();
+
+    return () => {
+      if (
+        typeof window.qz !== "undefined" &&
+        window.qz.websocket.isConnected()
+      ) {
+        window.qz.websocket.disconnect();
+      }
+    };
+  }, []);
 
   // Cargar la preferencia guardada al inicializar el componente
   useEffect(() => {
@@ -58,6 +96,126 @@ const BarcodeGenerator = ({
     if (savedCustomHeight) setCustomHeight(savedCustomHeight);
   }, []);
 
+  // Función para detectar el tipo de impresora
+  const detectPrinterType = async (): Promise<PrinterLanguage> => {
+    try {
+      // Verificar que QZ Tray está disponible
+      if (typeof window.qz === "undefined") {
+        console.warn("QZ Tray no está disponible");
+        setPrinterLanguage("unknown");
+        return "unknown";
+      }
+
+      // Obtener la impresora por defecto
+      const printers = await window.qz.printers.find();
+      const defaultPrinter = window.qz.printers.default || printers[0];
+
+      if (!defaultPrinter) {
+        throw new Error("No se encontraron impresoras");
+      }
+
+      // Verificar si es una impresora ZPL (generalmente Zebra)
+      if (
+        defaultPrinter.toLowerCase().includes("zebra") ||
+        defaultPrinter.toLowerCase().includes("zpl") ||
+        defaultPrinter.toLowerCase().includes("label")
+      ) {
+        setPrinterLanguage("zpl");
+        return "zpl";
+      }
+
+      // Para impresoras térmicas comunes, asumimos ESC/POS
+      setPrinterLanguage("escpos");
+      return "escpos";
+    } catch (error) {
+      console.error("Error detectando tipo de impresora:", error);
+      setPrinterLanguage("unknown");
+      return "unknown";
+    }
+  };
+
+  // Generar código ZPL para impresoras de etiquetas
+  const generateZPLCode = (): string => {
+    const width = selectedPrintSize === "40mm" ? 40 : 80;
+    const height = selectedPrintSize === "40mm" ? 25 : 60;
+
+    // Configuración básica de ZPL
+    let zpl = "^XA"; // Inicio de formato ZPL
+
+    // Configurar densidad de impresión y orientación
+    zpl += "^MTT^MMP^MN"; // Thermal transfer media, media present, no backfeed
+
+    // Establecer tamaño de la etiqueta
+    zpl += `^PW${width * 8}^LL${height * 8}`;
+
+    // Nombre del producto (parte superior)
+    zpl += `^FO10,10^A0N,20,20^FB${width * 8 - 20},1,0,C^FD${product.name}^FS`;
+
+    // Código de barras (centro)
+    zpl += `^FO${(width * 8 - 200) / 2},40^B3N,,,N^FD${barcodeValue}^FS`;
+
+    // Valor del código de barras (debajo del código)
+    zpl += `^FO${(width * 8 - 150) / 2},90^A0N,20,15^FD${barcodeValue}^FS`;
+
+    // Precio (parte inferior)
+    zpl += `^FO10,120^A0N,25,25^FB${width * 8 - 20},1,0,C^FD${formatCurrency(
+      product.price
+    )}^FS`;
+
+    zpl += "^XZ"; // Fin de formato ZPL
+
+    return zpl;
+  };
+
+  // Generar código ESC/POS para impresoras térmicas
+  const generateEscPosCode = (): Uint8Array => {
+    const commands = [];
+
+    // Inicializar impresora
+    commands.push(0x1b, 0x40); // ESC @ - Inicializar
+
+    // Configurar página
+    commands.push(0x1b, 0x57, selectedPrintSize === "40mm" ? 40 : 80, 0, 0, 0);
+
+    // Establecer codificación
+    commands.push(0x1b, 0x52, 0x0f); // ESC R 15 - Juego de caracteres español
+
+    // Centrar texto
+    commands.push(0x1b, 0x61, 0x01); // Centrar
+
+    // Nombre del producto
+    commands.push(0x1b, 0x45, 0x01); // Negrita
+    commands.push(...encodeText(product.name.substring(0, 20) + "\n"));
+    commands.push(0x1b, 0x45, 0x00); // Quitar negrita
+
+    // Código de barras (usando código 128)
+    commands.push(0x1d, 0x6b, 0x49, barcodeValue.length); // Seleccionar código 128
+    commands.push(...encodeText(barcodeValue));
+    commands.push(0x00); // Terminador
+
+    // Valor del código de barras
+    commands.push(0x1b, 0x61, 0x01); // Centrar
+    commands.push(...encodeText(barcodeValue + "\n"));
+
+    // Precio
+    commands.push(0x1b, 0x45, 0x01); // Negrita
+    commands.push(...encodeText(formatCurrency(product.price) + "\n"));
+    commands.push(0x1b, 0x45, 0x00); // Quitar negrita
+
+    // Avanzar papel y cortar
+    commands.push(0x1b, 0x64, 0x05); // Avanzar 5 líneas
+    commands.push(0x1d, 0x56, 0x41, 0x00); // Cortar papel (formato parcial)
+
+    return new Uint8Array(commands);
+  };
+
+  // Función auxiliar para codificar texto
+  const encodeText = (text: string): number[] => {
+    const encoder = new TextEncoder();
+    const encoded = encoder.encode(text);
+    return Array.from(encoded);
+  };
+
   // Guardar la preferencia cuando cambia
   const handlePrintSizeChange = (size: PrintSize) => {
     setSelectedPrintSize(size);
@@ -70,10 +228,8 @@ const BarcodeGenerator = ({
     type: "width" | "height",
     value: string
   ) => {
-    // Permitir cualquier valor temporalmente (incluyendo vacío)
     if (type === "width") {
       setCustomWidth(value);
-      // Solo guardar en localStorage si es un número válido
       const numValue = parseInt(value);
       if (!isNaN(numValue) && numValue >= 10) {
         localStorage.setItem("customWidth", value);
@@ -82,7 +238,6 @@ const BarcodeGenerator = ({
       }
     } else {
       setCustomHeight(value);
-      // Solo guardar en localStorage si es un número válido
       const numValue = parseInt(value);
       if (!isNaN(numValue) && numValue >= 10) {
         localStorage.setItem("customHeight", value);
@@ -142,10 +297,91 @@ const BarcodeGenerator = ({
     printerType === "unknown" ? "unknown" : selectedPrintSize;
   const config = printerConfig[effectivePrintSize];
 
-  const handlePrint = () => {
-    if (!barcodeRef.current || isPrinting) return;
+  // Función principal de impresión
+  const handlePrint = async () => {
+    if (isPrinting) return;
 
     setIsPrinting(true);
+
+    try {
+      // Si QZ Tray está disponible, usar impresión directa
+      if (qzAvailable && typeof window.qz !== "undefined") {
+        await printWithQZ();
+      } else {
+        // Fallback a impresión HTML estándar
+        printWithHTML();
+      }
+    } catch (error) {
+      console.error("Error al imprimir:", error);
+      setIsPrinting(false);
+    }
+  };
+
+  // Imprimir usando QZ Tray
+  const printWithQZ = async (): Promise<void> => {
+    try {
+      // Verificar que QZ Tray está disponible
+      if (typeof window.qz === "undefined") {
+        throw new Error("QZ Tray no está disponible");
+      }
+
+      // Detectar tipo de impresora si aún no se ha hecho
+      if (printerLanguage === "unknown") {
+        await detectPrinterType();
+      }
+
+      let printData;
+
+      // Generar datos según el tipo de impresora
+      if (printerLanguage === "zpl") {
+        const zplCode = generateZPLCode();
+        printData = [
+          {
+            type: "raw",
+            format: "plain",
+            data: zplCode,
+          },
+        ];
+      } else {
+        // ESC/POS o desconocido (usamos ESC/POS por defecto)
+        const escPosData = generateEscPosCode();
+        const hexData = Array.from(escPosData)
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+
+        printData = [
+          {
+            type: "raw",
+            format: "hex",
+            data: hexData,
+          },
+        ];
+      }
+
+      // Obtener la impresora por defecto
+      const printers = await window.qz.printers.find();
+      const defaultPrinter = window.qz.printers.default || printers[0];
+      const config = window.qz.configs.create(defaultPrinter);
+
+      // Imprimir
+      await window.qz.print(config, printData);
+
+      console.log("Ticket impreso exitosamente con QZ Tray");
+      setIsPrinting(false);
+      onPrintComplete?.();
+    } catch (error) {
+      console.error("Error al imprimir con QZ Tray:", error);
+      // Fallback a impresión HTML
+      printWithHTML();
+    }
+  };
+
+  // Imprimir usando HTML (fallback)
+  const printWithHTML = () => {
+    if (!barcodeRef.current) {
+      setIsPrinting(false);
+      return;
+    }
 
     const printFrame = document.createElement("iframe");
     printFrame.style.position = "absolute";
@@ -317,6 +553,14 @@ const BarcodeGenerator = ({
       }
     >
       <div className="flex flex-col gap-4">
+        {/* Información del método de impresión */}
+        {qzAvailable && (
+          <div className="text-sm p-2 bg-blue_xl rounded">
+            <strong>Método de impresión:</strong> QZ Tray (
+            {printerLanguage.toUpperCase()})
+          </div>
+        )}
+
         {/* Selector de tamaño de impresión */}
         <div className="flex flex-col gap-2">
           <label className="block text-gray_m dark:text-white text-sm font-semibold">

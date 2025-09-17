@@ -26,6 +26,7 @@ export interface QzApi {
   configs: QzConfigs;
   printers: {
     find: () => Promise<string[]>;
+
     default?: string;
   };
   print: (config: unknown, data: PrintJob[]) => Promise<void>;
