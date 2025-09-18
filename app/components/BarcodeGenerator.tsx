@@ -189,6 +189,7 @@ const BarcodeGenerator = ({
             />
           </div>
         </div>
+        {/* comentario para push */}
         <div className="flex justify-center">
           <div
             ref={barcodeRef}
