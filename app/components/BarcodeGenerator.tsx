@@ -45,61 +45,50 @@ const BarcodeGenerator = ({
         const styles = `
           <style>
             @page {
-              size: 40mm 25mm;
+              size: 80mm auto;
               margin: 0;
               padding: 0;
             }
             @media print {
               body {
-                width: 40mm !important;
-                height: 25mm !important;
+                width: 80mm !important;
                 margin: 0 !important;
-                padding: 1mm !important;
+                padding: 2mm !important;
                 font-family: Arial, sans-serif;
-                display: flex;
-                justify-content: center;
-                align-items: center;
               }
               .ticket {
-                width: 38mm;
-                height: 23mm;
+                width: 80mm;
+                min-height: 30mm;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
-                justify-content: space-between;
-                overflow: hidden;
+                justify-content: center;
+                
               }
               .ticket svg {
                 width: 100% !important;
-                max-width: 35mm !important;
+                max-width: 70mm !important;
                 height: auto !important;
-                max-height: 12mm !important;
-                margin: 0 !important;
-              }
-              .product-info {
-                width: 100%;
-                text-align: center;
-                margin: 0;
-                padding: 0;
+                margin: 1mm 0 !important;
               }
               .product-name {
                 font-weight: bold;
-                font-size: 7px;
+                font-size: 14px;
                 text-align: center;
-                margin: 0;
-                padding: 0;
-                line-height: 1;
-                white-space: nowrap;
+                margin: 2mm 0 1mm 0;
+                width: 100%;
+                white-space: normal;
                 overflow: hidden;
                 text-overflow: ellipsis;
               }
               .product-price {
-                font-size: 9px;
+                font-size: 16px;
                 font-weight: bold;
                 text-align: center;
-                margin: 0;
-                padding: 0;
-                line-height: 1;
+                margin: 1mm 0 2mm 0;
+              }
+              .page-break {
+                page-break-after: always;
               }
               * {
                 -webkit-print-color-adjust: exact !important;
@@ -157,7 +146,7 @@ const BarcodeGenerator = ({
     <Modal
       isOpen={true}
       onClose={onClose}
-      title="Generador de Tickets (40mm x 25mm)"
+      title="Generador de Tickets"
       bgColor="bg-white dark:bg-gray_b"
       buttons={
         <>
@@ -180,7 +169,7 @@ const BarcodeGenerator = ({
         </>
       }
     >
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 ">
         <div className="flex items-center gap-4">
           <div className="w-full">
             <label className="block text-gray_m dark:text-white text-sm font-semibold">
@@ -203,25 +192,21 @@ const BarcodeGenerator = ({
         <div className="flex justify-center">
           <div
             ref={barcodeRef}
-            className="bg-white flex flex-col items-center justify-between p-1 border border-dashed border-gray-400"
+            className="bg-white w-full flex flex-col items-center p-2"
           >
             <Barcode
               value={barcodeValue}
-              width={1}
-              height={30}
+              width={1.5}
+              height={40}
               displayValue={true}
               fontOptions="600"
-              textMargin={1}
+              textMargin={2}
               margin={0}
-              fontSize={12}
             />
-            <div className="product-info">
-              <p className="product-name text-sm mt-2 font-semibold">
-                {product.name}
-              </p>
-              <p className="product-price text-md text-center font-semibold">
-                {formatCurrency(product.price)}
-              </p>
+
+            <div className="text-center text-black mt-4">
+              <p className="product-name">{product.name}</p>
+              <p className="product-price">{formatCurrency(product.price)}</p>
             </div>
           </div>
         </div>
