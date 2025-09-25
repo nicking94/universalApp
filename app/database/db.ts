@@ -55,7 +55,7 @@ class MyDatabase extends Dexie {
 
   constructor() {
     super("MyDatabase");
-    this.version(24)
+    this.version(26)
       .stores({
         theme: "id",
         products:
@@ -69,7 +69,8 @@ class MyDatabase extends Dexie {
         dailyCashMovements: "++id, dailyCashId, date, type",
         payments:
           "++id, saleId, date, method, amount, checkStatus, customerId, customerName",
-        customers: "&id, name",
+        customers:
+          "&id, name, phone, email, address, cuitDni, status, pendingBalance, createdAt, updatedAt, rubro",
         suppliers: "++id, companyName, lastVisit, nextVisit, createdAt, rubro",
         supplierProducts: "[supplierId+productId], supplierId, productId",
         appState: "id",
@@ -174,6 +175,10 @@ class MyDatabase extends Dexie {
           .modify((customer: Customer) => {
             if (customer.name) customer.name = this.formatString(customer.name);
             if (customer.id) customer.id = customer.id.toLowerCase();
+            if (!customer.status || customer.status.trim() === "") {
+              customer.status = "activo";
+              customer.updatedAt = new Date().toISOString();
+            }
           });
 
         await trans

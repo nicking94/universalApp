@@ -720,6 +720,9 @@ const PresupuestosPage = () => {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           isTemporary: true,
+          status: "activo",
+          pendingBalance: 0,
+          purchaseHistory: [],
         };
         await db.customers.add(tempCustomer);
         customerId = tempId;

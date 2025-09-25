@@ -1,17 +1,28 @@
 "use client";
 import { useEffect, useState } from "react";
 import { db } from "@/app/database/db";
-import { Budget, Customer } from "@/app/lib/types/types";
+import { Budget, CreditSale, Customer, Sale } from "@/app/lib/types/types";
 import ProtectedRoute from "@/app/components/ProtectedRoute";
 import Modal from "@/app/components/Modal";
 import Button from "@/app/components/Button";
 import Input from "@/app/components/Input";
 import Notification from "@/app/components/Notification";
 import Pagination from "@/app/components/Pagination";
-import { Edit, Plus, Trash, Users, ClipboardList, Eye } from "lucide-react";
+import {
+  Edit,
+  Plus,
+  Trash,
+  Users,
+  ClipboardList,
+  Eye,
+  Mail,
+  IdCard,
+} from "lucide-react";
 import SearchBar from "@/app/components/SearchBar";
 import { useRubro } from "@/app/context/RubroContext";
 import { usePagination } from "@/app/context/PaginationContext";
+import Select from "react-select";
+import { calculateCustomerBalance } from "@/app/lib/utils/balanceCalculations";
 
 const ClientesPage = () => {
   const { rubro } = useRubro();
@@ -19,16 +30,23 @@ const ClientesPage = () => {
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newCustomer, setNewCustomer] = useState<
-    Omit<Customer, "id" | "createdAt" | "updatedAt">
+    Omit<Customer, "id" | "createdAt" | "updatedAt" | "purchaseHistory">
   >({
     name: "",
     phone: "",
+    email: "",
+    address: "",
+    cuitDni: "",
+    status: "activo",
+    pendingBalance: 0,
   });
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
     null
   );
   const [customerBudgets, setCustomerBudgets] = useState<Budget[]>([]);
+  const [customerSales, setCustomerSales] = useState<Sale[]>([]);
   const [isBudgetsModalOpen, setIsBudgetsModalOpen] = useState(false);
+  const [isSalesModalOpen, setIsSalesModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(
     null
@@ -61,6 +79,49 @@ const ClientesPage = () => {
   });
   const [selectedBudget, setSelectedBudget] = useState<Budget | null>(null);
 
+  const [customerBalances, setCustomerBalances] = useState<
+    Record<string, number>
+  >({});
+
+  // Opciones para el select de estado
+  const statusOptions = [
+    { value: "activo", label: "Activo" },
+    { value: "inactivo", label: "Inactivo" },
+  ];
+
+  useEffect(() => {
+    const fetchCreditData = async () => {
+      try {
+        const [allSales, allPayments] = await Promise.all([
+          db.sales.toArray(),
+          db.payments.toArray(),
+        ]);
+
+        const creditSalesData = allSales.filter(
+          (sale) => sale.credit === true
+        ) as CreditSale[];
+
+        // Calcular balances para cada cliente
+        const balances: Record<string, number> = {};
+        creditSalesData.forEach((sale) => {
+          if (!balances[sale.customerName]) {
+            balances[sale.customerName] = calculateCustomerBalance(
+              sale.customerName,
+              creditSalesData,
+              allPayments
+            );
+          }
+        });
+
+        setCustomerBalances(balances);
+      } catch (error) {
+        console.error("Error al cargar datos de cuentas corrientes:", error);
+      }
+    };
+
+    fetchCreditData();
+  }, []);
+
   useEffect(() => {
     const fetchCustomerBudgets = async () => {
       if (selectedCustomer) {
@@ -81,6 +142,31 @@ const ClientesPage = () => {
 
     fetchCustomerBudgets();
   }, [selectedCustomer]);
+
+useEffect(() => {
+  const fetchCustomerSales = async () => {
+    if (selectedCustomer) {
+      try {
+        // Buscar ventas por customerId O por customerName
+        const sales = await db.sales
+          .where("customerId")
+          .equals(selectedCustomer.id)
+          .or("customerName")
+          .equals(selectedCustomer.name)
+          .toArray();
+        
+        if (selectedCustomer) {
+          setCustomerSales(sales);
+        }
+      } catch (error) {
+        console.error("Error al cargar ventas:", error);
+        showNotification("Error al cargar el historial de compras", "error");
+      }
+    }
+  };
+
+  fetchCustomerSales();
+}, [selectedCustomer]);
 
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -156,6 +242,7 @@ const ClientesPage = () => {
         id: generateCustomerId(newCustomer.name),
         name: newCustomer.name.trim(),
         rubro: rubro === "Todos los rubros" ? undefined : rubro,
+        purchaseHistory: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -163,7 +250,15 @@ const ClientesPage = () => {
       await db.customers.add(customerToAdd);
       setCustomers([...customers, customerToAdd]);
       setFilteredCustomers([...filteredCustomers, customerToAdd]);
-      setNewCustomer({ name: "", phone: "" });
+      setNewCustomer({
+        name: "",
+        phone: "",
+        email: "",
+        address: "",
+        cuitDni: "",
+        status: "activo",
+        pendingBalance: 0,
+      });
       setIsModalOpen(false);
       showNotification("Cliente agregado correctamente", "success");
     } catch (error) {
@@ -179,6 +274,9 @@ const ClientesPage = () => {
       .replace(/[^a-zA-Z0-9-]/g, "");
     const timestamp = Date.now().toString().slice(-5);
     return `${cleanName}-${timestamp}`;
+  };
+  const getCustomerPendingBalance = (customer: Customer): number => {
+    return customerBalances[customer.name] || 0;
   };
 
   const handleConfirmDeleteBudget = async () => {
@@ -200,6 +298,18 @@ const ClientesPage = () => {
   };
 
   const handleDeleteClick = (customer: Customer) => {
+    const pendingBalance = getCustomerPendingBalance(customer);
+
+    if (pendingBalance > 0) {
+      showNotification(
+        `No se puede eliminar el cliente porque tiene un saldo pendiente de $${pendingBalance.toFixed(
+          2
+        )}`,
+        "error"
+      );
+      return;
+    }
+
     setCustomerToDelete(customer);
     setIsDeleteModalOpen(true);
   };
@@ -241,6 +351,11 @@ const ClientesPage = () => {
     setNewCustomer({
       name: customer.name,
       phone: customer.phone || "",
+      email: customer.email || "",
+      address: customer.address || "",
+      cuitDni: customer.cuitDni || "",
+      status: customer.status,
+      pendingBalance: customer.pendingBalance,
     });
     setIsModalOpen(true);
   };
@@ -267,6 +382,11 @@ const ClientesPage = () => {
         ...editingCustomer,
         name: newCustomer.name.trim(),
         phone: newCustomer.phone,
+        email: newCustomer.email,
+        address: newCustomer.address,
+        cuitDni: newCustomer.cuitDni,
+        status: newCustomer.status,
+        pendingBalance: newCustomer.pendingBalance,
         rubro: rubro === "Todos los rubros" ? undefined : rubro,
         updatedAt: new Date().toISOString(),
       };
@@ -292,6 +412,8 @@ const ClientesPage = () => {
               })
             )
           );
+
+          // Actualizar presupuestos
           if (editingBudget) {
             const updatedBudget = {
               ...editingBudget,
@@ -315,7 +437,15 @@ const ClientesPage = () => {
         )
       );
 
-      setNewCustomer({ name: "", phone: "" });
+      setNewCustomer({
+        name: "",
+        phone: "",
+        email: "",
+        address: "",
+        cuitDni: "",
+        status: "activo",
+        pendingBalance: 0,
+      });
       setEditingCustomer(null);
       setEditingBudget(null);
       setIsModalOpen(false);
@@ -324,6 +454,11 @@ const ClientesPage = () => {
       console.error("Error al actualizar cliente:", error);
       showNotification("Error al actualizar cliente", "error");
     }
+  };
+
+  const handleViewPurchaseHistory = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setIsSalesModalOpen(true);
   };
 
   const handleSearch = (query: string) => {
@@ -361,83 +496,150 @@ const ClientesPage = () => {
               <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-xs">
                 <tr>
                   <th className="p-2 text-start">Nombre</th>
-                  <th className="p-2">Teléfono</th>
+                  <th className="p-2">Contacto</th>
+                  <th className="p-2">Estado</th>
+                  <th className="p-2">Saldo Pendiente</th>
                   <th className="p-2">Fecha de Registro</th>
                   {rubro !== "Todos los rubros" && (
                     <th className="p-2 w-40 max-w-40">Acciones</th>
                   )}
                 </tr>
               </thead>
-              <tbody
-                className={`bg-white text-gray_b divide-y divide-gray_xl `}
-              >
+              <tbody className="bg-white text-gray_b divide-y divide-gray_xl">
                 {currentCustomers.length > 0 ? (
-                  currentCustomers.map((customer) => (
-                    <tr
-                      key={customer.id}
-                      className="hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300 text-xs 2xl:text-sm"
-                    >
-                      <td className="font-semibold p-2 border border-gray_xl text-start">
-                        {customer.name}
-                      </td>
-                      <td className="p-2 border border-gray_xl">
-                        {customer.phone || "Sin teléfono"}
-                      </td>
-                      <td className="p-2 border border-gray_xl">
-                        {new Date(customer.createdAt).toLocaleDateString(
-                          "es-AR"
-                        )}
-                      </td>
-                      {rubro !== "Todos los rubros" && (
-                        <td className="p-2 border border-gray_xl">
-                          <div className="flex justify-center items-center gap-2 h-full">
-                            <Button
-                              icon={<ClipboardList size={18} />}
-                              colorText="text-gray_b"
-                              colorTextHover="hover:text-white"
-                              colorBg="bg-transparent"
-                              colorBgHover="hover:bg-blue_b"
-                              px="px-1"
-                              py="py-1"
-                              minwidth="min-w-0"
-                              onClick={() => {
-                                setSelectedCustomer(customer);
-                                setIsBudgetsModalOpen(true);
-                              }}
-                              title="Ver presupuestos"
-                            />
-                            <Button
-                              icon={<Edit size={18} />}
-                              colorText="text-gray_b"
-                              colorTextHover="hover:text-white"
-                              colorBg="bg-transparent"
-                              colorBgHover="hover:bg-blue_b"
-                              px="px-1"
-                              py="py-1"
-                              minwidth="min-w-0"
-                              onClick={() => handleEditClick(customer)}
-                              title="Editar cliente"
-                            />
-                            <Button
-                              icon={<Trash size={18} />}
-                              colorText="text-gray_b"
-                              colorTextHover="hover:text-white"
-                              colorBg="bg-transparent"
-                              colorBgHover="hover:bg-red_m"
-                              px="px-1"
-                              py="py-1"
-                              minwidth="min-w-0"
-                              onClick={() => handleDeleteClick(customer)}
-                              title="Eliminar cliente"
-                            />
+                  currentCustomers.map((customer) => {
+                    const pendingBalance = getCustomerPendingBalance(customer);
+                    const hasPendingBalance = pendingBalance > 0;
+
+                    return (
+                      <tr
+                        key={customer.id}
+                        className="hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300 text-xs 2xl:text-sm"
+                      >
+                        <td className="font-semibold p-2 border border-gray_xl text-start">
+                          <div>
+                            {customer.name}
+                            {customer.cuitDni && (
+                              <div className="text-xs text-gray_m flex items-center mt-1">
+                                <IdCard size={12} className="mr-1" />
+                                {customer.cuitDni}
+                              </div>
+                            )}
                           </div>
                         </td>
-                      )}
-                    </tr>
-                  ))
+                        <td className="p-2 border border-gray_xl">
+                          <div className="space-y-1">
+                            {customer.phone && (
+                              <div className="flex items-center justify-center">
+                                <span>{customer.phone}</span>
+                              </div>
+                            )}
+                            {customer.email && (
+                              <div className="flex items-center justify-center text-xs">
+                                <Mail size={12} className="mr-1" />
+                                {customer.email}
+                              </div>
+                            )}
+                            {!customer.phone && !customer.email && (
+                              <span className="text-gray_m">Sin contacto</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-2 border border-gray_xl">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs ${
+                              customer.status === "activo"
+                                ? "bg-green_xl text-green_b"
+                                : "bg-red_xl text-red_b"
+                            }`}
+                          >
+                            {customer.status}
+                          </span>
+                        </td>
+                        <td className="p-2 border border-gray_xl font-semibold">
+                          <div className="flex items-center justify-center gap-1">
+                            <span
+                              className={
+                                hasPendingBalance
+                                  ? "text-red_b"
+                                  : "text-green_b"
+                              }
+                            >
+                              ${pendingBalance.toFixed(2)}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="p-2 border border-gray_xl">
+                          {new Date(customer.createdAt).toLocaleDateString(
+                            "es-AR"
+                          )}
+                        </td>
+                        {rubro !== "Todos los rubros" && (
+                          <td className="p-2 border border-gray_xl">
+                            <div className="flex justify-center items-center gap-2 h-full">
+                              <Button
+                                icon={<ClipboardList size={18} />}
+                                colorText="text-gray_b"
+                                colorTextHover="hover:text-white"
+                                colorBg="bg-transparent"
+                                colorBgHover="hover:bg-blue_b"
+                                px="px-1"
+                                py="py-1"
+                                minwidth="min-w-0"
+                                onClick={() => {
+                                  setSelectedCustomer(customer);
+                                  setIsBudgetsModalOpen(true);
+                                }}
+                                title="Ver presupuestos"
+                              />
+                              <Button
+                                icon={<Eye size={18} />}
+                                colorText="text-gray_b"
+                                colorTextHover="hover:text-white"
+                                colorBg="bg-transparent"
+                                colorBgHover="hover:bg-green_b"
+                                px="px-1"
+                                py="py-1"
+                                minwidth="min-w-0"
+                                onClick={() =>
+                                  handleViewPurchaseHistory(customer)
+                                }
+                                title="Ver historial de compras"
+                              />
+                              <Button
+                                icon={<Edit size={18} />}
+                                colorText="text-gray_b"
+                                colorTextHover="hover:text-white"
+                                colorBg="bg-transparent"
+                                colorBgHover="hover:bg-blue_b"
+                                px="px-1"
+                                py="py-1"
+                                minwidth="min-w-0"
+                                onClick={() => handleEditClick(customer)}
+                                title="Editar cliente"
+                              />
+                              <Button
+                                icon={<Trash size={18} />}
+                                colorText="text-gray_b"
+                                colorTextHover="hover:text-white"
+                                colorBg="bg-transparent"
+                                colorBgHover="hover:bg-red_m"
+                                px="px-1"
+                                py="py-1"
+                                minwidth="min-w-0"
+                                onClick={() => handleDeleteClick(customer)}
+                                title="Eliminar cliente"
+                                disabled={hasPendingBalance}
+                              />
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
-                    <td colSpan={4} className="py-4 text-center">
+                    <td colSpan={6} className="py-4 text-center">
                       <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
                         <Users size={64} className="mb-4 text-gray_m" />
                         <p className="text-gray_m">
@@ -452,7 +654,6 @@ const ClientesPage = () => {
               </tbody>
             </table>
           </div>
-
           {filteredCustomers.length > 0 && (
             <Pagination
               text="Clientes por página"
@@ -462,12 +663,21 @@ const ClientesPage = () => {
           )}
         </div>
 
+        {/* Modal para agregar/editar cliente */}
         <Modal
           isOpen={isModalOpen}
           onClose={() => {
             setIsModalOpen(false);
             setEditingCustomer(null);
-            setNewCustomer({ name: "", phone: "" });
+            setNewCustomer({
+              name: "",
+              phone: "",
+              email: "",
+              address: "",
+              cuitDni: "",
+              status: "activo",
+              pendingBalance: 0,
+            });
           }}
           title={editingCustomer ? "Editar Cliente" : "Nuevo Cliente"}
           buttons={
@@ -490,7 +700,15 @@ const ClientesPage = () => {
                 onClick={() => {
                   setIsModalOpen(false);
                   setEditingCustomer(null);
-                  setNewCustomer({ name: "", phone: "" });
+                  setNewCustomer({
+                    name: "",
+                    phone: "",
+                    email: "",
+                    address: "",
+                    cuitDni: "",
+                    status: "activo",
+                    pendingBalance: 0,
+                  });
                 }}
                 hotkey="esc"
               />
@@ -498,17 +716,18 @@ const ClientesPage = () => {
           }
         >
           <div className="space-y-6">
-            <div className="flex items-center space-x-4">
+            <div className="grid grid-cols-2 gap-4">
               <Input
-                label="Nombre del cliente"
+                label="Nombre del cliente *"
                 value={newCustomer.name}
                 onChange={(e) =>
                   setNewCustomer({ ...newCustomer, name: e.target.value })
                 }
                 placeholder="Ingrese el nombre completo"
+                required
               />
               <Input
-                label="Teléfono (opcional)"
+                label="Teléfono"
                 value={newCustomer.phone || ""}
                 onChange={(e) =>
                   setNewCustomer({ ...newCustomer, phone: e.target.value })
@@ -516,6 +735,130 @@ const ClientesPage = () => {
                 placeholder="Ingrese el número de teléfono"
               />
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="Email"
+                type="email"
+                value={newCustomer.email || ""}
+                onChange={(e) =>
+                  setNewCustomer({ ...newCustomer, email: e.target.value })
+                }
+                placeholder="Ingrese el email"
+              />
+              <Input
+                label="CUIT/DNI"
+                value={newCustomer.cuitDni || ""}
+                onChange={(e) =>
+                  setNewCustomer({ ...newCustomer, cuitDni: e.target.value })
+                }
+                placeholder="Ingrese CUIT o DNI"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-gray_m dark:text-white text-sm font-semibold">
+                  Estado
+                </label>
+                <Select
+                  options={statusOptions}
+                  value={statusOptions.find(
+                    (option) => option.value === newCustomer.status
+                  )}
+                  onChange={(selectedOption) =>
+                    setNewCustomer({
+                      ...newCustomer,
+                      status: selectedOption?.value as "activo" | "inactivo",
+                    })
+                  }
+                  className="text-gray_m"
+                  placeholder="Seleccionar estado"
+                />
+              </div>
+              <Input
+                label="Dirección"
+                value={newCustomer.address || ""}
+                onChange={(e) =>
+                  setNewCustomer({ ...newCustomer, address: e.target.value })
+                }
+                placeholder="Ingrese la dirección"
+              />
+            </div>
+          </div>
+        </Modal>
+
+        {/* Modal para historial de compras (nuevo) */}
+        <Modal
+          isOpen={isSalesModalOpen}
+          onClose={() => {
+            setIsSalesModalOpen(false);
+            setSelectedCustomer(null);
+            setCustomerSales([]);
+          }}
+          title={`Historial de Compras - ${selectedCustomer?.name || ""}`}
+          buttons={
+            <Button
+              text="Cerrar"
+              colorText="text-gray_b dark:text-white"
+              colorTextHover="hover:dark:text-white"
+              colorBg="bg-transparent dark:bg-gray_m"
+              colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
+              onClick={() => {
+                setIsSalesModalOpen(false);
+                setSelectedCustomer(null);
+              }}
+            />
+          }
+        >
+          <div className="max-h-[60vh] overflow-y-auto">
+            {customerSales.length > 0 ? (
+              <table className="w-full border-collapse">
+                <thead className="bg-gray_xxl">
+                  <tr>
+                    <th className="p-2 border text-left">Fecha</th>
+                    <th className="p-2 border text-center">Productos</th>
+                    <th className="p-2 border text-center">Total</th>
+                    <th className="p-2 border text-center">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {customerSales.map((sale) => (
+                    <tr key={sale.id} className="border-b">
+                      <td className="p-2 border">
+                        {new Date(sale.date).toLocaleDateString("es-AR")}
+                      </td>
+                      <td className="p-2 border">
+                        {sale.products.map((product, idx) => (
+                          <div key={idx} className="text-sm">
+                            {product.name} x {product.quantity}
+                          </div>
+                        ))}
+                      </td>
+                      <td className="p-2 border text-center">
+                        ${sale.total.toFixed(2)}
+                      </td>
+                      <td className="p-2 border text-center">
+                        <span
+                          className={`px-2 py-1 rounded text-xs ${
+                            sale.paid
+                              ? "bg-green_xl text-green_b"
+                              : "bg-yellow-100 text-yellow-800"
+                          }`}
+                        >
+                          {sale.paid ? "Pagado" : "Pendiente"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="text-center py-8 text-gray_m">
+                <ClipboardList size={48} className="mx-auto mb-4" />
+                <p>No hay compras registradas para este cliente</p>
+              </div>
+            )}
           </div>
         </Modal>
 

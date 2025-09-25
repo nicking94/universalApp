@@ -779,179 +779,222 @@ const VentasPage = () => {
     return true;
   };
 
-  const handleConfirmAddSale = async () => {
-    const authData = await db.auth.get(1);
-    if (authData?.userId === 1) {
-      const isLimitReached = await checkSalesLimit();
-      if (isLimitReached) {
-        showNotification(
-          `Límite alcanzado: máximo 30 ventas por día para el administrador`,
-          "error"
-        );
-        return;
-      }
-    }
-    if (
-      !validatePaymentMethods(newSale.paymentMethods, newSale.total, isCredit)
-    ) {
+const handleConfirmAddSale = async () => {
+  const authData = await db.auth.get(1);
+  if (authData?.userId === 1) {
+    const isLimitReached = await checkSalesLimit();
+    if (isLimitReached) {
       showNotification(
-        "La suma de los métodos de pago no coincide con el total",
+        `Límite alcanzado: máximo 30 ventas por día para el administrador`,
         "error"
       );
       return;
     }
-
-    const needsRedirect = await checkCashStatus();
-    if (needsRedirect) {
-      setShouldRedirectToCash(true);
-      showNotification(
-        "Debes abrir la caja primero para realizar ventas",
-        "error"
-      );
-      return;
-    }
-
-    const totalPaymentMethods = newSale.paymentMethods.reduce(
-      (sum, method) => sum + method.amount,
-      0
+  }
+  
+  if (
+    !validatePaymentMethods(newSale.paymentMethods, newSale.total, isCredit)
+  ) {
+    showNotification(
+      "La suma de los métodos de pago no coincide con el total",
+      "error"
     );
-    const calculatedTotal =
-      calculateCombinedTotal(newSale.products) + (newSale.manualAmount || 0);
+    return;
+  }
 
-    if (Math.abs(totalPaymentMethods - calculatedTotal) > 0.01) {
-      showNotification(`La suma de los métodos de pago no coinciden`, "error");
+  const needsRedirect = await checkCashStatus();
+  if (needsRedirect) {
+    setShouldRedirectToCash(true);
+    showNotification(
+      "Debes abrir la caja primero para realizar ventas",
+      "error"
+    );
+    return;
+  }
+
+  const totalPaymentMethods = newSale.paymentMethods.reduce(
+    (sum, method) => sum + method.amount,
+    0
+  );
+  const calculatedTotal =
+    calculateCombinedTotal(newSale.products) + (newSale.manualAmount || 0);
+
+  if (Math.abs(totalPaymentMethods - calculatedTotal) > 0.01) {
+    showNotification(`La suma de los métodos de pago no coinciden`, "error");
+    return;
+  }
+
+  if (newSale.products.length === 0) {
+    showNotification("Debe agregar al menos un producto", "error");
+    return;
+  }
+
+  if (isCredit) {
+    const normalizedName = customerName.toUpperCase().trim();
+    if (!normalizedName) {
+      showNotification("Debe ingresar un nombre de cliente", "error");
       return;
     }
 
-    if (newSale.products.length === 0) {
-      showNotification("Debe agregar al menos un producto", "error");
-      return;
-    }
+    const nameExists = customers.some(
+      (customer) =>
+        customer.name.toUpperCase() === normalizedName &&
+        (!selectedCustomer || customer.id !== selectedCustomer.value)
+    );
 
-    if (isCredit) {
-      const normalizedName = customerName.toUpperCase().trim();
-      if (!normalizedName) {
-        showNotification("Debe ingresar un nombre de cliente", "error");
-        return;
-      }
-
-      const nameExists = customers.some(
-        (customer) =>
-          customer.name.toUpperCase() === normalizedName &&
-          (!selectedCustomer || customer.id !== selectedCustomer.value)
+    if (nameExists) {
+      showNotification(
+        "Este cliente ya existe. Seleccionalo de la lista",
+        "error"
       );
+      return;
+    }
+  }
 
-      if (nameExists) {
-        showNotification(
-          "Este cliente ya existe. Seleccionalo de la lista",
-          "error"
-        );
-        return;
-      }
+  try {
+    for (const product of newSale.products) {
+      const updatedStock = updateStockAfterSale(
+        product.id,
+        product.quantity,
+        product.unit
+      );
+      await db.products.update(product.id, { stock: updatedStock });
     }
 
-    try {
-      for (const product of newSale.products) {
-        const updatedStock = updateStockAfterSale(
-          product.id,
-          product.quantity,
-          product.unit
-        );
-        await db.products.update(product.id, { stock: updatedStock });
-      }
+    let customerId = selectedCustomer?.value;
+    let finalCustomerName = "";
+    let finalCustomerPhone = "";
 
-      let customerId = selectedCustomer?.value;
-      const generateCustomerId = (name: string): string => {
-        const cleanName = name
-          .toUpperCase()
-          .trim()
-          .replace(/\s+/g, "-")
-          .replace(/[^a-zA-Z0-9-]/g, "");
-        const timestamp = Date.now().toString().slice(-5);
-        return `${cleanName}-${timestamp}`;
+    const generateCustomerId = (name: string): string => {
+      const cleanName = name
+        .toUpperCase()
+        .trim()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-zA-Z0-9-]/g, "");
+      const timestamp = Date.now().toString().slice(-5);
+      return `${cleanName}-${timestamp}`;
+    };
+
+    // Si es cuenta corriente, crear nuevo cliente si no existe
+    if (isCredit && !customerId && customerName) {
+      const newCustomer: Customer = {
+        id: generateCustomerId(customerName),
+        name: customerName.toUpperCase().trim(),
+        phone: customerPhone,
+        status: "activo",
+        pendingBalance: 0,
+        purchaseHistory: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        rubro: rubro === "Todos los rubros" ? undefined : rubro,
       };
-
-      if (isCredit && !customerId && customerName) {
-        const newCustomer: Customer = {
-          id: generateCustomerId(customerName),
-          name: customerName.toUpperCase().trim(),
-          phone: customerPhone,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          rubro: rubro === "Todos los rubros" ? undefined : rubro,
-        };
-        await db.customers.add(newCustomer);
-        setCustomers([...customers, newCustomer]);
-        setCustomerOptions([
-          ...customerOptions,
-          { value: newCustomer.id, label: newCustomer.name },
-        ]);
-        customerId = newCustomer.id;
+      await db.customers.add(newCustomer);
+      setCustomers([...customers, newCustomer]);
+      setCustomerOptions([
+        ...customerOptions,
+        { value: newCustomer.id, label: newCustomer.name },
+      ]);
+      customerId = newCustomer.id;
+      finalCustomerName = customerName.toUpperCase().trim();
+      finalCustomerPhone = customerPhone;
+    } 
+    // Si hay un cliente seleccionado (venta normal con cliente)
+    else if (selectedCustomer && !isCredit) {
+      const customer = customers.find(c => c.id === selectedCustomer.value);
+      if (customer) {
+        customerId = customer.id;
+        finalCustomerName = customer.name;
+        finalCustomerPhone = customer.phone || "";
       }
+    }
+    // Si no hay cliente seleccionado y no es cuenta corriente
+    else {
+      finalCustomerName = "CLIENTE OCASIONAL";
+    }
 
-      const saleToSave: CreditSale = {
-        id: Date.now(),
-        products: newSale.products,
-        paymentMethods: isCredit ? [] : newSale.paymentMethods,
-        total: newSale.total,
+    const saleToSave: CreditSale = {
+      id: Date.now(),
+      products: newSale.products,
+      paymentMethods: isCredit ? [] : newSale.paymentMethods,
+      total: newSale.total,
+      date: new Date().toISOString(),
+      barcode: newSale.barcode,
+      manualAmount: newSale.manualAmount,
+      manualProfitPercentage: newSale.manualProfitPercentage || 0,
+      credit: isCredit,
+      customerName: isCredit 
+        ? customerName.toUpperCase().trim() 
+        : finalCustomerName,
+      customerPhone: isCredit ? customerPhone : finalCustomerPhone,
+      customerId: customerId || "",
+      paid: !isCredit,
+    };
+
+    if (!isCredit) {
+      await addIncomeToDailyCash(saleToSave);
+      setSelectedSale(saleToSave);
+      setIsInfoModalOpen(true);
+
+      setTimeout(() => {
+        if (ticketRef.current) {
+          ticketRef.current.print().catch((error) => {
+            console.error("Error al imprimir ticket:", error);
+            showNotification("Error al imprimir ticket", "error");
+          });
+        }
+      }, 100);
+    }
+
+    if (isCredit && registerCheck) {
+      saleToSave.chequeInfo = {
+        amount: newSale.total,
+        status: "pendiente",
         date: new Date().toISOString(),
-        barcode: newSale.barcode,
-        manualAmount: newSale.manualAmount,
-        manualProfitPercentage: newSale.manualProfitPercentage || 0,
-        credit: isCredit,
-        customerName: isCredit
-          ? customerName.toUpperCase().trim()
-          : "CLIENTE OCASIONAL",
-        customerPhone: isCredit ? customerPhone : "",
-        customerId: isCredit ? customerId : "",
-        paid: false,
       };
-      if (!isCredit) {
-        await addIncomeToDailyCash(saleToSave);
-        setSelectedSale(saleToSave);
-        setIsInfoModalOpen(true);
-
-        setTimeout(() => {
-          if (ticketRef.current) {
-            ticketRef.current.print().catch((error) => {
-              console.error("Error al imprimir ticket:", error);
-              showNotification("Error al imprimir ticket", "error");
-            });
-          }
-        }, 100);
-      }
-
-      if (isCredit && registerCheck) {
-        saleToSave.chequeInfo = {
-          amount: newSale.total,
-          status: "pendiente",
-          date: new Date().toISOString(),
-        };
-      }
-
-      await db.sales.add(saleToSave);
-      setSales([...sales, saleToSave]);
-
-      if (isCredit && registerCheck) {
-        const chequePayment: Payment = {
-          id: Date.now(),
-          saleId: saleToSave.id,
-          saleDate: saleToSave.date,
-          amount: saleToSave.total,
-          date: new Date().toISOString(),
-          method: "CHEQUE",
-          checkStatus: "pendiente",
-          customerId: saleToSave.customerId,
-          customerName: saleToSave.customerName,
-        };
-        await db.payments.add(chequePayment);
-      }
-    } catch (error) {
-      console.error("Error al agregar venta:", error);
-      showNotification("Error al agregar venta", "error");
     }
-    handleCloseModal();
-  };
+
+    await db.sales.add(saleToSave);
+    setSales([...sales, saleToSave]);
+
+    // Si la venta tiene un cliente asociado (no es "CLIENTE OCASIONAL"), actualizar el historial del cliente
+    if (customerId && finalCustomerName !== "CLIENTE OCASIONAL") {
+      await updateCustomerPurchaseHistory(customerId, saleToSave);
+    }
+
+    if (isCredit && registerCheck) {
+      const chequePayment: Payment = {
+        id: Date.now(),
+        saleId: saleToSave.id,
+        saleDate: saleToSave.date,
+        amount: saleToSave.total,
+        date: new Date().toISOString(),
+        method: "CHEQUE",
+        checkStatus: "pendiente",
+        customerId: saleToSave.customerId,
+        customerName: saleToSave.customerName,
+      };
+      await db.payments.add(chequePayment);
+    }
+  } catch (error) {
+    console.error("Error al agregar venta:", error);
+    showNotification("Error al agregar venta", "error");
+  }
+  handleCloseModal();
+};
+const updateCustomerPurchaseHistory = async (customerId: string, sale: Sale) => {
+  try {
+    const customer = await db.customers.get(customerId);
+    if (customer) {
+      const updatedPurchaseHistory = [...customer.purchaseHistory, sale];
+      await db.customers.update(customerId, {
+        purchaseHistory: updatedPurchaseHistory,
+        updatedAt: new Date().toISOString()
+      });
+    }
+  } catch (error) {
+    console.error("Error al actualizar historial del cliente:", error);
+  }
+};
 
   const handleOpenInfoModal = (sale: Sale) => {
     setSelectedSale(sale);
@@ -1812,6 +1855,42 @@ const VentasPage = () => {
               </form>
               <div>
                 <div className="flex items-center space-x-4">
+                  {!isCredit && (
+                    <div className="w-full flex flex-col">
+                      <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                        Seleccionar Cliente
+                      </label>
+                      <Select
+                        options={customerOptions}
+                        noOptionsMessage={() => "Sin clientes disponibles"}
+                        value={selectedCustomer}
+                        onChange={(selected) => {
+                          setSelectedCustomer(selected);
+                          if (selected) {
+                            const customer = customers.find(
+                              (c) => c.id === selected.value
+                            );
+                            setCustomerName(customer?.name || "");
+                            setCustomerPhone(customer?.phone || "");
+                          } else {
+                            // Si se deselecciona, limpiar los campos
+                            setCustomerName("");
+                            setCustomerPhone("");
+                          }
+                        }}
+                        placeholder="Ningún cliente seleccionado"
+                        isClearable
+                        isSearchable
+                        className="text-gray_m"
+                        classNamePrefix="react-select"
+                        menuPosition="fixed"
+                        styles={{
+                          menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                        }}
+                      />
+                    </div>
+                  )}
+
                   <div className="w-full flex flex-col">
                     {isCredit ? (
                       <div className="p-2 bg-gray_xxl text-gray_b rounded-md mt-9 ">
@@ -1821,12 +1900,14 @@ const VentasPage = () => {
                       </div>
                     ) : (
                       <div className="flex items-center space-x-2">
-                        <InputCash
-                          label="Monto manual"
-                          value={newSale.manualAmount || 0}
-                          onChange={handleManualAmountChange}
-                          disabled={isCredit}
-                        />
+                        <div className="w-full mt-1">
+                          <InputCash
+                            label="Monto manual"
+                            value={newSale.manualAmount || 0}
+                            onChange={handleManualAmountChange}
+                            disabled={isCredit}
+                          />
+                        </div>
                         <div className="w-full mt-1 max-w-[5rem]">
                           <label className="block text-sm font-medium text-gray_m dark:text-white">
                             % Ganancia

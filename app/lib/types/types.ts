@@ -445,6 +445,12 @@ export type Customer = {
   id: string;
   name: string;
   phone?: string;
+  email?: string;
+  address?: string;
+  cuitDni?: string;
+  status: "activo" | "inactivo";
+  pendingBalance: number;
+  purchaseHistory: Sale[];
   createdAt: string;
   updatedAt: string;
   rubro?: Rubro;
