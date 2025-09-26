@@ -64,11 +64,18 @@ export const systemActualizations: Actualization[] = [
   //     "- Modificada la opción de talles en el rubro INDUMENTARIA. Ahora se pueden crear talles personalizados\n- Se arregló un error en el filtro de marca y color del rubro INDUMENTARIA\n- Mejoras en el rendimiento",
   //   date: new Date().toISOString(),
   // },
+  // {
+  //   id: 10,
+  //   title: `Versión 1.4.9 - Actualización`,
+  //   message:
+  //     "- Agregada la opción de incluir o no el IVA en los precios al crear un producto.\n- Se aregó un campo de RECARGO a cada producto al hacer ventas",
+  //   date: new Date().toISOString(),
+  // },
   {
-    id: 10,
-    title: `Versión 1.4.9 - Actualización`,
+    id: 11,
+    title: `Versión 1.5 - Mejoras`,
     message:
-      "- Agregada la opción de incluir o no el IVA en los precios al crear un producto.\n- Se aregó un campo de RECARGO a cada producto al hacer ventas",
+      "- Ahora podes seleccionar un cliente en las ventas. Así podrás ver su historial de compras desde el módulo de CLIENTES. Se agregaron también nuevos campos al registrar a un cliente (cuit/dni, email y dirección)\n- Mejoras en las etiquetas de códigos de barras. Agregado un selector para poder quitar el precio del producto en la etiqueta",
     date: new Date().toISOString(),
   },
 ];

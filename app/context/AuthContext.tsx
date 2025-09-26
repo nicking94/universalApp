@@ -1,13 +1,14 @@
 // context/AuthContext.tsx
 import { createContext, useContext, useState, useEffect } from "react";
 import { db } from "../database/db";
-import { USERS } from "../lib/constants/constants";
+import { USERS, PAYMENT_REMINDERS_CONFIG } from "../lib/constants/constants";
 
 interface User {
   id: number;
   username: string | undefined;
   password: string | undefined;
   isTrial: boolean;
+  paymentReminderDay?: number; // Nueva propiedad opcional
 }
 
 interface AuthContextType {
@@ -44,7 +45,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Encontrar el usuario completo basado en el ID
       if (userId) {
         const userFound = USERS.find((u) => u.id === userId);
-        setUser(userFound || null);
+        if (userFound) {
+          // Buscar si hay configuración de recordatorio para este usuario
+          const reminderConfig = PAYMENT_REMINDERS_CONFIG.find(
+            (config) => config.username === userFound.username
+          );
+
+          // Crear usuario con la información de recordatorio
+          const userWithReminder = {
+            ...userFound,
+            paymentReminderDay: reminderConfig?.reminderDay,
+          };
+
+          setUser(userWithReminder);
+        } else {
+          setUser(null);
+        }
       } else {
         setUser(null);
       }
@@ -60,7 +76,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Actualizar información del usuario
     if (authStatus && userId) {
       const userFound = USERS.find((u) => u.id === userId);
-      setUser(userFound || null);
+      if (userFound) {
+        // Buscar configuración de recordatorio
+        const reminderConfig = PAYMENT_REMINDERS_CONFIG.find(
+          (config) => config.username === userFound.username
+        );
+
+        const userWithReminder = {
+          ...userFound,
+          paymentReminderDay: reminderConfig?.reminderDay,
+        };
+
+        setUser(userWithReminder);
+      } else {
+        setUser(null);
+      }
     } else {
       setUser(null);
     }

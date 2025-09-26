@@ -25,6 +25,7 @@ export const USERS = [
     password: process.env.NEXT_PUBLIC_LOGIN_PASSWORD_3,
     id: 3,
     isTrial: false,
+    paymentReminderDay: 8,
   },
   //  Cliente 2
   {
@@ -32,6 +33,7 @@ export const USERS = [
     password: process.env.NEXT_PUBLIC_LOGIN_PASSWORD_4,
     id: 4,
     isTrial: false,
+    paymentReminderDay: 3,
   },
   //  Cliente 3
   {
@@ -39,8 +41,22 @@ export const USERS = [
     password: process.env.NEXT_PUBLIC_LOGIN_PASSWORD_5,
     id: 5,
     isTrial: false,
+    paymentReminderDay: 10,
   },
 ];
-export const PAYMENT_NOTIFICATION_USERNAME = "El pollo loco";
+export const PAYMENT_REMINDERS_CONFIG = [
+  {
+    username: "El pollo loco",
+    reminderDay: 8,
+  },
+  {
+    username: "CMTECNOSTORE",
+    reminderDay: 3,
+  },
+  {
+    username: "Baronguille356",
+    reminderDay: 10,
+  },
+];
 
-export const APP_VERSION = "1.4.9";
+export const APP_VERSION = "1.5";

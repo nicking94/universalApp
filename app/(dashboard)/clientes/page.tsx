@@ -143,30 +143,30 @@ const ClientesPage = () => {
     fetchCustomerBudgets();
   }, [selectedCustomer]);
 
-useEffect(() => {
-  const fetchCustomerSales = async () => {
-    if (selectedCustomer) {
-      try {
-        // Buscar ventas por customerId O por customerName
-        const sales = await db.sales
-          .where("customerId")
-          .equals(selectedCustomer.id)
-          .or("customerName")
-          .equals(selectedCustomer.name)
-          .toArray();
-        
-        if (selectedCustomer) {
-          setCustomerSales(sales);
-        }
-      } catch (error) {
-        console.error("Error al cargar ventas:", error);
-        showNotification("Error al cargar el historial de compras", "error");
-      }
-    }
-  };
+  useEffect(() => {
+    const fetchCustomerSales = async () => {
+      if (selectedCustomer) {
+        try {
+          // Buscar ventas por customerId O por customerName
+          const sales = await db.sales
+            .where("customerId")
+            .equals(selectedCustomer.id)
+            .or("customerName")
+            .equals(selectedCustomer.name)
+            .toArray();
 
-  fetchCustomerSales();
-}, [selectedCustomer]);
+          if (selectedCustomer) {
+            setCustomerSales(sales);
+          }
+        } catch (error) {
+          console.error("Error al cargar ventas:", error);
+          showNotification("Error al cargar el historial de compras", "error");
+        }
+      }
+    };
+
+    fetchCustomerSales();
+  }, [selectedCustomer]);
 
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -597,7 +597,7 @@ useEffect(() => {
                                 colorText="text-gray_b"
                                 colorTextHover="hover:text-white"
                                 colorBg="bg-transparent"
-                                colorBgHover="hover:bg-green_b"
+                                colorBgHover="hover:bg-blue_b"
                                 px="px-1"
                                 py="py-1"
                                 minwidth="min-w-0"

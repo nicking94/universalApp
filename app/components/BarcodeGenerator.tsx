@@ -22,6 +22,7 @@ const BarcodeGenerator = ({
 }: BarcodeGeneratorProps) => {
   const [barcodeValue, setBarcodeValue] = useState(product.barcode || "");
   const [isPrinting, setIsPrinting] = useState(false);
+  const [showPrice, setShowPrice] = useState(true); // Estado para controlar si mostrar el precio
   const barcodeRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
@@ -58,7 +59,7 @@ const BarcodeGenerator = ({
               }
               .ticket {
                 width: 80mm;
-                min-height: 30mm;
+                min-height: 25mm;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
@@ -73,7 +74,7 @@ const BarcodeGenerator = ({
               }
               .product-name {
                 font-weight: bold;
-                font-size: 14px;
+                font-size: 21px;
                 text-align: center;
                 margin: 2mm 0 1mm 0;
                 width: 100%;
@@ -102,7 +103,7 @@ const BarcodeGenerator = ({
         printFrame.contentDocument?.write(`
           <html>
             <head>
-              <title>Ticket de Código de Barras</title>
+              <title>Etiqueta de Código de Barras</title>
               ${styles}
             </head>
             <body>
@@ -146,12 +147,12 @@ const BarcodeGenerator = ({
     <Modal
       isOpen={true}
       onClose={onClose}
-      title="Generador de Tickets"
+      title="Generador de Etiquetas"
       bgColor="bg-white dark:bg-gray_b"
       buttons={
         <>
           <Button
-            text={isPrinting ? "Imprimiendo..." : "Imprimir Ticket"}
+            text={isPrinting ? "Imprimiendo..." : "Imprimir Etiqueta"}
             colorText="text-white"
             colorTextHover="text-white"
             onClick={handlePrint}
@@ -189,6 +190,25 @@ const BarcodeGenerator = ({
             />
           </div>
         </div>
+
+        {/* Checkbox para mostrar/ocultar precio */}
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            id="showPrice"
+            checked={showPrice}
+            onChange={(e) => setShowPrice(e.target.checked)}
+            className="cursor-pointer w-4 h-4 text-blue_m bg-gray-100 border-gray-300 rounded "
+            disabled={isPrinting}
+          />
+          <label
+            htmlFor="showPrice"
+            className="ml-2 text-sm font-medium text-gray_m dark:text-white"
+          >
+            Mostrar precio en la etiqueta
+          </label>
+        </div>
+
         <div className="flex justify-center">
           <div
             ref={barcodeRef}
@@ -206,7 +226,10 @@ const BarcodeGenerator = ({
 
             <div className="text-center text-black mt-4">
               <p className="product-name">{product.name}</p>
-              <p className="product-price">{formatCurrency(product.price)}</p>
+
+              {showPrice && (
+                <p className="product-price">{formatCurrency(product.price)}</p>
+              )}
             </div>
           </div>
         </div>

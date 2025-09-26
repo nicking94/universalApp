@@ -1,8 +1,9 @@
+// components/PaymentNotification.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { PAYMENT_NOTIFICATION_USERNAME } from "../lib/constants/constants";
+import { PAYMENT_REMINDERS_CONFIG } from "../lib/constants/constants";
 
 export default function PaymentNotification() {
   const [showNotification, setShowNotification] = useState(false);
@@ -10,10 +11,23 @@ export default function PaymentNotification() {
   const { user } = useAuth();
 
   useEffect(() => {
-    // Verificar si es el usuario correcto y si es día 27 del mes
+    if (!user?.username) return;
+
     const today = new Date();
-    const isEighthDay = today.getDate() === 8;
-    const isTargetUser = user?.username === PAYMENT_NOTIFICATION_USERNAME;
+    const currentDay = today.getDate();
+
+    // Buscar configuración de recordatorio para el usuario actual
+    const userReminderConfig = PAYMENT_REMINDERS_CONFIG.find(
+      (config) => config.username === user.username
+    );
+
+    // Si no hay configuración para este usuario, no mostrar notificación
+    if (!userReminderConfig) {
+      setShowNotification(false);
+      return;
+    }
+
+    const isReminderDay = currentDay === userReminderConfig.reminderDay;
 
     // Obtener el nombre del mes en español
     const meses = [
@@ -35,8 +49,7 @@ export default function PaymentNotification() {
     const añoActual = today.getFullYear();
 
     setPeriodo(`${mesActual} - ${añoActual}`);
-
-    setShowNotification(isEighthDay && isTargetUser);
+    setShowNotification(isReminderDay);
   }, [user]);
 
   if (!showNotification) return null;
@@ -53,7 +66,7 @@ export default function PaymentNotification() {
         </div>
         <button
           onClick={() => setShowNotification(false)}
-          className="text-2xl cursor-pointer text-blue_m hover:blue_b ml-4"
+          className="text-2xl cursor-pointer text-blue_m hover:text-blue_b ml-4"
         >
           ×
         </button>
