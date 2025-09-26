@@ -74,7 +74,7 @@ const BarcodeGenerator = ({
               }
               .product-name {
                 font-weight: bold;
-                font-size: 21px;
+                font-size: 24px;
                 text-align: center;
                 margin: 2mm 0 1mm 0;
                 width: 100%;
@@ -222,6 +222,7 @@ const BarcodeGenerator = ({
               fontOptions="600"
               textMargin={2}
               margin={0}
+              fontSize={12}
             />
 
             <div className="text-center text-black mt-4">
