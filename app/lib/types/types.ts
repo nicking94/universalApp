@@ -238,6 +238,7 @@ export type ProductCardProps = {
 export type SearchBarProps = {
   onSearch: (query: string) => void;
 };
+// En tus tipos/types.ts
 
 export type Sale = {
   id: number;

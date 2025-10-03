@@ -935,14 +935,14 @@ const VentasPage = () => {
         setSelectedSale(saleToSave);
         setIsInfoModalOpen(true);
         //desactivado temporalmente
-        // setTimeout(() => {
-        //   if (ticketRef.current) {
-        //     ticketRef.current.print().catch((error) => {
-        //       console.error("Error al imprimir ticket:", error);
-        //       showNotification("Error al imprimir ticket", "error");
-        //     });
-        //   }
-        // }, 100);
+        setTimeout(() => {
+          if (ticketRef.current) {
+            ticketRef.current.print().catch((error) => {
+              console.error("Error al imprimir ticket:", error);
+              showNotification("Error al imprimir ticket", "error");
+            });
+          }
+        }, 100);
       }
 
       if (isCredit && registerCheck) {
@@ -1477,7 +1477,7 @@ const VentasPage = () => {
                           <td className="p-2 border border-gray_xl">
                             <div className="flex justify-center items-center gap-2 h-full">
                               <Button
-                                title="Imprimir ticket"
+                                title="Imprimir ticket (Beta)"
                                 icon={<Printer size={18} />}
                                 colorText="text-gray_b"
                                 colorTextHover="hover:text-white"
@@ -1516,17 +1516,15 @@ const VentasPage = () => {
                 <div className="flex justify-end gap-4">
                   {/* desactivado temporalmente */}
                   <Button
-                    // title="Imprimir ticket"
-                    title="Desactivado temporalmente"
-                    text="Imprimir (desactivado temporalmente)"
+                    title="Imprimir ticket (Beta)"
+                    text="Imprimir (Beta)"
                     icon={<Printer size={18} />}
                     colorText="text-white"
                     colorTextHover="hover:text-white"
                     px="px-1"
                     py="py-1"
                     onClick={handlePrintTicket}
-                    // disabled={selectedSale?.credit}
-                    disabled
+                    disabled={selectedSale?.credit}
                   />
                   <Button
                     title="Cerrar"
@@ -1540,7 +1538,7 @@ const VentasPage = () => {
                 </div>
               }
             >
-              <div className=" w-full min-w-[180mm] overflow-y-auto dark:bg-gray_b">
+              <div className="w-full min-w-[180mm] overflow-y-auto dark:bg-gray_b">
                 <PrintableTicket
                   ref={ticketRef}
                   sale={selectedSale}
