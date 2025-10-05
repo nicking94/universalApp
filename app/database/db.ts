@@ -55,7 +55,7 @@ class MyDatabase extends Dexie {
 
   constructor() {
     super("MyDatabase");
-    this.version(26)
+    this.version(27)
       .stores({
         theme: "id",
         products:
