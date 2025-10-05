@@ -72,9 +72,8 @@ const TrialNotification = () => {
       setDaysLeft(remainingDays);
       await db.appState.put({ id: 1, lastActiveDate: now });
 
-      // Calcular la fecha de descuento basada en la fecha de primer acceso (startDate)
       const discountEndDate = new Date(startDate);
-      discountEndDate.setDate(startDate.getDate() + 3); // Siempre 3 días después del primer acceso
+      discountEndDate.setDate(startDate.getDate() + 3);
       const formattedDiscountDate = discountEndDate.toLocaleDateString(
         "es-ES",
         {

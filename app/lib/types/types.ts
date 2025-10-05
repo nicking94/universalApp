@@ -211,6 +211,8 @@ export type Product = {
     rubro: Rubro;
   }[];
   season?: string;
+  setMinStock?: boolean;
+  minStock?: number;
 };
 export type ProductDisplayInfo = {
   name: string;

@@ -49,6 +49,10 @@ export default function ImportExportPage() {
       const notifications = await db.notifications.toArray();
       const expenses = await db.expenses.toArray();
       const expensesCategories = await db.expenseCategories.toArray();
+      const trialPeriods = await db.trialPeriods.toArray();
+      const appState = await db.appState.toArray();
+      const returns = await db.returns.toArray();
+      const customCategories = await db.customCategories.toArray();
 
       const data = {
         theme,
@@ -68,8 +72,10 @@ export default function ImportExportPage() {
         notifications,
         expenses,
         expensesCategories,
-        customCategories: await db.customCategories.toArray(),
-        returns: await db.returns.toArray(),
+        trialPeriods,
+        appState,
+        returns,
+        customCategories,
       };
       const json = JSON.stringify(data, null, 2);
       const blob = new Blob([json], { type: "application/json;charset=utf-8" });
@@ -90,6 +96,8 @@ export default function ImportExportPage() {
 
     const text = await file.text();
     const data = JSON.parse(text);
+
+    // CORREGIR: Este código tiene un problema lógico
     if (data.sales && data.payments) {
       const paymentMap = new Map();
       data.payments.forEach((payment: Payment) => {
@@ -111,8 +119,11 @@ export default function ImportExportPage() {
         return sale;
       });
     }
+
+    // CORREGIR: Mejorar la lógica de categorías personalizadas
     if (data.products && Array.isArray(data.products)) {
       data.products = data.products.map((product: Product) => {
+        // Verificar si necesita migración de categorías
         if (
           product.category &&
           (!product.customCategories || product.customCategories.length === 0)
@@ -153,50 +164,65 @@ export default function ImportExportPage() {
           db.returns,
           db.expenses,
           db.expenseCategories,
+          // AGREGAR LAS NUEVAS TABLAS:
+          db.trialPeriods,
+          db.appState,
         ],
         async () => {
-          await db.theme.clear();
-          await db.products.clear();
-          await db.sales.clear();
-          await db.auth.clear();
-          await db.dailyCashes.clear();
-          await db.payments.clear();
-          await db.customers.clear();
-          await db.suppliers.clear();
-          await db.supplierProducts.clear();
-          await db.budgets.clear();
-          await db.notes.clear();
-          await db.userPreferences.clear();
-          await db.businessData.clear();
-          await db.deletedActualizations.clear();
-          await db.notifications.clear();
-          await db.customCategories.clear();
-          await db.returns.clear();
-          await db.expenses.clear();
-          await db.expenseCategories.clear();
+          // Limpiar todas las tablas
+          await Promise.all([
+            db.theme.clear(),
+            db.products.clear(),
+            db.sales.clear(),
+            db.auth.clear(),
+            db.dailyCashes.clear(),
+            db.payments.clear(),
+            db.customers.clear(),
+            db.suppliers.clear(),
+            db.supplierProducts.clear(),
+            db.budgets.clear(),
+            db.notes.clear(),
+            db.userPreferences.clear(),
+            db.businessData.clear(),
+            db.deletedActualizations.clear(),
+            db.notifications.clear(),
+            db.customCategories.clear(),
+            db.returns.clear(),
+            db.expenses.clear(),
+            db.expenseCategories.clear(),
+            // Limpiar las nuevas tablas:
+            db.trialPeriods.clear(),
+            db.appState.clear(),
+          ]);
 
           try {
-            await db.theme.bulkAdd(data.theme || []);
-            await db.products.bulkAdd(data.products || []);
-            await db.sales.bulkPut(data.sales || []);
-            await db.auth.bulkAdd(data.auth || []);
-            await db.dailyCashes.bulkAdd(data.dailyCashes || []);
-            await db.payments.bulkAdd(data.payments || []);
-            await db.customers.bulkAdd(data.customers || []);
-            await db.suppliers.bulkAdd(data.suppliers || []);
-            await db.supplierProducts.bulkAdd(data.supplierProducts || []);
-            await db.budgets.bulkAdd(data.budgets || []);
-            await db.notes.bulkAdd(data.notes || []);
-            await db.userPreferences.bulkAdd(data.userPreferences || []);
-            await db.businessData.bulkAdd(data.businessData || []);
-            await db.deletedActualizations.bulkAdd(
-              data.deletedActualizations || []
-            );
-            await db.notifications.bulkAdd(data.notifications || []);
-            await db.customCategories.bulkAdd(data.customCategories || []);
-            await db.returns.bulkAdd(data.returns || []);
-            await db.expenses.bulkAdd(data.expenses || []);
-            await db.expenseCategories.bulkAdd(data.expenseCategories || []);
+            // Importar todos los datos
+            await Promise.all([
+              db.theme.bulkAdd(data.theme || []),
+              db.products.bulkAdd(data.products || []),
+              db.sales.bulkPut(data.sales || []),
+              db.auth.bulkAdd(data.auth || []),
+              db.dailyCashes.bulkAdd(data.dailyCashes || []),
+              db.payments.bulkAdd(data.payments || []),
+              db.customers.bulkAdd(data.customers || []),
+              db.suppliers.bulkAdd(data.suppliers || []),
+              db.supplierProducts.bulkAdd(data.supplierProducts || []),
+              db.budgets.bulkAdd(data.budgets || []),
+              db.notes.bulkAdd(data.notes || []),
+              db.userPreferences.bulkAdd(data.userPreferences || []),
+              db.businessData.bulkAdd(data.businessData || []),
+              db.deletedActualizations.bulkAdd(
+                data.deletedActualizations || []
+              ),
+              db.notifications.bulkAdd(data.notifications || []),
+              db.customCategories.bulkAdd(data.customCategories || []),
+              db.returns.bulkAdd(data.returns || []),
+              db.expenses.bulkAdd(data.expenses || []),
+              db.expenseCategories.bulkAdd(data.expenseCategories || []),
+              // Importar las nuevas tablas:
+              db.trialPeriods.bulkAdd(data.trialPeriods || []),
+              db.appState.bulkAdd(data.appState || []),
+            ]);
           } catch (e) {
             console.error("Error al importar datos:", e);
             throw e;

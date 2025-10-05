@@ -71,11 +71,18 @@ export const systemActualizations: Actualization[] = [
   //     "- Agregada la opción de incluir o no el IVA en los precios al crear un producto.\n- Se aregó un campo de RECARGO a cada producto al hacer ventas",
   //   date: new Date().toISOString(),
   // },
+  // {
+  //   id: 11,
+  //   title: `Versión 1.5 - Mejoras`,
+  //   message:
+  //     "- Ahora podes seleccionar un cliente en las ventas. Así podrás ver su historial de compras desde el módulo de CLIENTES. Se agregaron también nuevos campos al registrar a un cliente (cuit/dni, email y dirección)\n- Mejoras en las etiquetas de códigos de barras. Agregado un selector para poder quitar el precio del producto en la etiqueta",
+  //   date: new Date().toISOString(),
+  // },
   {
-    id: 11,
-    title: `Versión 1.5 - Mejoras`,
+    id: 12,
+    title: `Versión 1.5.1 - Actualización`,
     message:
-      "- Ahora podes seleccionar un cliente en las ventas. Así podrás ver su historial de compras desde el módulo de CLIENTES. Se agregaron también nuevos campos al registrar a un cliente (cuit/dni, email y dirección)\n- Mejoras en las etiquetas de códigos de barras. Agregado un selector para poder quitar el precio del producto en la etiqueta",
+      "- Ahora podés exportar en PDF las cuentas corrientes de cada cliente, Además podrás generar reportes individuales con el detalle completo de ventas, pagos y saldos pendientes\n- 📊 Agregada la opción de STOCK MINIMO por producto. Cuando el stock esté por debajo del nivel mínimo, verás una alerta visual en la tabla de productos para reponer a tiempo",
     date: new Date().toISOString(),
   },
 ];

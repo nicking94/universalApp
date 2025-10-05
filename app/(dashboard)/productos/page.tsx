@@ -69,6 +69,8 @@ const ProductsPage = () => {
     location: "",
     customCategory: "",
     customCategories: [],
+    setMinStock: false,
+    minStock: 0,
   });
   const [sortConfig, setSortConfig] = useState<{
     field: keyof Product;
@@ -749,6 +751,8 @@ const ProductsPage = () => {
       originalProduct.lot !== updatedProduct.lot ||
       originalProduct.location !== updatedProduct.location ||
       originalProduct.customCategories !== updatedProduct.customCategories ||
+      originalProduct.setMinStock !== updatedProduct.setMinStock ||
+      originalProduct.minStock !== updatedProduct.minStock ||
       (rubro === "indumentaria" &&
         (originalProduct.category !== updatedProduct.category ||
           originalProduct.color !== updatedProduct.color ||
@@ -986,6 +990,8 @@ const ProductsPage = () => {
       customCategory: "",
       size: product.size || "",
       color: product.color || "",
+      setMinStock: product.setMinStock || false,
+      minStock: product.minStock || 0,
     });
 
     setIsOpenModal(true);
@@ -1323,14 +1329,30 @@ const ProductsPage = () => {
                             className={`${
                               !isNaN(Number(product.stock)) &&
                               Number(product.stock) > 0
-                                ? ""
+                                ? product.setMinStock &&
+                                  product.minStock &&
+                                  product.stock < product.minStock
+                                  ? "text-white font-semibold bg-blue_m"
+                                  : ""
                                 : "text-red_b"
-                            }p-2 border border-gray_xl`}
+                            } p-2 border border-gray_xl relative`}
                           >
-                            {!isNaN(Number(product.stock)) &&
-                            Number(product.stock) > 0
-                              ? `${product.stock} ${product.unit}`
-                              : "Agotado"}
+                            <div className="flex flex-col">
+                              <span className="font-semibold">
+                                {!isNaN(Number(product.stock)) &&
+                                Number(product.stock) > 0
+                                  ? `${product.stock} ${product.unit}`
+                                  : "Agotado"}
+                              </span>
+
+                              {product.setMinStock &&
+                                product.minStock &&
+                                product.stock < product.minStock && (
+                                  <span className="text-xs text-blue_xl font-medium mt-1">
+                                    Stock por debajo del mínimo
+                                  </span>
+                                )}
+                            </div>
                           </td>
                           <td className="p-2 border border-gray_xl capitalize">
                             {product.customCategories?.[0]?.name || "-"}
@@ -2175,28 +2197,73 @@ const ProductsPage = () => {
                   }}
                   isClearable={true}
                 />
+              </div>
+            ) : null}
+            <div className="w-full flex items-center space-x-4">
+              <div className="w-1/2">
+                <Input
+                  label="Stock*"
+                  type="number"
+                  name="stock"
+                  placeholder="Stock"
+                  value={newProduct.stock.toString()}
+                  onChange={handleInputChange}
+                />
+              </div>
 
-                <Input
-                  label="Stock*"
-                  type="number"
-                  name="stock"
-                  placeholder="Stock"
-                  value={newProduct.stock.toString()}
-                  onChange={handleInputChange}
-                />
+              <div className="w-1/2 flex flex-col space-y-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="setMinStock"
+                    name="setMinStock"
+                    checked={newProduct.setMinStock || false}
+                    onChange={(e) => {
+                      setNewProduct({
+                        ...newProduct,
+                        setMinStock: e.target.checked,
+                        minStock: e.target.checked
+                          ? newProduct.minStock || 1
+                          : 0, // Cambiar a 1 por defecto
+                      });
+                    }}
+                    className="cursor-pointer w-4 h-4 text-blue_b bg-gray_xxl border-gray_l rounded"
+                  />
+                  <label
+                    htmlFor="setMinStock"
+                    className="text-sm text-gray_m dark:text-white"
+                  >
+                    Setear stock mínimo
+                  </label>
+                </div>
+
+                {newProduct.setMinStock && (
+                  <div className="w-full">
+                    <Input
+                      label="Stock Mínimo*"
+                      type="number"
+                      name="minStock"
+                      placeholder="Stock mínimo requerido"
+                      value={newProduct.minStock?.toString() || ""}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setNewProduct({
+                          ...newProduct,
+                          minStock: value === "" ? 1 : Number(value),
+                        });
+                      }}
+                      step="1"
+                    />
+                    {newProduct.setMinStock &&
+                      (!newProduct.minStock || newProduct.minStock <= 0) && (
+                        <p className="text-red-500 text-xs mt-1">
+                          El stock mínimo debe ser mayor a 0
+                        </p>
+                      )}
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="w-full">
-                <Input
-                  label="Stock*"
-                  type="number"
-                  name="stock"
-                  placeholder="Stock"
-                  value={newProduct.stock.toString()}
-                  onChange={handleInputChange}
-                />
-              </div>
-            )}
+            </div>
           </form>
         </Modal>
         <Modal

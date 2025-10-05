@@ -20,13 +20,15 @@ import {
   SaleItem,
 } from "@/app/lib/types/types";
 import SearchBar from "@/app/components/SearchBar";
-import { CheckCircle, Info, Plus, Trash, Wallet } from "lucide-react";
+import { CheckCircle, Download, Info, Plus, Trash, Wallet } from "lucide-react";
 import Pagination from "@/app/components/Pagination";
 import InputCash from "@/app/components/InputCash";
 import { useRubro } from "@/app/context/RubroContext";
 import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
 import { getLocalDateString } from "@/app/lib/utils/getLocalDate";
 import { usePagination } from "@/app/context/PaginationContext";
+import { ClienteCuentaCorrientePDF } from "@/app/components/ClienteCuentaCorrientePDF";
+import { pdf } from "@react-pdf/renderer";
 
 const CuentasCorrientesPage = () => {
   const { rubro } = useRubro();
@@ -61,6 +63,71 @@ const CuentasCorrientesPage = () => {
     ChequeWithDetails[]
   >([]);
   const [chequeFilter, setChequeFilter] = useState<ChequeFilter>("todos");
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
+  const prepareCustomerPDFData = (customerName: string) => {
+    const customerSales = salesByCustomer[customerName];
+    const customerBalance = calculateCustomerBalance(customerName);
+
+    // Preparar datos detallados de cada venta
+    const salesData = customerSales.map((sale) => {
+      const salePayments = payments.filter((p) => p.saleId === sale.id);
+      const totalPayments = salePayments.reduce((sum, p) => {
+        if (p.method === "CHEQUE" && p.checkStatus !== "cobrado") {
+          return sum;
+        }
+        return sum + p.amount;
+      }, 0);
+      const remainingBalance = sale.total - totalPayments;
+      const isPaid = remainingBalance <= 0;
+
+      return {
+        id: sale.id,
+        date: sale.date,
+        products: sale.products.map((product) => ({
+          name: getDisplayProductName(
+            {
+              name: product.name,
+              size: product.size,
+              color: product.color,
+              rubro: product.rubro,
+            },
+            rubro,
+            false // Sin emojis para PDF
+          ),
+          quantity: product.quantity,
+          unit: product.unit,
+          price: product.price,
+          size: product.size,
+          color: product.color,
+        })),
+        total: sale.total,
+        totalPayments,
+        remainingBalance,
+        isPaid,
+      };
+    });
+
+    const totalDeuda = salesData.reduce(
+      (sum, sale) =>
+        sale.remainingBalance > 0 ? sum + sale.remainingBalance : sum,
+      0
+    );
+
+    const totalPagado = salesData.reduce(
+      (sum, sale) => sum + sale.totalPayments,
+      0
+    );
+
+    return {
+      customerName,
+      sales: salesData,
+      totalBalance: customerBalance,
+      totalDeuda,
+      totalPagado,
+      fechaReporte: format(new Date(), "dd/MM/yyyy", { locale: es }),
+    };
+  };
 
   const filteredSales = creditSales
     .filter((sale) => {
@@ -300,6 +367,44 @@ const CuentasCorrientesPage = () => {
   const handleSearch = (query: string) => {
     setSearchQuery(query);
   };
+
+  const handleExportCustomerPDF = async (customerName: string) => {
+    setIsGeneratingPDF(true);
+    try {
+      const pdfData = prepareCustomerPDFData(customerName);
+      const blob = await pdf(
+        <ClienteCuentaCorrientePDF {...pdfData} />
+      ).toBlob();
+
+      // Crear URL y descargar
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+
+      // Nombre del archivo con el nombre del cliente (sin caracteres especiales)
+      const fileName = `cuenta-corriente-${customerName.replace(
+        /[^a-zA-Z0-9]/g,
+        "-"
+      )}-${format(new Date(), "dd-MM-yyyy")}.pdf`;
+      link.download = fileName;
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      showNotification(
+        `PDF de ${customerName} generado correctamente`,
+        "success"
+      );
+    } catch (error) {
+      console.error("Error al generar PDF:", error);
+      showNotification("Error al generar PDF", "error");
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
   const handleMarkCheckAsPaid = async (checkId: number) => {
     try {
       const payment = await db.payments.get(checkId);
@@ -724,7 +829,8 @@ const CuentasCorrientesPage = () => {
         <h1 className="text-lg 2xl:text-xl font-semibold mb-2">
           Cuentas corrientes
         </h1>
-        <div className="w-full mb-2">
+
+        <div className="flex justify-between mb-2 w-full">
           <SearchBar onSearch={handleSearch} />
         </div>
 
@@ -781,6 +887,20 @@ const CuentasCorrientesPage = () => {
                         {rubro !== "Todos los rubros" && (
                           <td className="border border-gray_xl p-2">
                             <div className="flex justify-center items-center h-full gap-2">
+                              <Button
+                                icon={<Download size={18} />}
+                                colorText="text-gray_b"
+                                colorTextHover="hover:text-white"
+                                colorBg="bg-transparent"
+                                px="px-2"
+                                py="py-1"
+                                minwidth="min-w-0"
+                                onClick={() =>
+                                  handleExportCustomerPDF(customerName)
+                                }
+                                title="Descargar PDF de cuenta corriente"
+                                disabled={isGeneratingPDF}
+                              />
                               <Button
                                 icon={<Wallet size={18} />}
                                 colorText="text-gray_b"
@@ -1019,8 +1139,22 @@ const CuentasCorrientesPage = () => {
           title={`Cuentas corrientes de ${
             currentCustomerInfo?.name || "Cliente"
           }`}
+          // En el modal de información (isInfoModalOpen), actualiza los botones:
           buttons={
-            <div className="w-full flex justify-end">
+            <div className="w-full flex justify-between">
+              <Button
+                text="Descargar PDF"
+                icon={<Download size={18} />}
+                onClick={() => {
+                  if (currentCustomerInfo) {
+                    handleExportCustomerPDF(currentCustomerInfo.name);
+                    setIsInfoModalOpen(false);
+                  }
+                }}
+                colorText="text-white"
+                colorBg="bg-blue_m"
+                colorBgHover="hover:bg-blue_b"
+              />
               <Button
                 text="Cerrar"
                 colorText="text-gray_b dark:text-white"

@@ -46,6 +46,7 @@ import { Pie, Bar } from "react-chartjs-2";
 import { usePagination } from "@/app/context/PaginationContext";
 import AdvancedFilterPanel from "@/app/components/AdvancedFilterPanel";
 import { toCapitalize } from "@/app/lib/utils/capitalizeText";
+import Image from "next/image";
 
 ChartJS.register(
   ArcElement,
@@ -1422,7 +1423,7 @@ const MovimientosPage = () => {
           >
             <div className="flex justify-center">
               {receiptPreview.startsWith("data:image") ? (
-                <img
+                <Image
                   src={receiptPreview}
                   alt="Comprobante"
                   className="max-h-[70vh] max-w-full object-contain"
