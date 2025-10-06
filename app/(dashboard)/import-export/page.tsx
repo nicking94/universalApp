@@ -35,7 +35,6 @@ export default function ImportExportPage() {
       const theme = await db.theme.toArray();
       const products = await db.products.toArray();
       const sales = await db.sales.toArray();
-      const auth = await db.auth.toArray();
       const dailyCashes = await db.dailyCashes.toArray();
       const payments = await db.payments.toArray();
       const customers = await db.customers.toArray();
@@ -58,7 +57,6 @@ export default function ImportExportPage() {
         theme,
         products,
         sales,
-        auth,
         dailyCashes,
         payments,
         customers,
@@ -230,7 +228,14 @@ export default function ImportExportPage() {
         }
       );
 
-      showNotification("Datos importados correctamente", "success");
+      showNotification(
+        "Datos importados correctamente. Redirigiendo al login...",
+        "success"
+      );
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
     } catch (error) {
       console.error("Error al importar datos:", error);
       showNotification("Error al importar los datos", "error");
