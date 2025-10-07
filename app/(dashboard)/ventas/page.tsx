@@ -1514,7 +1514,6 @@ const VentasPage = () => {
               title="Ticket de la venta"
               buttons={
                 <div className="flex justify-end gap-4">
-                  {/* desactivado temporalmente */}
                   <Button
                     title="Imprimir ticket (Beta)"
                     text="Imprimir (Beta)"
