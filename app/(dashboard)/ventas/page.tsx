@@ -58,6 +58,7 @@ const VentasPage = () => {
     barcode: "",
     manualAmount: 0,
     manualProfitPercentage: 0,
+    concept: "",
   });
 
   const router = useRouter();
@@ -928,6 +929,7 @@ const VentasPage = () => {
         customerPhone: isCredit ? customerPhone : finalCustomerPhone,
         customerId: customerId || "",
         paid: !isCredit,
+        concept: newSale.concept || "",
       };
 
       if (!isCredit) {
@@ -1011,6 +1013,9 @@ const VentasPage = () => {
       total: 0,
       date: new Date().toISOString(),
       barcode: "",
+      manualAmount: 0,
+      manualProfitPercentage: 0,
+      concept: "",
     });
     setIsCredit(false);
     setRegisterCheck(false);
@@ -1376,6 +1381,7 @@ const VentasPage = () => {
               <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-xs">
                 <tr>
                   <th className="p-2 text-start ">Productos</th>
+                  <th className="p-2">Concepto</th>
                   <th className="p-2 ">Fecha</th>
                   <th className="p-2">Forma De Pago</th>
                   <th className="p-2">Total</th>
@@ -1386,9 +1392,7 @@ const VentasPage = () => {
                   )}
                 </tr>
               </thead>
-              <tbody
-                className={`bg-white text-gray_b divide-y divide-gray_xl `}
-              >
+              <tbody className={`bg-white text-gray_b divide-y divide-gray_xl`}>
                 {currentSales.length > 0 ? (
                   currentSales.map((sale) => {
                     const products = sale.products || [];
@@ -1401,7 +1405,7 @@ const VentasPage = () => {
                     return (
                       <tr
                         key={sale.id || Date.now()}
-                        className=" text-xs 2xl:text-sm bg-white text-gray_b border border-gray_xl hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
+                        className="text-xs 2xl:text-sm bg-white text-gray_b border border-gray_xl hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
                       >
                         <td
                           className="font-semibold px-2 text-start capitalize border border-gray_xl truncate max-w-[200px]"
@@ -1419,6 +1423,23 @@ const VentasPage = () => {
                             : products
                                 .map((p) => getDisplayProductName(p, rubro))
                                 .join(" | ")}
+                        </td>
+
+                        <td
+                          className="p-2 border border-gray_xl text-start max-w-[150px] truncate"
+                          title={sale.concept || "Sin concepto"}
+                        >
+                          {sale.concept ? (
+                            <span className="text-xs text-gray_m">
+                              {sale.concept.length > 50
+                                ? `${sale.concept.substring(0, 50)}...`
+                                : sale.concept}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray_l italic">
+                              -
+                            </span>
+                          )}
                         </td>
 
                         <td className="p-2 border border-gray_xl">
@@ -1459,7 +1480,7 @@ const VentasPage = () => {
                             </>
                           )}
                         </td>
-                        <td className=" p-2 border border-gray_xl font-semibold">
+                        <td className="p-2 border border-gray_xl font-semibold">
                           {sale.credit ? (
                             <span className="text-orange-600">
                               $
@@ -1496,7 +1517,9 @@ const VentasPage = () => {
                   })
                 ) : (
                   <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
-                    <td colSpan={5} className="py-4 text-center">
+                    <td colSpan={6} className="py-4 text-center">
+                      {" "}
+                      {/* Actualizar colSpan a 6 */}
                       <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
                         <ShoppingCart size={64} className="mb-4 text-gray_m" />
                         <p className="text-gray_m">Todavía no hay ventas.</p>
@@ -2075,6 +2098,24 @@ const VentasPage = () => {
                       </>
                     ) : null}
                   </div>
+                </div>
+                <div className="w-full">
+                  <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                    Concepto (Opcional)
+                  </label>
+                  <textarea
+                    value={newSale.concept || ""}
+                    onChange={(e) =>
+                      setNewSale((prev) => ({
+                        ...prev,
+                        concept: e.target.value,
+                      }))
+                    }
+                    placeholder="Ingrese un concepto para esta venta..."
+                    className="w-full p-2 border border-gray_xl rounded-md text-sm text-gray_b dark:text-white bg-white dark:bg-gray_m resize-none"
+                    rows={3}
+                    maxLength={50}
+                  />
                 </div>
                 <div className="flex items-center gap-2 mb-2">
                   <input

@@ -265,6 +265,7 @@ export type Sale = {
     status: "pendiente" | "cobrado";
     date: string;
   };
+  concept?: string;
 };
 
 export type SaleItem = {
@@ -408,6 +409,7 @@ export interface CreditSale extends Sale {
   customerPhone?: string;
   customerId?: string;
   paid?: boolean;
+  concept?: string;
 }
 export type ProductReturn = {
   id: number;

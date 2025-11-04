@@ -78,11 +78,18 @@ export const systemActualizations: Actualization[] = [
   //     "- Ahora podes seleccionar un cliente en las ventas. Así podrás ver su historial de compras desde el módulo de CLIENTES. Se agregaron también nuevos campos al registrar a un cliente (cuit/dni, email y dirección)\n- Mejoras en las etiquetas de códigos de barras. Agregado un selector para poder quitar el precio del producto en la etiqueta",
   //   date: new Date().toISOString(),
   // },
+  // {
+  //   id: 12,
+  //   title: `Versión 1.5.1 - Actualización`,
+  //   message:
+  //     "- Ahora podés exportar en PDF las cuentas corrientes de cada cliente, Además podrás generar reportes individuales con el detalle completo de ventas, pagos y saldos pendientes\n- 📊 Agregada la opción de STOCK MINIMO por producto. Cuando el stock esté por debajo del nivel mínimo, verás una alerta visual en la tabla de productos para reponer a tiempo",
+  //   date: new Date().toISOString(),
+  // },
   {
-    id: 12,
-    title: `Versión 1.5.1 - Actualización`,
+    id: 13,
+    title: `Versión 1.5.2 - Mejoras`,
     message:
-      "- Ahora podés exportar en PDF las cuentas corrientes de cada cliente, Además podrás generar reportes individuales con el detalle completo de ventas, pagos y saldos pendientes\n- 📊 Agregada la opción de STOCK MINIMO por producto. Cuando el stock esté por debajo del nivel mínimo, verás una alerta visual en la tabla de productos para reponer a tiempo",
+      "- Ahora podés agregar un concepto a la venta y visualizarlo en el listado de ventas. Mejoras en el rendimiento",
     date: new Date().toISOString(),
   },
 ];
