@@ -476,7 +476,8 @@ const Metrics = () => {
                     quantity: existing.quantity + item.quantity,
                     amount:
                       existing.amount +
-                      calculatePrice(product, item.quantity, itemUnit),
+                      calculatePrice(product, item.quantity, itemUnit)
+                        .finalPrice,
                     profit: existing.profit + profitPerUnit,
                     unit: itemUnit,
                     rubro: existing.rubro,

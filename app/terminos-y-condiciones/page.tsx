@@ -116,7 +116,7 @@ const TermsAndConditionsPage = () => {
               Si tiene preguntas, sugerencias o necesita soporte, puede
               comunicarse a través de WhatsApp al{" "}
               <strong>+54 9 261 307 7147</strong> o por correo electrónico a{" "}
-              <strong>universalweb94@gmail.com</strong>.
+              <strong>universalappcontacto@gmail.com</strong>.
             </p>
           </section>
         </div>

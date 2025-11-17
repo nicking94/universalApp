@@ -11,6 +11,8 @@ import { BusinessDataProvider } from "../context/BusinessDataContext";
 import { PaginationProvider } from "../context/PaginationContext";
 import UpdatesManager from "../components/Notifications/UpdatesManager";
 import PaymentNotification from "../components/PaymentNotification";
+import UpdateModal from "../components/UpdateModal";
+import { useAppVersion } from "../hooks/useAppVersion";
 
 export default function AppLayout({
   children,
@@ -20,6 +22,17 @@ export default function AppLayout({
   const { isSidebarOpen } = useSidebar();
   const router = useRouter();
   const [theme, setTheme] = useState<string>("light");
+
+  // Usar el hook de versión - INCLUIR minLoadTimePassed
+  const {
+    showUpdateModal,
+    isUpdating,
+    minLoadTimePassed, // ← Añadir esta línea
+    forceUpdate,
+    logoutAndUpdate,
+    currentVersion,
+    storedVersion,
+  } = useAppVersion();
 
   const handleTheme = () => {
     setTheme((prev) => (prev === "dark" ? "light" : "dark"));
@@ -63,6 +76,18 @@ export default function AppLayout({
             <TrialNotification />
             <PaymentNotification />
             <UpdatesManager />
+
+            {/* Modal de actualización - con alta prioridad */}
+            <UpdateModal
+              isOpen={showUpdateModal}
+              onUpdate={forceUpdate}
+              onLogout={logoutAndUpdate}
+              isUpdating={isUpdating}
+              minLoadTimePassed={minLoadTimePassed}
+              currentVersion={currentVersion}
+              storedVersion={storedVersion}
+            />
+
             <Navbar
               theme={theme}
               handleTheme={handleTheme}

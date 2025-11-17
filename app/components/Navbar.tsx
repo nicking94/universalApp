@@ -7,7 +7,6 @@ import logo from "../../public/logo.png";
 import { useRubro } from "../context/RubroContext";
 import Select from "react-select";
 import NotificationIcon from "./Notifications/NotificationIcon";
-import { APP_VERSION } from "../lib/constants/constants";
 
 const rubroOptions = [
   { value: "Todos los rubros", label: "Todos los rubros" },
@@ -34,16 +33,16 @@ const Navbar: React.FC<NavbarProps> = ({
       >
         <div className="flex items-center gap-2">
           <Image className="rounded-full w-8 h-8" src={logo} alt="User Logo" />
-          <h1 className="text-lg italic">
-            Universal App <span className="text-[.8rem]">v.{APP_VERSION}</span>{" "}
-            | <span className="uppercase text-sm">{rubro}</span>
+          <h1 className="text-gray_m dark:text-gray_xl text-md italic">
+            Universal App <span className="text-[.8rem] text-gray_l"></span> |{" "}
+            <span className="uppercase text-sm">{rubro}</span>
           </h1>
         </div>
 
         <div className="flex items-center space-x-6 ">
-          <div className="flex items-center space-x-2  p-1">
-            <p className="w-full min-w-23 dark:text-white italic text-md font-normal text-gray_m border-b-1 border-blue_l ">
-              Rubro actual:
+          <div className="flex flex-col items-center justify-center p-1">
+            <p className=" text-center w-full min-w-23 font-bold text-xs text-blue_b dark:text-white ">
+              Rubro actual
             </p>
             <Select
               options={rubroOptions}

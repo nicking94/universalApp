@@ -20,6 +20,7 @@ import {
   Expense,
   ExpenseCategory,
   DailyCashMovement,
+  Promotion,
 } from "../lib/types/types";
 
 class MyDatabase extends Dexie {
@@ -52,10 +53,11 @@ class MyDatabase extends Dexie {
   returns!: Table<ProductReturn, number>;
   expenses!: Table<Expense, number>;
   expenseCategories!: Table<ExpenseCategory, number>;
+  promotions!: Table<Promotion, number>;
 
   constructor() {
     super("MyDatabase");
-    this.version(28)
+    this.version(30)
       .stores({
         theme: "id",
         products:
@@ -75,7 +77,8 @@ class MyDatabase extends Dexie {
         supplierProducts: "[supplierId+productId], supplierId, productId",
         appState: "id",
         trialPeriods: "&userId, firstAccessDate",
-        userPreferences: "++id, userId",
+        userPreferences:
+          "++id, userId, acceptedTerms, acceptedTermsDate, itemsPerPage, appVersion",
         businessData: "++id",
         budgets:
           "++id, customerName, customerPhone, customerId, createdAt, updatedAt, status",
@@ -86,6 +89,8 @@ class MyDatabase extends Dexie {
         deletedActualizations: "++id, actualizationId",
         expenses: "++id, date, amount, description, category, type",
         expenseCategories: "++id, name, rubro, type",
+        promotions:
+          "++id, name, type, status, startDate, endDate, rubro, [rubro+status]",
       })
       .upgrade(async (trans) => {
         await trans

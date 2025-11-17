@@ -18,7 +18,7 @@ interface FechaPatriaProps {
 
 const FechaPatria: React.FC<FechaPatriaProps> = ({
   title = "Contacto",
-  email = "universalweb94@gmail.com",
+  email = "universalappcontacto@gmail.com",
   whatsappNumber = "+54 26130771477",
   whatsappLink = "https://wa.me/5492613077147",
   className = "w-[65%] xl:w-[75%] flex flex-col justify-center bg-gradient-to-bl from-blue_m to-blue_xl",

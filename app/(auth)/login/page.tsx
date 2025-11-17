@@ -1,3 +1,4 @@
+// app/login/page.tsx
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -6,7 +7,7 @@ import Notification from "@/app/components/Notification";
 import { AuthData } from "@/app/lib/types/types";
 import { TRIAL_CREDENTIALS, USERS } from "@/app/lib/constants/constants";
 import { db } from "../../database/db";
-import Common from "@/app/components/LoginScreens/Common";
+import Navidad from "@/app/components/LoginScreens/Navidad";
 
 const LoginPage = () => {
   const router = useRouter();
@@ -39,6 +40,14 @@ const LoginPage = () => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get("expired") === "true") {
       setNotificationMessage("Su periodo de prueba ha expirado");
+      setNotificationType("error");
+      setIsOpenNotification(true);
+      setTimeout(() => setIsOpenNotification(false), 2500);
+    }
+
+    // Manejar usuario inactivo
+    if (urlParams.get("inactive") === "true") {
+      setNotificationMessage("Usuario desactivado por falta de pago");
       setNotificationType("error");
       setIsOpenNotification(true);
       setTimeout(() => setIsOpenNotification(false), 2500);
@@ -128,6 +137,22 @@ const LoginPage = () => {
       acceptedTerms: true,
       acceptedTermsDate: new Date().toISOString(),
     });
+
+    // VERIFICAR SI EL USUARIO ESTÁ ACTIVO ANTES DE PERMITIR LOGIN
+    const userFromConstants = USERS.find(
+      (u) => u.username === data.username && u.password === data.password
+    );
+
+    if (userFromConstants && userFromConstants.isActive === false) {
+      setNotificationMessage(
+        "Usuario desactivado por falta de pago. Contacte al administrador."
+      );
+      setNotificationType("error");
+      setIsOpenNotification(true);
+      setTimeout(() => setIsOpenNotification(false), 2500);
+      return;
+    }
+
     if (
       data.username === TRIAL_CREDENTIALS.username &&
       data.password === TRIAL_CREDENTIALS.password
@@ -223,7 +248,7 @@ const LoginPage = () => {
         acceptedTerms={acceptedTerms}
         onTermsCheckboxChange={setAcceptedTerms}
       />
-      <Common />
+      <Navidad />
 
       <Notification
         isOpen={isOpenNotification}

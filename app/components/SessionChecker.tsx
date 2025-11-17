@@ -1,23 +1,45 @@
+// components/SessionChecker.tsx
 "use client";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "../database/db";
-import { TRIAL_CREDENTIALS } from "../lib/constants/constants";
+import { TRIAL_CREDENTIALS, USERS } from "../lib/constants/constants";
+import { useAuth } from "../context/AuthContext";
 
 const SessionChecker = () => {
   const router = useRouter();
+  const { logoutUser, user } = useAuth();
 
   useEffect(() => {
     const checkSession = async () => {
       const auth = await db.auth.get(1);
-      if (!auth?.isAuthenticated || !auth.userId) return;
+      if (!auth?.isAuthenticated || !auth.userId) {
+        return;
+      }
 
       const user = await db.users.get(auth.userId);
-      if (!user) return;
+      if (!user) {
+        return;
+      }
 
       const now = new Date();
 
+      const userConfig = USERS.find((u) => u.id === auth.userId);
+      console.log(`🔍 Configuración del usuario:`, userConfig);
+
+      if (userConfig && userConfig.isActive === false) {
+        await db.auth.put({
+          id: 1,
+          isAuthenticated: false,
+          userId: undefined,
+        });
+
+        router.push("/login?inactive=true");
+        return;
+      }
+
       if (user.username === TRIAL_CREDENTIALS.username) {
+        console.log("🔍 Verificando periodo de prueba...");
         const trialRecord = await db.trialPeriods
           .where("userId")
           .equals(auth.userId)
@@ -31,7 +53,11 @@ const SessionChecker = () => {
 
             if (diffInDays > 7) {
               await db.users.delete(user.id);
-              await db.auth.update(1, { isAuthenticated: false });
+              await db.auth.put({
+                id: 1,
+                isAuthenticated: false,
+                userId: undefined,
+              });
               router.push("/login?expired=true");
               return;
             }
@@ -48,9 +74,13 @@ const SessionChecker = () => {
     };
 
     checkSession();
+
     const interval = setInterval(checkSession, 3600000);
-    return () => clearInterval(interval);
-  }, [router]);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [router, logoutUser, user]);
 
   return null;
 };

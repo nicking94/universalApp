@@ -1,23 +1,24 @@
+// calculations.ts
 import { Product } from "../types/types";
 
 const CONVERSION_FACTORS = {
-  gr: { base: "Kg", factor: 0.001 },
+  Gr: { base: "Kg", factor: 0.001 },
   Kg: { base: "Kg", factor: 1 },
-  ton: { base: "Kg", factor: 1000 },
-  ml: { base: "L", factor: 0.001 },
+  Ton: { base: "Kg", factor: 1000 },
+  Ml: { base: "L", factor: 0.001 },
   L: { base: "L", factor: 1 },
-  mm: { base: "m", factor: 0.001 },
-  cm: { base: "m", factor: 0.01 },
-  m: { base: "m", factor: 1 },
-  pulg: { base: "m", factor: 0.0254 },
-  Unid: { base: "Unid", factor: 1 },
-  docena: { base: "Unid", factor: 12 },
-  ciento: { base: "Unid", factor: 100 },
+  Mm: { base: "M", factor: 0.001 },
+  Cm: { base: "M", factor: 0.01 },
+  Pulg: { base: "M", factor: 0.0254 },
+  M: { base: "M", factor: 1 },
+  "Unid.": { base: "Unid.", factor: 1 },
+  Docena: { base: "Unid.", factor: 12 },
+  Ciento: { base: "Unid.", factor: 100 },
   Bulto: { base: "Bulto", factor: 1 },
   Caja: { base: "Caja", factor: 1 },
   Cajón: { base: "Cajón", factor: 1 },
-  m2: { base: "m²", factor: 1 },
-  m3: { base: "m³", factor: 1 },
+  "M²": { base: "M²", factor: 1 },
+  "M³": { base: "M³", factor: 1 },
   V: { base: "V", factor: 1 },
   A: { base: "A", factor: 1 },
   W: { base: "W", factor: 1 },
@@ -58,34 +59,6 @@ export const convertUnit = (
   const inBase = quantity * fromInfo.factor;
   return inBase / toInfo.factor;
 };
-export const calculateTotalProfit = (
-  products: Product[],
-  manualAmount: number = 0,
-  manualProfitPercentage: number = 0
-): number => {
-  const productsProfit = products.reduce(
-    (sum, p) => sum + calculateProfit(p, p.quantity, p.unit),
-    0
-  );
-  const manualProfit = (manualAmount * manualProfitPercentage) / 100;
-  return parseFloat((productsProfit + manualProfit).toFixed(2));
-};
-export const calculatePrice = (
-  product: Product,
-  quantity: number,
-  unit: string
-): number => {
-  try {
-    const quantityInProductUnit = convertUnit(quantity, unit, product.unit);
-    const priceWithoutDiscount = product.price * quantityInProductUnit;
-    const discount = product.discount || 0;
-    const discountAmount = (priceWithoutDiscount * discount) / 100;
-    return parseFloat((priceWithoutDiscount - discountAmount).toFixed(2));
-  } catch (error) {
-    console.error("Error calculating price:", error);
-    return 0;
-  }
-};
 
 export const calculateProfit = (
   product: Product,
@@ -93,21 +66,97 @@ export const calculateProfit = (
   unit: string
 ): number => {
   try {
-    const quantityInBaseUnit = convertToBaseUnit(quantity, unit);
-    const costInBaseUnit =
-      convertToBaseUnit(1, product.unit) * (product.costPrice || 0);
-    const priceInBaseUnit = convertToBaseUnit(1, product.unit) * product.price;
-    const profitPerBaseUnit = priceInBaseUnit - costInBaseUnit;
-    const profitWithoutDiscount = profitPerBaseUnit * quantityInBaseUnit;
-    const discount = product.discount || 0;
-    const discountAmount =
-      (product.price * quantityInBaseUnit * discount) / 100;
-
-    return parseFloat((profitWithoutDiscount - discountAmount).toFixed(2));
+    const priceInfo = calculatePrice(product, quantity, unit);
+    return priceInfo.profit;
   } catch (error) {
     console.error("Error calculating profit:", error);
     return 0;
   }
+};
+
+export const calculatePrice = (
+  product: Product,
+  quantity: number,
+  unit: string
+): {
+  finalPrice: number;
+  profit: number;
+  quantityInProductUnit: number;
+  discountAmount: number;
+  surchargeAmount: number;
+} => {
+  try {
+    const quantityInProductUnit = convertUnit(quantity, unit, product.unit);
+    const costPrice = product.costPrice || 0;
+
+    // Precio sin descuentos/recargos
+    const priceWithoutModifiers = product.price * quantityInProductUnit;
+
+    // Aplicar descuento
+    const discount = product.discount || 0;
+    const discountAmount = (priceWithoutModifiers * discount) / 100;
+    const priceAfterDiscount = priceWithoutModifiers - discountAmount;
+
+    // Aplicar recargo
+    const surcharge = product.surcharge || 0;
+    const surchargeAmount = (priceAfterDiscount * surcharge) / 100;
+    const finalPrice = priceAfterDiscount + surchargeAmount;
+
+    // Calcular ganancia (precio final - costo)
+    const totalCost = costPrice * quantityInProductUnit;
+    const profit = finalPrice - totalCost;
+
+    return {
+      finalPrice: parseFloat(finalPrice.toFixed(2)),
+      profit: parseFloat(profit.toFixed(2)),
+      quantityInProductUnit,
+      discountAmount: parseFloat(discountAmount.toFixed(2)),
+      surchargeAmount: parseFloat(surchargeAmount.toFixed(2)),
+    };
+  } catch (error) {
+    console.error("Error calculating price and profit:", error);
+    return {
+      finalPrice: 0,
+      profit: 0,
+      quantityInProductUnit: 0,
+      discountAmount: 0,
+      surchargeAmount: 0,
+    };
+  }
+};
+
+export const calculateTotal = (
+  products: Product[],
+  manualAmount: number = 0
+): number => {
+  const productsTotal = products.reduce(
+    (sum, p) => sum + calculatePrice(p, p.quantity, p.unit).finalPrice,
+    0
+  );
+
+  return parseFloat((productsTotal + manualAmount).toFixed(2));
+};
+
+export const calculateCombinedTotal = (products: Product[]): number => {
+  return products.reduce(
+    (sum, p) => sum + calculatePrice(p, p.quantity, p.unit).finalPrice,
+    0
+  );
+};
+
+export const calculateTotalProfit = (
+  products: Product[],
+  manualAmount: number = 0,
+  manualProfitPercentage: number = 0
+): number => {
+  const productsProfit = products.reduce(
+    (sum, p) => sum + calculatePrice(p, p.quantity, p.unit).profit,
+    0
+  );
+
+  const manualProfit = (manualAmount * manualProfitPercentage) / 100;
+
+  return parseFloat((productsProfit + manualProfit).toFixed(2));
 };
 
 export const checkStockAvailability = (

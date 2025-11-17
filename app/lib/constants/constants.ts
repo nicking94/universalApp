@@ -11,6 +11,7 @@ export const USERS = [
     password: process.env.NEXT_PUBLIC_LOGIN_PASSWORD_1,
     id: 1,
     isTrial: false,
+    isActive: true,
   },
   //  Demo
   {
@@ -18,6 +19,7 @@ export const USERS = [
     password: process.env.NEXT_PUBLIC_LOGIN_PASSWORD_2,
     id: 2,
     isTrial: true,
+    isActive: true,
   },
   //  Cliente 1
   {
@@ -25,6 +27,7 @@ export const USERS = [
     password: process.env.NEXT_PUBLIC_LOGIN_PASSWORD_3,
     id: 3,
     isTrial: false,
+    isActive: true,
     paymentReminderDay: 8,
   },
   //  Cliente 2
@@ -33,6 +36,7 @@ export const USERS = [
     password: process.env.NEXT_PUBLIC_LOGIN_PASSWORD_4,
     id: 4,
     isTrial: false,
+    isActive: true,
     paymentReminderDay: 3,
   },
   //  Cliente 3
@@ -41,6 +45,7 @@ export const USERS = [
     password: process.env.NEXT_PUBLIC_LOGIN_PASSWORD_5,
     id: 5,
     isTrial: false,
+    isActive: true,
     paymentReminderDay: 10,
   },
   //  Cliente 4
@@ -49,6 +54,7 @@ export const USERS = [
     password: process.env.NEXT_PUBLIC_LOGIN_PASSWORD_6,
     id: 6,
     isTrial: false,
+    isActive: true,
     paymentReminderDay: 26,
   },
   //  Cliente 3
@@ -57,6 +63,7 @@ export const USERS = [
     password: process.env.NEXT_PUBLIC_LOGIN_PASSWORD_7,
     id: 7,
     isTrial: false,
+    isActive: true,
     paymentReminderDay: 10,
   },
   //  Cliente 4
@@ -65,6 +72,7 @@ export const USERS = [
     password: process.env.NEXT_PUBLIC_LOGIN_PASSWORD_8,
     id: 8,
     isTrial: false,
+    isActive: true,
     paymentReminderDay: 24,
   },
   //  Cliente 5
@@ -73,6 +81,7 @@ export const USERS = [
     password: process.env.NEXT_PUBLIC_LOGIN_PASSWORD_8,
     id: 9,
     isTrial: false,
+    isActive: true,
     paymentReminderDay: 24,
   },
   //  Cliente 6
@@ -81,6 +90,7 @@ export const USERS = [
     password: process.env.NEXT_PUBLIC_LOGIN_PASSWORD_9,
     id: 10,
     isTrial: false,
+    isActive: true,
     paymentReminderDay: 24,
   },
 ];
@@ -115,4 +125,4 @@ export const PAYMENT_REMINDERS_CONFIG = [
   },
 ];
 
-export const APP_VERSION = "1.5.2";
+export const APP_VERSION = "1.5.4";

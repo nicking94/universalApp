@@ -11,10 +11,11 @@ import {
   Payment,
   PaymentSplit,
   Product,
+  Promotion,
   Sale,
   UnitOption,
 } from "@/app/lib/types/types";
-import { Plus, Printer, ShoppingCart, Trash } from "lucide-react";
+import { Plus, Printer, ShoppingCart, Trash, Tag, Check } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { db } from "@/app/database/db";
 import { parseISO, format } from "date-fns";
@@ -36,6 +37,15 @@ import PrintableTicket, {
 } from "@/app/components/PrintableTicket";
 import { useBusinessData } from "@/app/context/BusinessDataContext";
 import { usePagination } from "@/app/context/PaginationContext";
+import {
+  convertToBaseUnit,
+  convertFromBaseUnit,
+  calculatePrice,
+  calculateTotal,
+  calculateCombinedTotal,
+  calculateTotalProfit,
+  checkStockAvailability,
+} from "@/app/lib/utils/calculations";
 
 type SelectOption = {
   value: number;
@@ -43,6 +53,7 @@ type SelectOption = {
   product: Product;
   isDisabled: boolean;
 };
+
 const VentasPage = () => {
   const { businessData } = useBusinessData();
   const { rubro } = useRubro();
@@ -88,6 +99,14 @@ const VentasPage = () => {
   const [customerPhone, setCustomerPhone] = useState("");
   const [shouldRedirectToCash, setShouldRedirectToCash] = useState(false);
   const [registerCheck, setRegisterCheck] = useState(false);
+  const [availablePromotions, setAvailablePromotions] = useState<Promotion[]>(
+    []
+  );
+  const [selectedPromotions, setSelectedPromotions] =
+    useState<Promotion | null>(null);
+  const [temporarySelectedPromotion, setTemporarySelectedPromotion] =
+    useState<Promotion | null>(null);
+  const [isPromotionModalOpen, setIsPromotionModalOpen] = useState(false);
 
   const CONVERSION_FACTORS = {
     Gr: { base: "Kg", factor: 0.001 },
@@ -134,6 +153,7 @@ const VentasPage = () => {
     { value: "W", label: "Watt", convertible: false },
     { value: "A", label: "Amperio", convertible: false },
   ];
+
   const getCompatibleUnits = (productUnit: string): UnitOption[] => {
     const productUnitInfo =
       CONVERSION_FACTORS[productUnit as keyof typeof CONVERSION_FACTORS];
@@ -147,107 +167,190 @@ const VentasPage = () => {
     });
   };
 
-  const convertToBaseUnit = useCallback(
-    (quantity: number, fromUnit: string): number => {
-      const unitInfo =
-        CONVERSION_FACTORS[fromUnit as keyof typeof CONVERSION_FACTORS];
-      return unitInfo ? quantity * unitInfo.factor : quantity;
-    },
-    []
-  );
+  const applyPromotionsToProducts = useCallback(
+    (promotionToApply: Promotion) => {
+      setNewSale((prev) => {
+        // Calcular el subtotal actual (incluyendo descuentos/recargos individuales de productos)
+        const currentSubtotal =
+          calculateCombinedTotal(prev.products) + (prev.manualAmount || 0);
 
-  const convertFromBaseUnit = useCallback(
-    (quantity: number, toUnit: string): number => {
-      const unitInfo =
-        CONVERSION_FACTORS[toUnit as keyof typeof CONVERSION_FACTORS];
-      return unitInfo ? quantity / unitInfo.factor : quantity;
-    },
-    []
-  );
+        let discountAmount = 0;
 
-  const convertUnit = useCallback(
-    (quantity: number, fromUnit: string, toUnit: string): number => {
-      if (fromUnit === toUnit) return quantity;
-      const baseQuantity = convertToBaseUnit(quantity, fromUnit);
-      return convertFromBaseUnit(baseQuantity, toUnit);
-    },
-    [convertToBaseUnit, convertFromBaseUnit]
-  );
-  const calculatePrice = useCallback(
-    (product: Product, quantity: number, unit: string) => {
-      try {
-        const quantityInProductUnit = convertUnit(quantity, unit, product.unit);
-        const costPrice = product.costPrice || 0;
+        // Calcular el monto del descuento de la promoción
+        if (promotionToApply.type === "PERCENTAGE_DISCOUNT") {
+          discountAmount = (currentSubtotal * promotionToApply.discount) / 100;
+        } else if (promotionToApply.type === "FIXED_DISCOUNT") {
+          discountAmount = promotionToApply.discount;
+        }
 
-        // Precio sin descuentos/recargos
-        const priceWithoutModifiers = product.price * quantityInProductUnit;
+        // Limitar el descuento al máximo del subtotal
+        discountAmount = Math.min(discountAmount, currentSubtotal);
 
-        // Aplicar descuento
-        const discount = product.discount || 0;
-        const discountAmount = (priceWithoutModifiers * discount) / 100;
-        const priceAfterDiscount = priceWithoutModifiers - discountAmount;
+        // Aplicar el descuento de la promoción al total
+        const newTotal = Math.max(0, currentSubtotal - discountAmount);
 
-        // Aplicar recargo
-        const surcharge = product.surcharge || 0;
-        const surchargeAmount = (priceAfterDiscount * surcharge) / 100;
-        const finalPrice = priceAfterDiscount + surchargeAmount;
-
-        // Calcular ganancia (precio final - costo)
-        const totalCost = costPrice * quantityInProductUnit;
-        const profit = finalPrice - totalCost;
+        const updatedPaymentMethods = [...prev.paymentMethods];
+        if (updatedPaymentMethods.length > 0) {
+          updatedPaymentMethods[0].amount = newTotal;
+        }
 
         return {
-          finalPrice: parseFloat(finalPrice.toFixed(2)),
-          profit: parseFloat(profit.toFixed(2)),
-          quantityInProductUnit,
+          ...prev,
+          total: newTotal,
+          paymentMethods: updatedPaymentMethods,
         };
-      } catch (error) {
-        console.error("Error calculating price and profit:", error);
-        return { finalPrice: 0, profit: 0, quantityInProductUnit: 0 };
-      }
+      });
     },
-    [convertUnit]
+    []
   );
 
-  const calculateTotal = (
-    products: Product[],
-    manualAmount: number = 0
-  ): number => {
-    const productsTotal = products.reduce(
-      (sum, p) => sum + calculatePrice(p, p.quantity, p.unit).finalPrice,
-      0
-    );
+  const handlePromotionSelect = (promotion: Promotion) => {
+    setTemporarySelectedPromotion((prev) => {
+      // Si ya está seleccionada, deseleccionar
+      if (prev?.id === promotion.id) {
+        return null;
+      }
+      return promotion;
+    });
+  };
+  const applySelectedPromotion = () => {
+    if (temporarySelectedPromotion) {
+      setSelectedPromotions(temporarySelectedPromotion);
+      applyPromotionsToProducts(temporarySelectedPromotion);
+    }
+    setIsPromotionModalOpen(false);
+  };
+  const SelectedPromotionsBadge = () => {
+    if (!selectedPromotions) return null;
 
-    return parseFloat((productsTotal + manualAmount).toFixed(2));
+    return (
+      <div className="flex items-center gap-4 p-2">
+        <div className="w-full flex items-center justify-end gap-4">
+          <span className="text-xs font-semibold text-gray_b">
+            Promoción aplicada:
+          </span>
+          <div className="flex items-center gap-1 bg-blue_m text-white px-2 py-1 rounded-full text-xs">
+            <Tag size={12} />
+            <span>{selectedPromotions.name}</span>
+            <button
+              onClick={() => {
+                // Remover promoción y recalcular total
+                setSelectedPromotions(null);
+                setNewSale((prevSale) => {
+                  const currentSubtotal =
+                    calculateCombinedTotal(prevSale.products) +
+                    (prevSale.manualAmount || 0);
+                  return {
+                    ...prevSale,
+                    total: currentSubtotal,
+                  };
+                });
+              }}
+              className="cursor-pointer ml-1 hover:text-red_xl transition-colors"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
-  const calculateCombinedTotal = useCallback(
-    (products: Product[]) => {
-      return products.reduce(
-        (sum, p) => sum + calculatePrice(p, p.quantity, p.unit).finalPrice,
-        0
-      );
-    },
-    [calculatePrice]
-  );
+  const PromotionSelectionModal = () => {
+    const handleCloseModal = () => {
+      setIsPromotionModalOpen(false);
+    };
 
-  const calculateTotalProfit = useCallback(
-    (
-      products: Product[],
-      manualAmount: number = 0,
-      manualProfitPercentage: number = 0
-    ) => {
-      const productsProfit = products.reduce(
-        (sum, p) => sum + calculatePrice(p, p.quantity, p.unit).profit,
-        0
-      );
+    const handleApplyPromotion = () => {
+      applySelectedPromotion();
+    };
 
-      const manualProfit = (manualAmount * manualProfitPercentage) / 100;
-
-      return parseFloat((productsProfit + manualProfit).toFixed(2));
-    },
-    [calculatePrice]
-  );
+    return (
+      <Modal
+        isOpen={isPromotionModalOpen}
+        onClose={handleCloseModal}
+        title="Seleccionar Promoción"
+        buttons={
+          <div className="flex justify-end space-x-4">
+            <Button
+              title="Aplicar promoción"
+              text="Aplicar"
+              colorText="text-white"
+              colorTextHover="text-white"
+              onClick={handleApplyPromotion}
+              disabled={!temporarySelectedPromotion} // Deshabilitar si no hay selección
+            />
+            <Button
+              title="Cancelar"
+              text="Cancelar"
+              colorText="text-gray_b dark:text-white"
+              colorTextHover="hover:dark:text-white"
+              colorBg="bg-transparent dark:bg-gray_m"
+              colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
+              onClick={handleCloseModal}
+            />
+          </div>
+        }
+      >
+        <div className="max-h-96 overflow-y-auto">
+          <div className="grid gap-3">
+            {availablePromotions.length > 0 ? (
+              availablePromotions.map((promotion) => (
+                <div
+                  key={promotion.id}
+                  className={`p-3 border rounded-lg cursor-pointer transition-all duration-200 ${
+                    temporarySelectedPromotion?.id === promotion.id
+                      ? "border-blue_m bg-blue_xl dark:bg-gray_l"
+                      : " hover:bg-gray_l"
+                  }`}
+                  onClick={() => handlePromotionSelect(promotion)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="uppercase font-semibold text-gray_b dark:text-white text-md">
+                          {promotion.name}
+                        </h3>
+                        <span
+                          className={`px-2 py-1 rounded-full text-sm ${
+                            promotion.type === "PERCENTAGE_DISCOUNT"
+                              ? "bg-green_xl text-green_b"
+                              : "bg-purple_xl text-purple_b"
+                          }`}
+                        >
+                          {promotion.type === "PERCENTAGE_DISCOUNT"
+                            ? `${promotion.discount}%`
+                            : `$${promotion.discount}`}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray_m dark:text-gray_xxl mt-1">
+                        {promotion.description}
+                      </p>
+                    </div>
+                    <div className="flex items-center">
+                      {temporarySelectedPromotion?.id === promotion.id ? (
+                        <Check size={20} className="text-blue_m" />
+                      ) : (
+                        <div className="w-5 h-5 border-2 border-gray_xl rounded" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-gray_m dark:text-gray_xl">
+                <Tag size={48} className="mx-auto mb-3 text-gray_xl" />
+                <p>No hay promociones disponibles</p>
+                <p className="text-sm">
+                  Crea promociones en la sección correspondiente
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </Modal>
+    );
+  };
 
   const checkSalesLimit = async () => {
     const today = new Date().toISOString().split("T")[0];
@@ -256,56 +359,7 @@ const VentasPage = () => {
       .count();
     return salesCount >= 30;
   };
-  const checkStockAvailability = (
-    product: Product,
-    requestedQuantity: number,
-    requestedUnit: string
-  ): {
-    available: boolean;
-    availableQuantity: number;
-    availableUnit: string;
-  } => {
-    try {
-      const stockInBase = convertToBaseUnit(
-        Number(product.stock),
-        product.unit
-      );
-      const requestedInBase = convertToBaseUnit(
-        requestedQuantity,
-        requestedUnit
-      );
 
-      if (stockInBase >= requestedInBase) {
-        return {
-          available: true,
-          availableQuantity: requestedQuantity,
-          availableUnit: requestedUnit,
-        };
-      } else {
-        const availableInRequestedUnit = convertFromBaseUnit(
-          stockInBase,
-          requestedUnit
-        );
-
-        return {
-          available: false,
-          availableQuantity: parseFloat(availableInRequestedUnit.toFixed(3)),
-          availableUnit: requestedUnit,
-        };
-      }
-    } catch (error) {
-      console.error("Error checking stock:", error);
-      return {
-        available: false,
-        availableQuantity: 0,
-        availableUnit: requestedUnit,
-      };
-    }
-  };
-  const checkCashStatus = async () => {
-    const { needsRedirect } = await ensureCashIsOpen();
-    return needsRedirect;
-  };
   const updateStockAfterSale = (
     productId: number,
     soldQuantity: number,
@@ -324,6 +378,7 @@ const VentasPage = () => {
           }`
       );
     }
+
     const soldInBase = convertToBaseUnit(soldQuantity, unit);
     const currentStockInBase = convertToBaseUnit(
       Number(product.stock),
@@ -333,11 +388,6 @@ const VentasPage = () => {
     const newStock = convertFromBaseUnit(newStockInBase, product.unit);
 
     return parseFloat(newStock.toFixed(3));
-  };
-
-  const convertToUnit = (quantity: number, unit: string): number => {
-    const factor = CONVERSION_FACTORS[unit as keyof typeof CONVERSION_FACTORS];
-    return factor ? quantity * factor.factor : quantity;
   };
 
   const productOptions = useMemo(() => {
@@ -366,10 +416,12 @@ const VentasPage = () => {
     value: i + 1,
     label: format(new Date(2022, i), "MMMM", { locale: es }),
   }));
+
   const yearOptions = Array.from({ length: 10 }, (_, i) => {
     const year = currentYear - i;
     return { value: year, label: String(year) };
   });
+
   const paymentOptions = [
     { value: "EFECTIVO", label: "Efectivo" },
     { value: "TRANSFERENCIA", label: "Transferencia" },
@@ -398,6 +450,7 @@ const VentasPage = () => {
       return matchesMonth && matchesYear && matchesRubro;
     })
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
   const showNotification = (
     message: string,
     type: "success" | "error" | "info"
@@ -410,6 +463,7 @@ const VentasPage = () => {
       setIsNotificationOpen(false);
     }, 2500);
   };
+
   const addIncomeToDailyCash = async (sale: Sale) => {
     try {
       const today = getLocalDateString();
@@ -512,6 +566,7 @@ const VentasPage = () => {
       }));
     }
   };
+
   const handleProductScan = (productId: number) => {
     setNewSale((prevState) => {
       const existingProductIndex = prevState.products.findIndex(
@@ -526,10 +581,7 @@ const VentasPage = () => {
           ...existingProduct,
           quantity: existingProduct.quantity + 1,
         };
-        const newTotal = updatedProducts.reduce(
-          (sum, p) => sum + calculatePrice(p, p.quantity, p.unit).finalPrice,
-          0
-        );
+        const newTotal = calculateCombinedTotal(updatedProducts);
 
         return {
           ...prevState,
@@ -548,10 +600,7 @@ const VentasPage = () => {
         };
 
         const updatedProducts = [...prevState.products, newProduct];
-        const newTotal = updatedProducts.reduce(
-          (sum, p) => sum + calculatePrice(p, p.quantity, p.unit).finalPrice,
-          0
-        );
+        const newTotal = calculateCombinedTotal(updatedProducts);
 
         return {
           ...prevState,
@@ -591,6 +640,7 @@ const VentasPage = () => {
       };
     });
   };
+
   const handleCreditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const isCredit = e.target.checked;
     setIsCredit(isCredit);
@@ -609,6 +659,7 @@ const VentasPage = () => {
   ) => {
     setSelectedYear(selectedOption ? selectedOption.value : currentYear);
   };
+
   const handleYearInputChange = (inputValue: string) => {
     const parsedYear = parseInt(inputValue, 10);
 
@@ -616,6 +667,7 @@ const VentasPage = () => {
       setSelectedYear(parsedYear);
     }
   };
+
   const handlePaymentMethodChange = (
     index: number,
     field: keyof PaymentSplit,
@@ -755,16 +807,16 @@ const VentasPage = () => {
       };
     });
   };
+
   const handleAddSale = async () => {
-    const needsRedirect = await checkCashStatus();
-
-    if (needsRedirect) {
+    const needsRedirect = await ensureCashIsOpen();
+    if (needsRedirect.needsRedirect) {
       setShouldRedirectToCash(true);
-
       return;
     }
     setIsOpenModal(true);
   };
+
   const validatePaymentMethods = (
     paymentMethods: PaymentSplit[],
     total: number,
@@ -803,8 +855,8 @@ const VentasPage = () => {
       return;
     }
 
-    const needsRedirect = await checkCashStatus();
-    if (needsRedirect) {
+    const needsRedirect = await ensureCashIsOpen();
+    if (needsRedirect.needsRedirect) {
       setShouldRedirectToCash(true);
       showNotification(
         "Debes abrir la caja primero para realizar ventas",
@@ -983,6 +1035,7 @@ const VentasPage = () => {
     }
     handleCloseModal();
   };
+
   const updateCustomerPurchaseHistory = async (
     customerId: string,
     sale: Sale
@@ -1022,12 +1075,239 @@ const VentasPage = () => {
     setSelectedCustomer(null);
     setCustomerName("");
     setCustomerPhone("");
+    setSelectedPromotions(null);
     setIsOpenModal(false);
   };
+
   const handleCloseInfoModal = () => {
     setIsInfoModalOpen(false);
     setSelectedSale(null);
   };
+
+  const handleProductSelect = (
+    selectedOptions: readonly {
+      value: number;
+      label: string;
+      isDisabled?: boolean;
+      product?: Product;
+    }[]
+  ) => {
+    setNewSale((prevState) => {
+      const enabledOptions = selectedOptions.filter((opt) => !opt.isDisabled);
+
+      const updatedProducts = enabledOptions
+        .map((option) => {
+          const product =
+            option.product || products.find((p) => p.id === option.value);
+          if (!product) return null;
+
+          const stockCheck = checkStockAvailability(product, 1, product.unit);
+          if (!stockCheck.available) {
+            showNotification(
+              `Stock insuficiente para ${getDisplayProductName(
+                product,
+                rubro
+              )}`,
+              "error"
+            );
+            return null;
+          }
+
+          const existingProduct = prevState.products.find(
+            (p) => p.id === product.id
+          );
+
+          return (
+            existingProduct || {
+              ...product,
+              quantity: 1,
+              unit: product.unit,
+              stock: Number(product.stock),
+              price: Number(product.price),
+              basePrice:
+                Number(product.price) / convertToBaseUnit(1, product.unit),
+              costPrice: Number(product.costPrice),
+            }
+          );
+        })
+        .filter(Boolean) as Product[];
+
+      const newTotal = calculateCombinedTotal(updatedProducts || []);
+
+      return {
+        ...prevState,
+        products: updatedProducts,
+        total: newTotal,
+      };
+    });
+  };
+
+  const handleQuantityChange = (
+    productId: number,
+    quantity: number,
+    unit: Product["unit"]
+  ) => {
+    setNewSale((prevState) => {
+      const product = products.find((p) => p.id === productId);
+      if (!product) return prevState;
+
+      const stockCheck = checkStockAvailability(product, quantity, unit);
+      if (!stockCheck.available) {
+        showNotification(
+          `No hay suficiente stock para ${
+            product.name
+          }. Stock disponible: ${stockCheck.availableQuantity.toFixed(2)} ${
+            stockCheck.availableUnit
+          }`,
+          "error"
+        );
+        return prevState;
+      }
+
+      const updatedProducts = prevState.products.map((p) => {
+        if (p.id === productId) {
+          return { ...p, quantity, unit };
+        }
+        return p;
+      });
+
+      // Solo calcular el subtotal base
+      const newSubtotal =
+        calculateCombinedTotal(updatedProducts) + (prevState.manualAmount || 0);
+
+      // Aplicar promoción si existe
+      let newTotal = newSubtotal;
+      if (selectedPromotions) {
+        let discountAmount = 0;
+        if (selectedPromotions.type === "PERCENTAGE_DISCOUNT") {
+          discountAmount = (newSubtotal * selectedPromotions.discount) / 100;
+        } else if (selectedPromotions.type === "FIXED_DISCOUNT") {
+          discountAmount = selectedPromotions.discount;
+        }
+        discountAmount = Math.min(discountAmount, newSubtotal);
+        newTotal = Math.max(0, newSubtotal - discountAmount);
+      }
+
+      const updatedPaymentMethods = [...prevState.paymentMethods];
+      if (updatedPaymentMethods.length > 0) {
+        updatedPaymentMethods[0].amount = newTotal;
+      }
+
+      return {
+        ...prevState,
+        products: updatedProducts,
+        paymentMethods: updatedPaymentMethods,
+        total: newTotal,
+      };
+    });
+  };
+
+  const handleUnitChange = (
+    productId: number,
+    selectedOption: SingleValue<UnitOption>,
+    currentQuantity: number
+  ) => {
+    if (!selectedOption) return;
+
+    setNewSale((prevState) => {
+      const updatedProducts = prevState.products.map((p) => {
+        if (p.id === productId) {
+          const compatibleUnits = getCompatibleUnits(p.unit);
+          const isCompatible = compatibleUnits.some(
+            (u) => u.value === selectedOption.value
+          );
+
+          if (!isCompatible) return p;
+
+          const newUnit = selectedOption.value as Product["unit"];
+          const basePrice =
+            p.basePrice ?? p.price / convertToBaseUnit(1, p.unit);
+          const newPrice = basePrice * convertToBaseUnit(1, newUnit);
+
+          return {
+            ...p,
+            unit: newUnit,
+            quantity: currentQuantity,
+            price: parseFloat(newPrice.toFixed(2)),
+            basePrice: basePrice,
+          };
+        }
+        return p;
+      });
+
+      const newSubtotal =
+        calculateCombinedTotal(updatedProducts) + (prevState.manualAmount || 0);
+
+      // Si hay promoción activa, aplicar el descuento de la promoción
+      let newTotal = newSubtotal;
+      if (selectedPromotions) {
+        let discountAmount = 0;
+        if (selectedPromotions.type === "PERCENTAGE_DISCOUNT") {
+          discountAmount = (newSubtotal * selectedPromotions.discount) / 100;
+        } else if (selectedPromotions.type === "FIXED_DISCOUNT") {
+          discountAmount = selectedPromotions.discount;
+        }
+        discountAmount = Math.min(discountAmount, newSubtotal);
+        newTotal = Math.max(0, newSubtotal - discountAmount);
+      }
+
+      return {
+        ...prevState,
+        products: updatedProducts,
+        total: newTotal,
+      };
+    });
+  };
+
+  const handleRemoveProduct = (productId: number) => {
+    setNewSale((prevState) => {
+      const updatedProducts = prevState.products.filter(
+        (p) => p.id !== productId
+      );
+
+      const newSubtotal =
+        calculateCombinedTotal(updatedProducts) + (prevState.manualAmount || 0);
+
+      // Si hay promoción activa, aplicar el descuento de la promoción
+      let newTotal = newSubtotal;
+      if (selectedPromotions) {
+        let discountAmount = 0;
+        if (selectedPromotions.type === "PERCENTAGE_DISCOUNT") {
+          discountAmount = (newSubtotal * selectedPromotions.discount) / 100;
+        } else if (selectedPromotions.type === "FIXED_DISCOUNT") {
+          discountAmount = selectedPromotions.discount;
+        }
+        discountAmount = Math.min(discountAmount, newSubtotal);
+        newTotal = Math.max(0, newSubtotal - discountAmount);
+      }
+
+      return {
+        ...prevState,
+        products: updatedProducts,
+        total: newTotal,
+      };
+    });
+  };
+
+  // Effects
+  useEffect(() => {
+    const fetchPromotions = async () => {
+      try {
+        const storedPromotions = await db.promotions.toArray();
+        const activePromotions = storedPromotions.filter(
+          (p) =>
+            p.status === "active" &&
+            (p.rubro === rubro || p.rubro === "Todos los rubros")
+        );
+        setAvailablePromotions(activePromotions);
+      } catch (error) {
+        console.error("Error fetching promotions:", error);
+      }
+    };
+
+    fetchPromotions();
+  }, [rubro]);
+
   useEffect(() => {
     const today = new Date();
     const currentMonth = today.getMonth() + 1;
@@ -1052,6 +1332,7 @@ const VentasPage = () => {
       }));
     }
   }, [newSale.total, newSale.paymentMethods.length]);
+
   useEffect(() => {
     const fetchCustomers = async () => {
       const allCustomers = await db.customers.toArray();
@@ -1133,8 +1414,9 @@ const VentasPage = () => {
     newSale.manualAmount,
     newSale.paymentMethods.length,
     calculateCombinedTotal,
-    registerCheck, // Añadir registerCheck como dependencia
+    registerCheck,
   ]);
+
   useEffect(() => {
     if (registerCheck && newSale.paymentMethods[0]?.method === "CHEQUE") {
       setNewSale((prev) => ({
@@ -1144,178 +1426,15 @@ const VentasPage = () => {
     }
   }, [registerCheck]);
 
-  const handleProductSelect = (
-    selectedOptions: readonly {
-      value: number;
-      label: string;
-      isDisabled?: boolean;
-      product?: Product;
-    }[]
-  ) => {
-    setNewSale((prevState) => {
-      const enabledOptions = selectedOptions.filter((opt) => !opt.isDisabled);
-
-      const updatedProducts = enabledOptions
-        .map((option) => {
-          const product =
-            option.product || products.find((p) => p.id === option.value);
-          if (!product) return null;
-
-          const stockInBaseUnit = convertToUnit(
-            Number(product.stock),
-            product.unit
-          );
-          const requestedInBaseUnit = convertToUnit(1, product.unit);
-
-          if (stockInBaseUnit < requestedInBaseUnit) {
-            showNotification(
-              `Stock insuficiente para ${getDisplayProductName(
-                product,
-                rubro
-              )}`,
-              "error"
-            );
-            return null;
-          }
-
-          const existingProduct = prevState.products.find(
-            (p) => p.id === product.id
-          );
-
-          return (
-            existingProduct || {
-              ...product,
-              quantity: 1,
-              unit: product.unit,
-              stock: Number(product.stock),
-              price: Number(product.price),
-              basePrice:
-                Number(product.price) / convertToBaseUnit(1, product.unit),
-              costPrice: Number(product.costPrice),
-            }
-          );
-        })
-        .filter(Boolean) as Product[];
-
-      const newTotal = calculateCombinedTotal(updatedProducts || []);
-
-      return {
-        ...prevState,
-        products: updatedProducts,
-        total: newTotal,
-      };
-    });
-  };
-  const handleQuantityChange = (
-    productId: number,
-    quantity: number,
-    unit: Product["unit"]
-  ) => {
-    setNewSale((prevState) => {
-      const product = products.find((p) => p.id === productId);
-      if (!product) return prevState;
-      const stockInGrams = convertToUnit(Number(product.stock), product.unit);
-      const requestedInGrams = convertToUnit(quantity, unit);
-      if (requestedInGrams > stockInGrams) {
-        showNotification(
-          `No hay suficiente stock para ${product.name}. Stock disponible: ${product.stock} ${product.unit}`,
-          "error"
-        );
-        return prevState;
-      }
-
-      const updatedProducts = prevState.products.map((p) => {
-        if (p.id === productId) {
-          return { ...p, quantity, unit };
-        }
-        return p;
-      });
-
-      const newTotal = calculateCombinedTotal(updatedProducts);
-      const updatedPaymentMethods = [...prevState.paymentMethods];
-      if (updatedPaymentMethods.length > 0) {
-        updatedPaymentMethods[0].amount = newTotal;
-      }
-
-      return {
-        ...prevState,
-        products: updatedProducts,
-        paymentMethods: updatedPaymentMethods,
-        total: newTotal,
-      };
-    });
-  };
-  const handleUnitChange = (
-    productId: number,
-    selectedOption: SingleValue<UnitOption>,
-    currentQuantity: number
-  ) => {
-    if (!selectedOption) return;
-
-    setNewSale((prevState) => {
-      const updatedProducts = prevState.products.map((p) => {
-        if (p.id === productId) {
-          const compatibleUnits = getCompatibleUnits(p.unit);
-          const isCompatible = compatibleUnits.some(
-            (u) => u.value === selectedOption.value
-          );
-
-          if (!isCompatible) return p;
-
-          const newUnit = selectedOption.value as Product["unit"];
-          const basePrice =
-            p.basePrice ?? p.price / convertToBaseUnit(1, p.unit);
-          const newPrice = basePrice * convertToBaseUnit(1, newUnit);
-
-          return {
-            ...p,
-            unit: newUnit,
-            quantity: currentQuantity,
-            price: parseFloat(newPrice.toFixed(2)),
-            basePrice: basePrice,
-          };
-        }
-        return p;
-      });
-
-      return {
-        ...prevState,
-        products: updatedProducts,
-        total:
-          calculateCombinedTotal(updatedProducts) +
-          (prevState.manualAmount || 0),
-      };
-    });
-  };
-  const handleRemoveProduct = (productId: number) => {
-    setNewSale((prevState) => {
-      const updatedProducts = prevState.products.filter(
-        (p) => p.id !== productId
-      );
-
-      return {
-        ...prevState,
-        products: updatedProducts,
-        total:
-          calculateCombinedTotal(updatedProducts) +
-          (prevState.manualAmount || 0),
-      };
-    });
-  };
-
-  const indexOfLastSale = currentPage * itemsPerPage;
-  const indexOfFirstSale = indexOfLastSale - itemsPerPage;
-  const currentSales = filteredSales.slice(indexOfFirstSale, indexOfLastSale);
-
-  const pageNumbers = [];
-  for (let i = 1; i <= Math.ceil(filteredSales.length / itemsPerPage); i++) {
-    pageNumbers.push(i);
-  }
   useEffect(() => {
     if (shouldRedirectToCash) {
       router.push("/caja-diaria");
     }
   }, [shouldRedirectToCash, router]);
+
+  const indexOfLastSale = currentPage * itemsPerPage;
+  const indexOfFirstSale = indexOfLastSale - itemsPerPage;
+  const currentSales = filteredSales.slice(indexOfFirstSale, indexOfLastSale);
 
   return (
     <ProtectedRoute>
@@ -1518,8 +1637,6 @@ const VentasPage = () => {
                 ) : (
                   <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
                     <td colSpan={6} className="py-4 text-center">
-                      {" "}
-                      {/* Actualizar colSpan a 6 */}
                       <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
                         <ShoppingCart size={64} className="mb-4 text-gray_m" />
                         <p className="text-gray_m">Todavía no hay ventas.</p>
@@ -1612,6 +1729,24 @@ const VentasPage = () => {
                 onSubmit={handleConfirmAddSale}
                 className="flex flex-col gap-2"
               >
+                {/* Sección de Promociones */}
+                <div className="flex items-center justify-between ">
+                  <Button
+                    title="Aplicar promociones"
+                    text="Seleccionar Promociones"
+                    icon={<Tag size={16} />}
+                    iconPosition="left"
+                    colorText="text-white"
+                    colorTextHover="text-white"
+                    px="px-3"
+                    py="py-2"
+                    onClick={() => setIsPromotionModalOpen(true)}
+                    disabled={newSale.products.length === 0}
+                  />
+                  <div className="flex-1">
+                    <SelectedPromotionsBadge />
+                  </div>
+                </div>
                 <div className="w-full flex items-center space-x-4">
                   <div className="w-full  ">
                     <label className="block text-sm font-medium text-gray_m dark:text-white">
@@ -1674,6 +1809,7 @@ const VentasPage = () => {
                     />
                   </div>
                 </div>
+
                 {newSale.products.length > 0 && (
                   <div className=" max-h-[16rem] overflow-y-auto ">
                     <table className="table-auto w-full shadow">
@@ -1779,34 +1915,69 @@ const VentasPage = () => {
                                 />
                               </td>{" "}
                               <td className="w-20 max-w-20 p-2">
-                                <Input
-                                  textPosition="text-center"
-                                  type="number"
-                                  value={product.discount?.toString() || "0"}
-                                  onChange={(e) => {
-                                    const value = Math.min(
-                                      100,
-                                      Math.max(0, Number(e.target.value))
-                                    );
-                                    setNewSale((prev) => {
-                                      const updatedProducts = prev.products.map(
-                                        (p) =>
-                                          p.id === product.id
-                                            ? { ...p, discount: value }
-                                            : p
+                                <div className="relative">
+                                  <Input
+                                    textPosition="text-center"
+                                    type="number"
+                                    value={product.discount?.toString() || "0"}
+                                    onChange={(e) => {
+                                      const value = Math.min(
+                                        100,
+                                        Math.max(0, Number(e.target.value))
                                       );
-                                      return {
-                                        ...prev,
-                                        products: updatedProducts,
-                                        total: calculateTotal(
-                                          updatedProducts,
-                                          prev.manualAmount || 0
-                                        ),
-                                      };
-                                    });
-                                  }}
-                                  step="1"
-                                />
+                                      setNewSale((prev) => {
+                                        const updatedProducts =
+                                          prev.products.map((p) =>
+                                            p.id === product.id
+                                              ? { ...p, discount: value }
+                                              : p
+                                          );
+
+                                        // Calcular nuevo subtotal con los descuentos/recargos actualizados
+                                        const newSubtotal =
+                                          calculateCombinedTotal(
+                                            updatedProducts
+                                          ) + (prev.manualAmount || 0);
+
+                                        // Si hay promoción activa, aplicar el descuento de la promoción
+                                        let newTotal = newSubtotal;
+                                        if (selectedPromotions) {
+                                          let discountAmount = 0;
+                                          if (
+                                            selectedPromotions.type ===
+                                            "PERCENTAGE_DISCOUNT"
+                                          ) {
+                                            discountAmount =
+                                              (newSubtotal *
+                                                selectedPromotions.discount) /
+                                              100;
+                                          } else if (
+                                            selectedPromotions.type ===
+                                            "FIXED_DISCOUNT"
+                                          ) {
+                                            discountAmount =
+                                              selectedPromotions.discount;
+                                          }
+                                          discountAmount = Math.min(
+                                            discountAmount,
+                                            newSubtotal
+                                          );
+                                          newTotal = Math.max(
+                                            0,
+                                            newSubtotal - discountAmount
+                                          );
+                                        }
+
+                                        return {
+                                          ...prev,
+                                          products: updatedProducts,
+                                          total: newTotal,
+                                        };
+                                      });
+                                    }}
+                                    step="1"
+                                  />
+                                </div>
                               </td>
                               <td className="w-20 max-w-20 p-2">
                                 <Input
@@ -1826,18 +1997,45 @@ const VentasPage = () => {
                                             : p
                                       );
 
-                                      // Recalcular total y ganancias
-                                      const productsTotal =
-                                        calculateCombinedTotal(updatedProducts);
-                                      const manualAmount =
-                                        prev.manualAmount || 0;
-                                      const total =
-                                        productsTotal + manualAmount;
+                                      // Calcular nuevo subtotal con los descuentos/recargos actualizados
+                                      const newSubtotal =
+                                        calculateCombinedTotal(
+                                          updatedProducts
+                                        ) + (prev.manualAmount || 0);
+
+                                      // Si hay promoción activa, aplicar el descuento de la promoción
+                                      let newTotal = newSubtotal;
+                                      if (selectedPromotions) {
+                                        let discountAmount = 0;
+                                        if (
+                                          selectedPromotions.type ===
+                                          "PERCENTAGE_DISCOUNT"
+                                        ) {
+                                          discountAmount =
+                                            (newSubtotal *
+                                              selectedPromotions.discount) /
+                                            100;
+                                        } else if (
+                                          selectedPromotions.type ===
+                                          "FIXED_DISCOUNT"
+                                        ) {
+                                          discountAmount =
+                                            selectedPromotions.discount;
+                                        }
+                                        discountAmount = Math.min(
+                                          discountAmount,
+                                          newSubtotal
+                                        );
+                                        newTotal = Math.max(
+                                          0,
+                                          newSubtotal - discountAmount
+                                        );
+                                      }
 
                                       return {
                                         ...prev,
                                         products: updatedProducts,
-                                        total: total,
+                                        total: newTotal,
                                       };
                                     });
                                   }}
@@ -1870,7 +2068,6 @@ const VentasPage = () => {
                                   <Trash size={18} />
                                 </button>
                               </td>
-                              <div></div>
                             </tr>
                           );
                         })}
@@ -2112,7 +2309,7 @@ const VentasPage = () => {
                       }))
                     }
                     placeholder="Ingrese un concepto para esta venta..."
-                    className="w-full p-2 border border-gray_xl rounded-md text-sm text-gray_b dark:text-white bg-white dark:bg-gray_m resize-none"
+                    className="w-full p-2 border border-gray_l rounded-md text-sm text-gray_b dark:text-white bg-white dark:bg-gray_m resize-none"
                     rows={3}
                     maxLength={50}
                   />
@@ -2193,6 +2390,9 @@ const VentasPage = () => {
             </div>
           </div>
         </Modal>
+
+        {/* Modal de selección de promociones */}
+        <PromotionSelectionModal />
 
         <Notification
           isOpen={isNotificationOpen}
