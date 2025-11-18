@@ -269,9 +269,6 @@ const PromocionesPage = () => {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-lg 2xl:text-xl font-semibold">Promociones</h1>
-            <p className="text-sm text-gray_m mt-1">
-              Gestiona las promociones y descuentos de tu negocio
-            </p>
           </div>
           {rubro !== "Todos los rubros" && (
             <Button
@@ -290,8 +287,10 @@ const PromocionesPage = () => {
           <div className="bg-white dark:bg-gray_m p-4 rounded-lg shadow-sm border border-gray_xl">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray_m">Total Promociones</p>
-                <p className="text-2xl font-bold text-gray_b">
+                <p className="text-sm text-gray_m dark:text-white">
+                  Total Promociones
+                </p>
+                <p className="text-2xl font-bold text-gray_b dark:text-white">
                   {promotions.length}
                 </p>
               </div>
@@ -301,8 +300,8 @@ const PromocionesPage = () => {
           <div className="bg-white dark:bg-gray_m p-4 rounded-lg shadow-sm border border-gray_xl">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray_m">Activas</p>
-                <p className="text-2xl font-bold text-green_b">
+                <p className="text-sm text-gray_m dark:text-white">Activas</p>
+                <p className="text-2xl font-bold text-green_b dark:text-green_m">
                   {
                     promotions.filter(
                       (p) => getPromotionStatus(p).label === "Activa"
@@ -316,8 +315,8 @@ const PromocionesPage = () => {
           <div className="bg-white dark:bg-gray_m p-4 rounded-lg shadow-sm border border-gray_xl">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray_m">Expiradas</p>
-                <p className="text-2xl font-bold text-red_b">
+                <p className="text-sm text-gray_m dark:text-white">Expiradas</p>
+                <p className="text-2xl font-bold text-red_b dark:text-red_m">
                   {
                     promotions.filter(
                       (p) => getPromotionStatus(p).label === "Expirada"
@@ -496,7 +495,7 @@ const PromocionesPage = () => {
             </div>
           }
         >
-          <div className="overflow-y-auto max-h-[60vh] p-1">
+          <div className=" p-1">
             <div className="flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
