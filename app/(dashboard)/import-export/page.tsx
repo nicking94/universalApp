@@ -52,6 +52,7 @@ export default function ImportExportPage() {
       const appState = await db.appState.toArray();
       const returns = await db.returns.toArray();
       const customCategories = await db.customCategories.toArray();
+      const promotions = await db.promotions.toArray();
 
       const data = {
         theme,
@@ -74,6 +75,7 @@ export default function ImportExportPage() {
         appState,
         returns,
         customCategories,
+        promotions,
       };
       const json = JSON.stringify(data, null, 2);
       const blob = new Blob([json], { type: "application/json;charset=utf-8" });
@@ -162,9 +164,9 @@ export default function ImportExportPage() {
           db.returns,
           db.expenses,
           db.expenseCategories,
-          // AGREGAR LAS NUEVAS TABLAS:
           db.trialPeriods,
           db.appState,
+          db.promotions,
         ],
         async () => {
           // Limpiar todas las tablas
@@ -188,9 +190,9 @@ export default function ImportExportPage() {
             db.returns.clear(),
             db.expenses.clear(),
             db.expenseCategories.clear(),
-            // Limpiar las nuevas tablas:
             db.trialPeriods.clear(),
             db.appState.clear(),
+            db.promotions.clear(),
           ]);
 
           try {
@@ -217,9 +219,9 @@ export default function ImportExportPage() {
               db.returns.bulkAdd(data.returns || []),
               db.expenses.bulkAdd(data.expenses || []),
               db.expenseCategories.bulkAdd(data.expenseCategories || []),
-              // Importar las nuevas tablas:
               db.trialPeriods.bulkAdd(data.trialPeriods || []),
               db.appState.bulkAdd(data.appState || []),
+              db.promotions.bulkAdd(data.promotions || []),
             ]);
           } catch (e) {
             console.error("Error al importar datos:", e);

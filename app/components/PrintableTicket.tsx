@@ -66,6 +66,22 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
       if (!discount) return price * quantity;
       return price * quantity * (1 - discount / 100);
     };
+    // Agregar esta función dentro del componente PrintableTicket
+    const calculatePromotionDiscount = (sale: Sale): number => {
+      if (!sale.appliedPromotion) return 0;
+
+      const subtotal =
+        invoiceItems.reduce((sum, item) => sum + item.subtotalSinDescuento, 0) +
+        (sale.manualAmount || 0);
+
+      if (sale.appliedPromotion.type === "PERCENTAGE_DISCOUNT") {
+        return (subtotal * sale.appliedPromotion.discount) / 100;
+      } else if (sale.appliedPromotion.type === "FIXED_DISCOUNT") {
+        return sale.appliedPromotion.discount;
+      }
+
+      return 0;
+    };
 
     const getInvoiceItems = () => {
       return sale.products.map((product) => {
@@ -737,6 +753,47 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
         fontWeight: 600 as const,
         color: "#000",
       },
+      promotionSection: {
+        marginTop: "12px",
+        padding: "0",
+        fontWeight: 600 as const,
+        color: "#000",
+      },
+      promotionRow: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+        gap: "6px",
+        fontWeight: 600 as const,
+        color: "#000",
+      },
+      promotionDescription: {
+        flex: 1,
+        minWidth: 0,
+        fontWeight: 600 as const,
+        color: "#000",
+      },
+      promotionName: {
+        fontWeight: "bold" as const,
+        lineHeight: 1.3,
+        fontSize: ticketConfig.fontSize.medium,
+        wordWrap: "break-word" as const,
+        marginBottom: "3px",
+        color: "#000",
+      },
+      promotionDetails: {
+        lineHeight: 1.2,
+        color: "#000",
+        fontSize: ticketConfig.fontSize.small,
+        fontWeight: 600 as const,
+      },
+      promotionDiscount: {
+        textAlign: "right" as const,
+        minWidth: "fit-content",
+        fontWeight: "bold" as const,
+        color: "#e53e3e", // Rojo para indicar descuento
+        fontSize: ticketConfig.fontSize.medium,
+      },
     };
 
     return (
@@ -856,7 +913,7 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
                     </p>
                   </div>
                 )}
-                <div style={styles.separator}></div>
+                <div style={styles.doubleSeparator}></div>
               </div>
 
               {/* Items del ticket */}
@@ -892,6 +949,23 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
                     <div style={styles.dashedSeparator}></div>
                   </div>
                 ))}
+
+                {sale.appliedPromotion && (
+                  <div style={styles.promotionSection}>
+                    <div style={styles.doubleSeparator}></div>
+                    <div style={styles.promotionRow}>
+                      <div style={styles.promotionDescription}>
+                        <span style={styles.promotionName}>
+                          PROMOCION: {sale.appliedPromotion.name}
+                        </span>
+                      </div>
+                      <div style={styles.promotionDiscount}>
+                        -{formatCurrency(calculatePromotionDiscount(sale))}
+                      </div>
+                    </div>
+                    <div style={styles.doubleSeparator}></div>
+                  </div>
+                )}
               </div>
 
               {sale.manualAmount !== undefined && sale.manualAmount > 0 && (

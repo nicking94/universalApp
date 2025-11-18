@@ -1,5 +1,5 @@
 // calculations.ts
-import { Product } from "../types/types";
+import { PaymentSplit, Product } from "../types/types";
 
 const CONVERSION_FACTORS = {
   Gr: { base: "Kg", factor: 0.001 },
@@ -197,4 +197,64 @@ export const checkStockAvailability = (
       availableUnit: requestedUnit,
     };
   }
+};
+export const recalculatePaymentMethods = (
+  paymentMethods: PaymentSplit[],
+  newTotal: number
+): PaymentSplit[] => {
+  if (paymentMethods.length === 0) {
+    return [{ method: "EFECTIVO", amount: newTotal }];
+  }
+
+  const updatedMethods = [...paymentMethods];
+
+  if (updatedMethods.length === 1) {
+    // Un solo método de pago - asignar el total completo
+    updatedMethods[0] = {
+      ...updatedMethods[0],
+      amount: parseFloat(newTotal.toFixed(2)),
+    };
+  } else {
+    // Múltiples métodos - distribuir proporcionalmente
+    const previousTotal = updatedMethods.reduce(
+      (sum, method) => sum + method.amount,
+      0
+    );
+
+    if (previousTotal === 0 || previousTotal === newTotal) {
+      // Si no había montos previos o el total no cambió, distribuir equitativamente
+      const share = parseFloat((newTotal / updatedMethods.length).toFixed(2));
+      updatedMethods.forEach((method, index) => {
+        updatedMethods[index] = { ...method, amount: share };
+      });
+    } else {
+      // Distribuir proporcionalmente basado en los montos anteriores
+      updatedMethods.forEach((method, index) => {
+        const ratio = method.amount / previousTotal;
+        updatedMethods[index] = {
+          ...method,
+          amount: parseFloat((newTotal * ratio).toFixed(2)),
+        };
+      });
+    }
+
+    // Ajustar por diferencias de redondeo
+    const totalPaymentMethods = updatedMethods.reduce(
+      (sum, method) => sum + method.amount,
+      0
+    );
+    const difference = parseFloat((newTotal - totalPaymentMethods).toFixed(2));
+
+    if (Math.abs(difference) > 0.01 && updatedMethods.length > 0) {
+      const lastIndex = updatedMethods.length - 1;
+      updatedMethods[lastIndex] = {
+        ...updatedMethods[lastIndex],
+        amount: parseFloat(
+          (updatedMethods[lastIndex].amount + difference).toFixed(2)
+        ),
+      };
+    }
+  }
+
+  return updatedMethods;
 };

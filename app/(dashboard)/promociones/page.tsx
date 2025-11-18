@@ -8,7 +8,7 @@ import {
   PromotionType,
   PromotionStatus,
 } from "@/app/lib/types/types";
-import { Plus, Edit, Trash, Tag } from "lucide-react";
+import { Plus, Edit, Trash, Tag, Percent, DollarSign } from "lucide-react";
 import { useEffect, useState } from "react";
 import { db } from "@/app/database/db";
 import ProtectedRoute from "@/app/components/ProtectedRoute";
@@ -40,21 +40,66 @@ const PromocionesPage = () => {
     description: "",
     type: "PERCENTAGE_DISCOUNT",
     status: "active",
-    discount: 10,
+    discount: 0,
     rubro: rubro,
+    startDate: new Date().toISOString().split("T")[0],
+    endDate: "",
+    minPurchaseAmount: 0,
+
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   });
 
+  const [validationErrors, setValidationErrors] = useState<
+    Record<string, string>
+  >({});
+
+  // Opciones mejoradas
   const promotionTypeOptions = [
-    { value: "PERCENTAGE_DISCOUNT", label: "Descuento Porcentual" },
-    { value: "FIXED_DISCOUNT", label: "Descuento Fijo" },
+    {
+      value: "PERCENTAGE_DISCOUNT",
+      label: "Descuento Porcentual",
+      icon: <Percent size={16} />,
+    },
+    {
+      value: "FIXED_DISCOUNT",
+      label: "Descuento Fijo",
+      icon: <DollarSign size={16} />,
+    },
   ];
 
   const statusOptions = [
-    { value: "active", label: "Activa" },
-    { value: "inactive", label: "Inactiva" },
+    { value: "active", label: "Activa", color: "bg-green_xl text-green_b" },
+    { value: "inactive", label: "Inactiva", color: "bg-gray_xl text-gray_b" },
   ];
+
+  // Validación mejorada
+  const validatePromotion = (promotion: typeof newPromotion): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (!promotion.name.trim()) {
+      errors.name = "El nombre es obligatorio";
+    }
+
+    if (!promotion.discount || promotion.discount <= 0) {
+      errors.discount = "El descuento debe ser mayor a 0";
+    }
+
+    if (promotion.type === "PERCENTAGE_DISCOUNT" && promotion.discount > 100) {
+      errors.discount = "El descuento no puede ser mayor al 100%";
+    }
+
+    if (promotion.endDate && promotion.startDate > promotion.endDate) {
+      errors.endDate = "La fecha de fin no puede ser anterior a la de inicio";
+    }
+
+    if (promotion.minPurchaseAmount && promotion.minPurchaseAmount < 0) {
+      errors.minPurchaseAmount = "El monto mínimo no puede ser negativo";
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const showNotification = (
     message: string,
@@ -65,7 +110,7 @@ const PromocionesPage = () => {
     setIsNotificationOpen(true);
     setTimeout(() => {
       setIsNotificationOpen(false);
-    }, 2500);
+    }, 3000);
   };
 
   const fetchPromotions = async () => {
@@ -80,7 +125,17 @@ const PromocionesPage = () => {
         (p): p is Promotion & { id: number } => !!p.id
       );
 
-      setPromotions(promotionsWithId.sort((a, b) => b.id - a.id));
+      // Ordenar por estado y fecha
+      setPromotions(
+        promotionsWithId.sort((a, b) => {
+          if (a.status === b.status) {
+            return (
+              new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+            );
+          }
+          return a.status === "active" ? -1 : 1;
+        })
+      );
     } catch (error) {
       console.error("Error fetching promotions:", error);
       showNotification("Error al cargar promociones", "error");
@@ -89,13 +144,17 @@ const PromocionesPage = () => {
 
   const handleAddPromotion = () => {
     setEditingPromotion(null);
+    setValidationErrors({});
     setNewPromotion({
       name: "",
       description: "",
       type: "PERCENTAGE_DISCOUNT",
       status: "active",
-      discount: 10,
+      discount: 0,
       rubro: rubro,
+      startDate: new Date().toISOString().split("T")[0],
+      endDate: "",
+      minPurchaseAmount: 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -109,6 +168,7 @@ const PromocionesPage = () => {
     }
 
     setEditingPromotion(promotion);
+    setValidationErrors({});
     setNewPromotion({
       ...promotion,
       updatedAt: new Date().toISOString(),
@@ -117,17 +177,15 @@ const PromocionesPage = () => {
   };
 
   const handleConfirmAddPromotion = async () => {
+    if (!validatePromotion(newPromotion)) {
+      showNotification(
+        "Por favor, corrige los errores en el formulario",
+        "error"
+      );
+      return;
+    }
+
     try {
-      if (!newPromotion.name) {
-        showNotification("Complete el nombre de la promoción", "error");
-        return;
-      }
-
-      if (!newPromotion.discount || newPromotion.discount <= 0) {
-        showNotification("El descuento debe ser mayor a 0", "error");
-        return;
-      }
-
       if (editingPromotion && editingPromotion.id) {
         await db.promotions.update(editingPromotion.id, newPromotion);
         showNotification("Promoción actualizada correctamente", "success");
@@ -172,6 +230,29 @@ const PromocionesPage = () => {
   const handleCloseModal = () => {
     setIsOpenModal(false);
     setEditingPromotion(null);
+    setValidationErrors({});
+  };
+
+  const getPromotionStatus = (
+    promotion: Promotion
+  ): { label: string; color: string } => {
+    const now = new Date();
+    const startDate = new Date(promotion.startDate);
+    const endDate = promotion.endDate ? new Date(promotion.endDate) : null;
+
+    if (promotion.status === "inactive") {
+      return { label: "Inactiva", color: "bg-gray_xl text-gray_b" };
+    }
+
+    if (now < startDate) {
+      return { label: "Programada", color: "bg-blue_xl text-blue_b" };
+    }
+
+    if (endDate && now > endDate) {
+      return { label: "Expirada", color: "bg-red_xl text-red_b" };
+    }
+
+    return { label: "Activa", color: "bg-green_xl text-green_b" };
   };
 
   useEffect(() => {
@@ -185,35 +266,82 @@ const PromocionesPage = () => {
   return (
     <ProtectedRoute>
       <div className="px-10 2xl:px-10 py-4 text-gray_l dark:text-white h-[calc(100vh-80px)]">
-        <h1 className="text-lg 2xl:text-xl font-semibold mb-2">Promociones</h1>
-
-        <div className="flex justify-between mb-2">
-          <div className="w-full"></div>
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-lg 2xl:text-xl font-semibold">Promociones</h1>
+            <p className="text-sm text-gray_m mt-1">
+              Gestiona las promociones y descuentos de tu negocio
+            </p>
+          </div>
           {rubro !== "Todos los rubros" && (
-            <div className="w-full flex justify-end mt-3">
-              <Button
-                title="Nueva Promoción"
-                text="Nueva Promoción"
-                colorText="text-white"
-                colorTextHover="text-white"
-                onClick={handleAddPromotion}
-                icon={<Plus size={18} />}
-              />
-            </div>
+            <Button
+              title="Nueva Promoción"
+              text="Nueva Promoción"
+              colorText="text-white"
+              colorTextHover="text-white"
+              onClick={handleAddPromotion}
+              icon={<Plus size={18} />}
+            />
           )}
         </div>
 
-        <div className="flex flex-col justify-between h-[calc(100vh-200px)]">
-          <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
+        {/* Estadísticas rápidas */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="bg-white dark:bg-gray_m p-4 rounded-lg shadow-sm border border-gray_xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray_m">Total Promociones</p>
+                <p className="text-2xl font-bold text-gray_b">
+                  {promotions.length}
+                </p>
+              </div>
+              <Tag className="text-blue_m" size={24} />
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray_m p-4 rounded-lg shadow-sm border border-gray_xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray_m">Activas</p>
+                <p className="text-2xl font-bold text-green_b">
+                  {
+                    promotions.filter(
+                      (p) => getPromotionStatus(p).label === "Activa"
+                    ).length
+                  }
+                </p>
+              </div>
+              <Tag className="text-green_m" size={24} />
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray_m p-4 rounded-lg shadow-sm border border-gray_xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray_m">Expiradas</p>
+                <p className="text-2xl font-bold text-red_b">
+                  {
+                    promotions.filter(
+                      (p) => getPromotionStatus(p).label === "Expirada"
+                    ).length
+                  }
+                </p>
+              </div>
+              <Tag className="text-red_m" size={24} />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col justify-between h-[calc(100vh-300px)]">
+          <div className="max-h-[calc(100vh-350px)] overflow-y-auto">
             <table className="table-auto w-full text-center border-collapse overflow-y-auto shadow-sm shadow-gray_l">
-              <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-xs">
+              <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-xs sticky top-0">
                 <tr>
-                  <th className="p-2 text-start">Nombre</th>
-                  <th className="p-2">Tipo</th>
-                  <th className="p-2">Estado</th>
-                  <th className="p-2">Descuento</th>
+                  <th className="p-3 text-start">Nombre</th>
+                  <th className="p-3">Tipo</th>
+                  <th className="p-3">Descuento</th>
+                  <th className="p-3">Estado</th>
+                  <th className="p-3">Vigencia</th>
                   {rubro !== "Todos los rubros" && (
-                    <th className="w-40 max-w-[5rem] 2xl:max-w-[10rem] p-2">
+                    <th className="w-40 max-w-[5rem] 2xl:max-w-[10rem] p-3">
                       Acciones
                     </th>
                   )}
@@ -221,76 +349,105 @@ const PromocionesPage = () => {
               </thead>
               <tbody className="bg-white text-gray_b divide-y divide-gray_xl">
                 {currentPromotions.length > 0 ? (
-                  currentPromotions.map((promotion) => (
-                    <tr
-                      key={promotion.id || `promo-${promotion.createdAt}`}
-                      className="text-xs 2xl:text-sm bg-white text-gray_b border border-gray_xl hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
-                    >
-                      <td className="font-semibold px-2 text-start border border-gray_xl">
-                        {promotion.name}
-                      </td>
-                      <td className="p-2 border border-gray_xl">
-                        {
-                          promotionTypeOptions.find(
-                            (t) => t.value === promotion.type
-                          )?.label
-                        }
-                      </td>
-                      <td className="p-2 border border-gray_xl">
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs ${
-                            promotion.status === "active"
-                              ? "bg-green_xl text-green_b"
-                              : "bg-gray_xl text-gray_b"
-                          }`}
-                        >
-                          {
-                            statusOptions.find(
-                              (s) => s.value === promotion.status
-                            )?.label
-                          }
-                        </span>
-                      </td>
-                      <td className="p-2 border border-gray_xl">
-                        {promotion.type === "FIXED_DISCOUNT" && "$"}
-                        {promotion.discount}
-                        {promotion.type === "PERCENTAGE_DISCOUNT" && "%"}
-                      </td>
-                      {rubro !== "Todos los rubros" && (
-                        <td className="p-2 border border-gray_xl">
-                          <div className="flex justify-center items-center gap-2 h-full">
-                            <Button
-                              title="Editar promoción"
-                              icon={<Edit size={18} />}
-                              colorText="text-gray_b"
-                              colorTextHover="hover:text-white"
-                              colorBg="bg-transparent"
-                              colorBgHover="hover:bg-blue_m"
-                              px="px-1"
-                              py="py-1"
-                              minwidth="min-w-0"
-                              onClick={() => handleEditPromotion(promotion)}
-                            />
-                            <Button
-                              title="Eliminar promoción"
-                              icon={<Trash size={18} />}
-                              colorText="text-gray_b"
-                              colorTextHover="hover:text-white"
-                              colorBg="bg-transparent"
-                              colorBgHover="hover:bg-red_m"
-                              px="px-1"
-                              py="py-1"
-                              minwidth="min-w-0"
-                              onClick={() => handleDeletePromotion(promotion)}
-                            />
+                  currentPromotions.map((promotion) => {
+                    const statusInfo = getPromotionStatus(promotion);
+                    return (
+                      <tr
+                        key={promotion.id || `promo-${promotion.createdAt}`}
+                        className="text-xs 2xl:text-sm bg-white text-gray_b border border-gray_xl hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
+                      >
+                        <td className="font-semibold px-3 text-start border border-gray_xl">
+                          <div>
+                            <p className="uppercase font-semibold">
+                              {promotion.name}
+                            </p>
+                            {promotion.description && (
+                              <p className="text-xs text-gray_m mt-1">
+                                {promotion.description}
+                              </p>
+                            )}
                           </div>
                         </td>
-                      )}
-                    </tr>
-                  ))
+                        <td className="p-3 border border-gray_xl">
+                          <div className="flex items-center justify-center gap-2">
+                            {
+                              promotionTypeOptions.find(
+                                (t) => t.value === promotion.type
+                              )?.icon
+                            }
+                            {
+                              promotionTypeOptions.find(
+                                (t) => t.value === promotion.type
+                              )?.label
+                            }
+                          </div>
+                        </td>
+                        <td className="p-3 border border-gray_xl font-bold">
+                          {promotion.type === "FIXED_DISCOUNT" && "$"}
+                          {promotion.discount}
+                          {promotion.type === "PERCENTAGE_DISCOUNT" && "%"}
+                        </td>
+                        <td className="p-3 border border-gray_xl">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs ${statusInfo.color}`}
+                          >
+                            {statusInfo.label}
+                          </span>
+                        </td>
+                        <td className="p-3 border border-gray_xl text-xs">
+                          <div className="flex flex-col">
+                            <span>
+                              Inicio:{" "}
+                              {new Date(
+                                promotion.startDate
+                              ).toLocaleDateString()}
+                            </span>
+                            {promotion.endDate && (
+                              <span>
+                                Fin:{" "}
+                                {new Date(
+                                  promotion.endDate
+                                ).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        {rubro !== "Todos los rubros" && (
+                          <td className="p-3 border border-gray_xl">
+                            <div className="flex justify-center items-center gap-2 h-full">
+                              <Button
+                                title="Editar promoción"
+                                icon={<Edit size={18} />}
+                                colorText="text-gray_b"
+                                colorTextHover="hover:text-white"
+                                colorBg="bg-transparent"
+                                colorBgHover="hover:bg-blue_m"
+                                px="px-1"
+                                py="py-1"
+                                minwidth="min-w-0"
+                                onClick={() => handleEditPromotion(promotion)}
+                              />
+                              <Button
+                                title="Eliminar promoción"
+                                icon={<Trash size={18} />}
+                                colorText="text-gray_b"
+                                colorTextHover="hover:text-white"
+                                colorBg="bg-transparent"
+                                colorBgHover="hover:bg-red_m"
+                                px="px-1"
+                                py="py-1"
+                                minwidth="min-w-0"
+                                onClick={() => handleDeletePromotion(promotion)}
+                              />
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
-                    <td colSpan={5} className="py-4 text-center">
+                    <td colSpan={6} className="py-4 text-center">
                       <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
                         <Tag size={64} className="mb-4 text-gray_m" />
                         <p className="text-gray_m">
@@ -313,6 +470,7 @@ const PromocionesPage = () => {
           )}
         </div>
 
+        {/* Modal de Promoción Mejorado */}
         <Modal
           isOpen={isOpenModal}
           onClose={handleCloseModal}
@@ -338,30 +496,42 @@ const PromocionesPage = () => {
             </div>
           }
         >
-          <div className="overflow-y-auto max-h-[60vh]">
+          <div className="overflow-y-auto max-h-[60vh] p-1">
             <div className="flex flex-col gap-4">
-              <Input
-                label="Nombre de la promoción*"
-                type="text"
-                value={newPromotion.name}
-                onChange={(e) =>
-                  setNewPromotion((prev) => ({ ...prev, name: e.target.value }))
-                }
-                placeholder="Ej: Descuento de Verano"
-              />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Input
+                    label="Nombre de la promoción*"
+                    type="text"
+                    value={newPromotion.name}
+                    onChange={(e) =>
+                      setNewPromotion((prev) => ({
+                        ...prev,
+                        name: e.target.value,
+                      }))
+                    }
+                    placeholder="Ej: Descuento de Verano 20%"
+                  />
+                  {validationErrors.name && (
+                    <p className="text-red_m text-xs mt-1">
+                      {validationErrors.name}
+                    </p>
+                  )}
+                </div>
 
-              <Input
-                label="Descripción"
-                type="text"
-                value={newPromotion.description}
-                onChange={(e) =>
-                  setNewPromotion((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
-                placeholder="Descripción de la promoción"
-              />
+                <Input
+                  label="Descripción"
+                  type="text"
+                  value={newPromotion.description}
+                  onChange={(e) =>
+                    setNewPromotion((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  placeholder="Breve descripción de la promoción"
+                />
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -377,12 +547,87 @@ const PromocionesPage = () => {
                       setNewPromotion((prev) => ({
                         ...prev,
                         type: selected?.value as PromotionType,
+                        discount: 0, // Reset discount when type changes
                       }))
                     }
                     className="text-gray_m"
+                    formatOptionLabel={(option) => (
+                      <div className="flex items-center gap-2">
+                        {option.icon}
+                        {option.label}
+                      </div>
+                    )}
                   />
                 </div>
+                <div>
+                  <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                    Descuento a Aplicar*
+                  </label>
+                  <Input
+                    type="number"
+                    value={newPromotion.discount?.toString() || "0"}
+                    onChange={(e) =>
+                      setNewPromotion((prev) => ({
+                        ...prev,
+                        discount: parseFloat(e.target.value) || 0,
+                      }))
+                    }
+                    placeholder={
+                      newPromotion.type === "PERCENTAGE_DISCOUNT"
+                        ? "Porcentaje %"
+                        : "Monto fijo $"
+                    }
+                    step={
+                      newPromotion.type === "PERCENTAGE_DISCOUNT" ? "1" : "0.01"
+                    }
+                  />
+                  {validationErrors.discount && (
+                    <p className="text-red_m text-xs mt-1">
+                      {validationErrors.discount}
+                    </p>
+                  )}
+                </div>
+              </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                    Fecha de Inicio*
+                  </label>
+                  <Input
+                    type="date"
+                    value={newPromotion.startDate}
+                    onChange={(e) =>
+                      setNewPromotion((prev) => ({
+                        ...prev,
+                        startDate: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                    Fecha de Fin (Opcional)
+                  </label>
+                  <Input
+                    type="date"
+                    value={newPromotion.endDate || ""}
+                    onChange={(e) =>
+                      setNewPromotion((prev) => ({
+                        ...prev,
+                        endDate: e.target.value,
+                      }))
+                    }
+                  />
+                  {validationErrors.endDate && (
+                    <p className="text-red_m text-xs mt-1">
+                      {validationErrors.endDate}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
                     Estado*
@@ -401,38 +646,34 @@ const PromocionesPage = () => {
                     className="text-gray_m"
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
-                  Descuento a Aplicar*
-                </label>
-                <Input
-                  type="number"
-                  value={newPromotion.discount?.toString() || "0"}
-                  onChange={(e) =>
-                    setNewPromotion((prev) => ({
-                      ...prev,
-                      discount: parseFloat(e.target.value) || 0,
-                    }))
-                  }
-                  placeholder={
-                    newPromotion.type === "PERCENTAGE_DISCOUNT"
-                      ? "Porcentaje %"
-                      : "Monto fijo $"
-                  }
-                  step="0.01"
-                />
-                <p className="text-xs text-gray_m mt-1">
-                  {newPromotion.type === "PERCENTAGE_DISCOUNT"
-                    ? "Ingrese el porcentaje de descuento"
-                    : "Ingrese el monto fijo de descuento"}
-                </p>
+                <div>
+                  <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
+                    Monto Mínimo de Compra (Opcional)
+                  </label>
+                  <Input
+                    type="number"
+                    value={newPromotion.minPurchaseAmount?.toString() || "0"}
+                    onChange={(e) =>
+                      setNewPromotion((prev) => ({
+                        ...prev,
+                        minPurchaseAmount: parseFloat(e.target.value) || 0,
+                      }))
+                    }
+                    placeholder="0 = sin mínimo"
+                    step="0.01"
+                  />
+                  {validationErrors.minPurchaseAmount && (
+                    <p className="text-red_m text-xs mt-1">
+                      {validationErrors.minPurchaseAmount}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         </Modal>
 
+        {/* Modal de Confirmación de Eliminación */}
         <Modal
           isOpen={isConfirmModalOpen}
           onClose={() => setIsConfirmModalOpen(false)}
@@ -440,7 +681,7 @@ const PromocionesPage = () => {
           buttons={
             <>
               <Button
-                text="Sí"
+                text="Sí, eliminar"
                 colorText="text-white dark:text-white"
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-red_m border-b-1 dark:bg-blue_b"
@@ -448,7 +689,7 @@ const PromocionesPage = () => {
                 onClick={handleConfirmDelete}
               />
               <Button
-                text="No"
+                text="Cancelar"
                 colorText="text-gray_b dark:text-white"
                 colorTextHover="hover:dark:text-white"
                 colorBg="bg-transparent dark:bg-gray_m"
@@ -458,10 +699,15 @@ const PromocionesPage = () => {
             </>
           }
         >
-          <p>
-            ¿Está seguro que desea eliminar la promoción{" "}
-            {promotionToDelete?.name}?
-          </p>
+          <div className="text-center">
+            <Trash size={48} className="mx-auto text-red_m mb-4" />
+            <p className="text-lg font-semibold mb-2">
+              ¿Está seguro que desea eliminar la promoción?
+            </p>
+            <p className="text-gray_m">
+              {promotionToDelete?.name} será eliminada permanentemente.
+            </p>
+          </div>
         </Modal>
 
         <Notification

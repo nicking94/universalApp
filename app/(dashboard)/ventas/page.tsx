@@ -41,7 +41,6 @@ import {
   convertToBaseUnit,
   convertFromBaseUnit,
   calculatePrice,
-  calculateTotal,
   calculateCombinedTotal,
   calculateTotalProfit,
   checkStockAvailability,
@@ -167,42 +166,192 @@ const VentasPage = () => {
     });
   };
 
+  // ✅ FUNCIÓN MEJORADA: Calcular total final considerando promociones
+  const calculateFinalTotal = (
+    products: Product[],
+    manualAmount: number = 0,
+    promotion?: Promotion | null
+  ): number => {
+    const subtotal = calculateCombinedTotal(products) + manualAmount;
+
+    if (!promotion) return subtotal;
+
+    let discount = 0;
+    if (promotion.type === "PERCENTAGE_DISCOUNT") {
+      discount = (subtotal * promotion.discount) / 100;
+    } else if (promotion.type === "FIXED_DISCOUNT") {
+      discount = promotion.discount;
+    }
+
+    return Math.max(0, subtotal - Math.min(discount, subtotal));
+  };
+
+  // ✅ FUNCIÓN MEJORADA: Validar stock para la venta
+  const validateStockForSale = (
+    saleProducts: Product[]
+  ): { isValid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+
+    for (const product of saleProducts) {
+      const originalProduct = products.find((p) => p.id === product.id);
+      if (!originalProduct) {
+        errors.push(`Producto ${product.name} no encontrado`);
+        continue;
+      }
+
+      const stockCheck = checkStockAvailability(
+        originalProduct,
+        product.quantity,
+        product.unit
+      );
+
+      if (!stockCheck.available) {
+        errors.push(
+          `Stock insuficiente para ${product.name}. ` +
+            `Solicitado: ${product.quantity} ${product.unit}, ` +
+            `Disponible: ${stockCheck.availableQuantity.toFixed(2)} ${
+              stockCheck.availableUnit
+            }`
+        );
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+    };
+  };
+
+  // ✅ FUNCIÓN MEJORADA: Sincronizar métodos de pago
+  const synchronizePaymentMethods = (
+    paymentMethods: PaymentSplit[],
+    total: number
+  ): PaymentSplit[] => {
+    const currentTotal = paymentMethods.reduce(
+      (sum, method) => sum + method.amount,
+      0
+    );
+
+    if (Math.abs(currentTotal - total) < 0.01) {
+      return paymentMethods; // Ya están sincronizados
+    }
+
+    if (paymentMethods.length === 1) {
+      // Un solo método: asignar el total completo
+      return [{ ...paymentMethods[0], amount: total }];
+    } else {
+      // Múltiples métodos: distribuir proporcionalmente
+      const ratio = total / currentTotal;
+      return paymentMethods.map((method) => ({
+        ...method,
+        amount: parseFloat((method.amount * ratio).toFixed(2)),
+      }));
+    }
+  };
+
   const applyPromotionsToProducts = useCallback(
     (promotionToApply: Promotion) => {
       setNewSale((prev) => {
-        // Calcular el subtotal actual (incluyendo descuentos/recargos individuales de productos)
+        // Calcular el subtotal actual
         const currentSubtotal =
           calculateCombinedTotal(prev.products) + (prev.manualAmount || 0);
 
-        let discountAmount = 0;
+        // Verificar monto mínimo de compra si está configurado
+        if (
+          promotionToApply.minPurchaseAmount &&
+          promotionToApply.minPurchaseAmount > 0
+        ) {
+          if (currentSubtotal < promotionToApply.minPurchaseAmount) {
+            showNotification(
+              `Esta promoción requiere un monto mínimo de ${formatCurrency(
+                promotionToApply.minPurchaseAmount
+              )}. Subtotal actual: ${formatCurrency(currentSubtotal)}`,
+              "error"
+            );
+            return prev;
+          }
+        }
 
-        // Calcular el monto del descuento de la promoción
+        // Verificar vigencia de la promoción
+        const now = new Date();
+        const startDate = new Date(promotionToApply.startDate);
+        const endDate = promotionToApply.endDate
+          ? new Date(promotionToApply.endDate)
+          : null;
+
+        if (now < startDate) {
+          showNotification(
+            `Esta promoción estará disponible a partir del ${startDate.toLocaleDateString()}`,
+            "error"
+          );
+          return prev;
+        }
+
+        if (endDate && now > endDate) {
+          showNotification(
+            `Esta promoción expiró el ${endDate.toLocaleDateString()}`,
+            "error"
+          );
+          return prev;
+        }
+
+        if (promotionToApply.status === "inactive") {
+          showNotification("Esta promoción no está activa", "error");
+          return prev;
+        }
+
+        // Calcular el monto del descuento
+        let discountAmount = 0;
         if (promotionToApply.type === "PERCENTAGE_DISCOUNT") {
           discountAmount = (currentSubtotal * promotionToApply.discount) / 100;
         } else if (promotionToApply.type === "FIXED_DISCOUNT") {
           discountAmount = promotionToApply.discount;
         }
 
-        // Limitar el descuento al máximo del subtotal
         discountAmount = Math.min(discountAmount, currentSubtotal);
-
-        // Aplicar el descuento de la promoción al total
         const newTotal = Math.max(0, currentSubtotal - discountAmount);
 
-        const updatedPaymentMethods = [...prev.paymentMethods];
-        if (updatedPaymentMethods.length > 0) {
-          updatedPaymentMethods[0].amount = newTotal;
-        }
+        // ✅ CORREGIDO: Recalcular métodos de pago con el nuevo total
+        const updatedPaymentMethods = synchronizePaymentMethods(
+          prev.paymentMethods,
+          newTotal
+        );
+
+        showNotification(`Promoción aplicada correctamente`, "success");
 
         return {
           ...prev,
           total: newTotal,
           paymentMethods: updatedPaymentMethods,
+          appliedPromotion: promotionToApply,
         };
       });
     },
     []
   );
+
+  const removePromotion = () => {
+    setNewSale((prevSale) => {
+      const currentSubtotal =
+        calculateCombinedTotal(prevSale.products) +
+        (prevSale.manualAmount || 0);
+
+      // ✅ CORREGIDO: Recalcular métodos de pago al remover la promoción
+      const updatedPaymentMethods = synchronizePaymentMethods(
+        prevSale.paymentMethods,
+        currentSubtotal
+      );
+
+      return {
+        ...prevSale,
+        total: currentSubtotal,
+        paymentMethods: updatedPaymentMethods,
+        appliedPromotion: undefined,
+      };
+    });
+    setSelectedPromotions(null);
+    showNotification("Promoción removida", "info");
+  };
 
   const handlePromotionSelect = (promotion: Promotion) => {
     setTemporarySelectedPromotion((prev) => {
@@ -213,15 +362,26 @@ const VentasPage = () => {
       return promotion;
     });
   };
-  const applySelectedPromotion = () => {
-    if (temporarySelectedPromotion) {
-      setSelectedPromotions(temporarySelectedPromotion);
-      applyPromotionsToProducts(temporarySelectedPromotion);
-    }
-    setIsPromotionModalOpen(false);
-  };
+
   const SelectedPromotionsBadge = () => {
     if (!selectedPromotions) return null;
+
+    const currentSubtotal =
+      calculateCombinedTotal(newSale.products) + (newSale.manualAmount || 0);
+    const meetsRequirements =
+      !selectedPromotions.minPurchaseAmount ||
+      currentSubtotal >= selectedPromotions.minPurchaseAmount;
+
+    // Verificar vigencia
+    const now = new Date();
+    const startDate = new Date(selectedPromotions.startDate);
+    const endDate = selectedPromotions.endDate
+      ? new Date(selectedPromotions.endDate)
+      : null;
+    const isActive = selectedPromotions.status === "active";
+    const isInDateRange = now >= startDate && (!endDate || now <= endDate);
+
+    const isValid = meetsRequirements && isActive && isInDateRange;
 
     return (
       <div className="flex items-center gap-4 p-2">
@@ -229,24 +389,27 @@ const VentasPage = () => {
           <span className="text-xs font-semibold text-gray_b">
             Promoción aplicada:
           </span>
-          <div className="flex items-center gap-1 bg-blue_m text-white px-2 py-1 rounded-full text-xs">
+          <div
+            className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
+              isValid ? "bg-green_xl text-green_b" : "bg-red_xl text-red_b"
+            }`}
+          >
             <Tag size={12} />
             <span>{selectedPromotions.name}</span>
+            {!isValid && (
+              <span className="ml-1 text-xs">
+                {!meetsRequirements &&
+                  `(Requiere: ${formatCurrency(
+                    selectedPromotions.minPurchaseAmount || 0
+                  )})`}
+                {!isActive && "(Inactiva)"}
+                {!isInDateRange && "(Fuera de vigencia)"}
+              </span>
+            )}
             <button
-              onClick={() => {
-                // Remover promoción y recalcular total
-                setSelectedPromotions(null);
-                setNewSale((prevSale) => {
-                  const currentSubtotal =
-                    calculateCombinedTotal(prevSale.products) +
-                    (prevSale.manualAmount || 0);
-                  return {
-                    ...prevSale,
-                    total: currentSubtotal,
-                  };
-                });
-              }}
-              className="cursor-pointer ml-1 hover:text-red_xl transition-colors"
+              onClick={removePromotion}
+              className="cursor-pointer ml-1 hover:text-green_b transition-colors"
+              title="Remover promoción"
             >
               ×
             </button>
@@ -259,10 +422,72 @@ const VentasPage = () => {
   const PromotionSelectionModal = () => {
     const handleCloseModal = () => {
       setIsPromotionModalOpen(false);
+      setTemporarySelectedPromotion(null);
     };
 
     const handleApplyPromotion = () => {
-      applySelectedPromotion();
+      if (!temporarySelectedPromotion) {
+        showNotification("Por favor selecciona una promoción", "error");
+        return;
+      }
+
+      // Verificar si ya hay una promoción aplicada
+      if (selectedPromotions) {
+        showNotification(
+          "Ya hay una promoción aplicada. Remueve la actual para aplicar una nueva.",
+          "error"
+        );
+        return;
+      }
+
+      setSelectedPromotions(temporarySelectedPromotion);
+      applyPromotionsToProducts(temporarySelectedPromotion);
+      setIsPromotionModalOpen(false);
+    };
+
+    // Función para verificar si una promoción es aplicable
+    const isPromotionApplicable = (promotion: Promotion) => {
+      const currentSubtotal =
+        calculateCombinedTotal(newSale.products) + (newSale.manualAmount || 0);
+      const now = new Date();
+      const startDate = new Date(promotion.startDate);
+      const endDate = promotion.endDate ? new Date(promotion.endDate) : null;
+
+      // Verificar monto mínimo
+      if (promotion.minPurchaseAmount && promotion.minPurchaseAmount > 0) {
+        if (currentSubtotal < promotion.minPurchaseAmount) {
+          return false;
+        }
+      }
+
+      // Verificar vigencia
+      if (now < startDate) return false;
+      if (endDate && now > endDate) return false;
+
+      // Verificar estado
+      if (promotion.status !== "active") return false;
+
+      return true;
+    };
+
+    // Función para renderizar la información de la promoción condicionalmente
+    const renderPromotionInfo = (promotion: Promotion) => {
+      const infoItems = [];
+
+      // Solo mostrar monto mínimo si está definido y mayor a 0
+      if (promotion.minPurchaseAmount && promotion.minPurchaseAmount > 0) {
+        infoItems.push(
+          <p key="minPurchase" className="text-gray_l dark:text-gray_xxl"></p>
+        );
+      }
+
+      if (infoItems.length === 0) {
+        return null;
+      }
+
+      return (
+        <div className="mt-2 text-xs text-gray_m space-y-1">{infoItems}</div>
+      );
     };
 
     return (
@@ -278,7 +503,7 @@ const VentasPage = () => {
               colorText="text-white"
               colorTextHover="text-white"
               onClick={handleApplyPromotion}
-              disabled={!temporarySelectedPromotion} // Deshabilitar si no hay selección
+              disabled={!temporarySelectedPromotion}
             />
             <Button
               title="Cancelar"
@@ -295,48 +520,86 @@ const VentasPage = () => {
         <div className="max-h-96 overflow-y-auto">
           <div className="grid gap-3">
             {availablePromotions.length > 0 ? (
-              availablePromotions.map((promotion) => (
-                <div
-                  key={promotion.id}
-                  className={`p-3 border rounded-lg cursor-pointer transition-all duration-200 ${
-                    temporarySelectedPromotion?.id === promotion.id
-                      ? "border-blue_m bg-blue_xl dark:bg-gray_l"
-                      : " hover:bg-gray_l"
-                  }`}
-                  onClick={() => handlePromotionSelect(promotion)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="uppercase font-semibold text-gray_b dark:text-white text-md">
-                          {promotion.name}
-                        </h3>
-                        <span
-                          className={`px-2 py-1 rounded-full text-sm ${
-                            promotion.type === "PERCENTAGE_DISCOUNT"
-                              ? "bg-green_xl text-green_b"
-                              : "bg-purple_xl text-purple_b"
-                          }`}
-                        >
-                          {promotion.type === "PERCENTAGE_DISCOUNT"
-                            ? `${promotion.discount}%`
-                            : `$${promotion.discount}`}
-                        </span>
+              availablePromotions.map((promotion) => {
+                const isApplicable = isPromotionApplicable(promotion);
+                const currentSubtotal =
+                  calculateCombinedTotal(newSale.products) +
+                  (newSale.manualAmount || 0);
+
+                return (
+                  <div
+                    key={promotion.id}
+                    className={`p-3 border rounded-lg cursor-pointer transition-all duration-200 ${
+                      temporarySelectedPromotion?.id === promotion.id
+                        ? "border-blue_m bg-blue_xl dark:bg-gray_l"
+                        : isApplicable
+                        ? "bg-white dark:bg-gray_m hover:bg-blue_xl hover:dark:bg-gray_l border-gray_xl"
+                        : "opacity-70 bg-gray_xl dark:bg-gray_m border-gray_l cursor-not-allowed"
+                    }`}
+                    onClick={() =>
+                      isApplicable && handlePromotionSelect(promotion)
+                    }
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 ">
+                        <div className="flex items-center gap-2 ">
+                          <h3
+                            className={`uppercase font-semibold text-gray_b dark:text-white text-md`}
+                          >
+                            {promotion.name}
+                          </h3>
+                          <span
+                            className={`min-w-10 px-2 py-1 rounded-full text-sm font-semibold ${
+                              promotion.type === "PERCENTAGE_DISCOUNT"
+                                ? "bg-green_xl text-green_b"
+                                : "bg-blue_m text-white"
+                            }`}
+                          >
+                            {promotion.type === "PERCENTAGE_DISCOUNT"
+                              ? `${promotion.discount}%`
+                              : `$${promotion.discount}`}
+                          </span>
+                          {!isApplicable && (
+                            <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red_xl text-red_b">
+                              No aplicable
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray_m dark:text-gray_xxl mt-1">
+                          {promotion.description}
+                        </p>
+
+                        {renderPromotionInfo(promotion)}
+                        {!isApplicable &&
+                          promotion.minPurchaseAmount &&
+                          promotion.minPurchaseAmount > 0 && (
+                            <p className="text-xs text-red_m mt-1">
+                              Requiere{" "}
+                              {formatCurrency(promotion.minPurchaseAmount)}{" "}
+                              (actual: {formatCurrency(currentSubtotal)})
+                            </p>
+                          )}
                       </div>
-                      <p className="text-sm text-gray_m dark:text-gray_xxl mt-1">
-                        {promotion.description}
-                      </p>
-                    </div>
-                    <div className="flex items-center">
-                      {temporarySelectedPromotion?.id === promotion.id ? (
-                        <Check size={20} className="text-blue_m" />
-                      ) : (
-                        <div className="w-5 h-5 border-2 border-gray_xl rounded" />
-                      )}
+                      <div className="flex items-center">
+                        {temporarySelectedPromotion?.id === promotion.id ? (
+                          <Check
+                            size={20}
+                            className="text-blue_b dark:text-white border-2 rounded border-blue_b dark:border-gray_xl"
+                          />
+                        ) : (
+                          <div
+                            className={`w-5 h-5 border-2 rounded ${
+                              isApplicable
+                                ? "border-blue_m dark:border-gray_xl"
+                                : "border-gray_l"
+                            }`}
+                          />
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="text-center py-8 text-gray_m dark:text-gray_xl">
                 <Tag size={48} className="mx-auto mb-3 text-gray_xl" />
@@ -581,7 +844,11 @@ const VentasPage = () => {
           ...existingProduct,
           quantity: existingProduct.quantity + 1,
         };
-        const newTotal = calculateCombinedTotal(updatedProducts);
+        const newTotal = calculateFinalTotal(
+          updatedProducts,
+          prevState.manualAmount || 0,
+          selectedPromotions
+        );
 
         return {
           ...prevState,
@@ -600,7 +867,11 @@ const VentasPage = () => {
         };
 
         const updatedProducts = [...prevState.products, newProduct];
-        const newTotal = calculateCombinedTotal(updatedProducts);
+        const newTotal = calculateFinalTotal(
+          updatedProducts,
+          prevState.manualAmount || 0,
+          selectedPromotions
+        );
 
         return {
           ...prevState,
@@ -625,18 +896,23 @@ const VentasPage = () => {
 
   const handleManualAmountChange = (value: number) => {
     setNewSale((prev) => {
-      const productsTotal = calculateCombinedTotal(prev.products);
-      const newTotal = productsTotal + value;
-      const updatedMethods = [...prev.paymentMethods];
-      if (updatedMethods.length === 1) {
-        updatedMethods[0].amount = newTotal;
-      }
+      const newTotal = calculateFinalTotal(
+        prev.products,
+        value,
+        selectedPromotions
+      );
+
+      // ✅ CORREGIDO: Usar synchronizePaymentMethods
+      const updatedPaymentMethods = synchronizePaymentMethods(
+        prev.paymentMethods,
+        newTotal
+      );
 
       return {
         ...prev,
         manualAmount: value,
         total: newTotal,
-        paymentMethods: updatedMethods,
+        paymentMethods: updatedPaymentMethods,
       };
     });
   };
@@ -733,9 +1009,12 @@ const VentasPage = () => {
     setNewSale((prev) => {
       if (prev.paymentMethods.length >= paymentOptions.length) return prev;
 
-      const productsTotal = calculateCombinedTotal(prev.products || []);
-      const manualAmount = prev.manualAmount || 0;
-      const total = productsTotal + manualAmount;
+      const total = calculateFinalTotal(
+        prev.products,
+        prev.manualAmount || 0,
+        selectedPromotions
+      );
+
       if (prev.paymentMethods.length < 2) {
         const newMethodCount = prev.paymentMethods.length + 1;
         const share = total / newMethodCount;
@@ -785,9 +1064,11 @@ const VentasPage = () => {
       const updatedMethods = [...prev.paymentMethods];
       updatedMethods.splice(index, 1);
 
-      const productsTotal = calculateCombinedTotal(prev.products || []);
-      const manualAmount = prev.manualAmount || 0;
-      const total = productsTotal + manualAmount;
+      const total = calculateFinalTotal(
+        prev.products,
+        prev.manualAmount || 0,
+        selectedPromotions
+      );
 
       if (updatedMethods.length === 1) {
         updatedMethods[0].amount = total;
@@ -819,17 +1100,19 @@ const VentasPage = () => {
 
   const validatePaymentMethods = (
     paymentMethods: PaymentSplit[],
-    total: number,
-    isCredit: boolean
-  ): boolean => {
-    if (isCredit) {
-      const sum = paymentMethods.reduce(
-        (acc, method) => acc + method.amount,
-        0
-      );
-      return Math.abs(sum - total) < 0.01;
+    total: number
+  ): { isValid: boolean; message?: string } => {
+    const sum = paymentMethods.reduce((acc, method) => acc + method.amount, 0);
+    const difference = Math.abs(sum - total);
+
+    if (difference > 0.01) {
+      return {
+        isValid: false,
+        message: `La suma de los métodos de pago no coinciden.`,
+      };
     }
-    return true;
+
+    return { isValid: true };
   };
 
   const handleConfirmAddSale = async () => {
@@ -844,17 +1127,6 @@ const VentasPage = () => {
         return;
       }
     }
-
-    if (
-      !validatePaymentMethods(newSale.paymentMethods, newSale.total, isCredit)
-    ) {
-      showNotification(
-        "La suma de los métodos de pago no coincide con el total",
-        "error"
-      );
-      return;
-    }
-
     const needsRedirect = await ensureCashIsOpen();
     if (needsRedirect.needsRedirect) {
       setShouldRedirectToCash(true);
@@ -865,15 +1137,49 @@ const VentasPage = () => {
       return;
     }
 
-    const totalPaymentMethods = newSale.paymentMethods.reduce(
-      (sum, method) => sum + method.amount,
-      0
-    );
-    const calculatedTotal =
-      calculateCombinedTotal(newSale.products) + (newSale.manualAmount || 0);
+    // ✅ VALIDACIÓN MEJORADA: Validar stock antes de procesar
+    const stockValidation = validateStockForSale(newSale.products);
+    if (!stockValidation.isValid) {
+      stockValidation.errors.forEach((error) =>
+        showNotification(error, "error")
+      );
+      return;
+    }
 
-    if (Math.abs(totalPaymentMethods - calculatedTotal) > 0.01) {
-      showNotification(`La suma de los métodos de pago no coinciden`, "error");
+    if (!validatePaymentMethods(newSale.paymentMethods, newSale.total)) {
+      showNotification(
+        "La suma de los métodos de pago no coincide con el total",
+        "error"
+      );
+      return;
+    }
+
+    const paymentValidation = validatePaymentMethods(
+      newSale.paymentMethods,
+      newSale.total
+    );
+    if (!paymentValidation.isValid) {
+      showNotification(
+        paymentValidation.message || "Error en métodos de pago",
+        "error"
+      );
+      return;
+    }
+
+    // ✅ VALIDACIÓN MEJORADA: Calcular el total esperado considerando la promoción
+    const expectedTotal = calculateFinalTotal(
+      newSale.products,
+      newSale.manualAmount || 0,
+      selectedPromotions
+    );
+
+    if (Math.abs(newSale.total - expectedTotal) > 0.01) {
+      showNotification(
+        `Error de cálculo: El total no coincide. Esperado: $${expectedTotal.toFixed(
+          2
+        )}, Actual: $${newSale.total.toFixed(2)}`,
+        "error"
+      );
       return;
     }
 
@@ -904,7 +1210,78 @@ const VentasPage = () => {
       }
     }
 
+    // ✅ NUEVA VALIDACIÓN: Verificar que si hay promoción aplicada, cumpla con los requisitos
+    if (selectedPromotions) {
+      const currentSubtotal =
+        calculateCombinedTotal(newSale.products) + (newSale.manualAmount || 0);
+
+      // Validar monto mínimo
+      if (
+        selectedPromotions.minPurchaseAmount &&
+        selectedPromotions.minPurchaseAmount > 0
+      ) {
+        if (currentSubtotal < selectedPromotions.minPurchaseAmount) {
+          showNotification(
+            `No se puede procesar la venta. La promoción "${
+              selectedPromotions.name
+            }" requiere un monto mínimo de ${formatCurrency(
+              selectedPromotions.minPurchaseAmount
+            )}`,
+            "error"
+          );
+          return;
+        }
+      }
+
+      // Verificar vigencia al momento de la venta
+      const now = new Date();
+      const startDate = new Date(selectedPromotions.startDate);
+      const endDate = selectedPromotions.endDate
+        ? new Date(selectedPromotions.endDate)
+        : null;
+
+      if (now < startDate) {
+        showNotification(
+          `La promoción "${
+            selectedPromotions.name
+          }" no está vigente aún. Estará disponible a partir del ${startDate.toLocaleDateString()}`,
+          "error"
+        );
+        return;
+      }
+
+      if (endDate && now > endDate) {
+        showNotification(
+          `La promoción "${
+            selectedPromotions.name
+          }" ha expirado el ${endDate.toLocaleDateString()}`,
+          "error"
+        );
+        return;
+      }
+
+      if (selectedPromotions.status === "inactive") {
+        showNotification(
+          `La promoción "${selectedPromotions.name}" no está activa`,
+          "error"
+        );
+        return;
+      }
+    }
+
+    // ✅ MEJORA: Guardar stocks originales para rollback
+    const originalStocks: { [key: number]: number } = {};
+
     try {
+      // Guardar stocks originales
+      for (const product of newSale.products) {
+        const originalProduct = products.find((p) => p.id === product.id);
+        if (originalProduct) {
+          originalStocks[product.id] = originalProduct.stock;
+        }
+      }
+
+      // Actualizar stocks
       for (const product of newSale.products) {
         const updatedStock = updateStockAfterSale(
           product.id,
@@ -982,13 +1359,14 @@ const VentasPage = () => {
         customerId: customerId || "",
         paid: !isCredit,
         concept: newSale.concept || "",
+        appliedPromotion: selectedPromotions || undefined, // Incluir la promoción aplicada
       };
 
       if (!isCredit) {
         await addIncomeToDailyCash(saleToSave);
         setSelectedSale(saleToSave);
         setIsInfoModalOpen(true);
-        //desactivado temporalmente
+        // Desactivado temporalmente
         setTimeout(() => {
           if (ticketRef.current) {
             ticketRef.current.print().catch((error) => {
@@ -1010,6 +1388,22 @@ const VentasPage = () => {
       await db.sales.add(saleToSave);
       setSales([...sales, saleToSave]);
 
+      // ✅ ACTUALIZAR CONTADOR DE USOS DE LA PROMOCIÓN
+      if (selectedPromotions && selectedPromotions.id) {
+        await db.promotions.update(selectedPromotions.id, {
+          updatedAt: new Date().toISOString(),
+        });
+
+        // Actualizar la lista de promociones disponibles
+        const updatedPromotions = await db.promotions.toArray();
+        const activePromotions = updatedPromotions.filter(
+          (p) =>
+            p.status === "active" &&
+            (p.rubro === rubro || p.rubro === "Todos los rubros")
+        );
+        setAvailablePromotions(activePromotions);
+      }
+
       // Si la venta tiene un cliente asociado (no es "CLIENTE OCASIONAL"), actualizar el historial del cliente
       if (customerId && finalCustomerName !== "CLIENTE OCASIONAL") {
         await updateCustomerPurchaseHistory(customerId, saleToSave);
@@ -1029,8 +1423,23 @@ const VentasPage = () => {
         };
         await db.payments.add(chequePayment);
       }
+
+      showNotification("Venta registrada correctamente", "success");
     } catch (error) {
       console.error("Error al agregar venta:", error);
+
+      // ✅ MEJORA: Revertir stocks en caso de error
+      try {
+        for (const [productId, originalStock] of Object.entries(
+          originalStocks
+        )) {
+          await db.products.update(Number(productId), { stock: originalStock });
+        }
+        console.log("Stocks revertidos exitosamente después del error");
+      } catch (rollbackError) {
+        console.error("Error al revertir stocks:", rollbackError);
+      }
+
       showNotification("Error al agregar venta", "error");
     }
     handleCloseModal();
@@ -1076,6 +1485,7 @@ const VentasPage = () => {
     setCustomerName("");
     setCustomerPhone("");
     setSelectedPromotions(null);
+    setTemporarySelectedPromotion(null);
     setIsOpenModal(false);
   };
 
@@ -1132,12 +1542,23 @@ const VentasPage = () => {
         })
         .filter(Boolean) as Product[];
 
-      const newTotal = calculateCombinedTotal(updatedProducts || []);
+      const newTotal = calculateFinalTotal(
+        updatedProducts || [],
+        prevState.manualAmount || 0,
+        selectedPromotions
+      );
+
+      // ✅ CORREGIDO: Actualizar métodos de pago
+      const updatedPaymentMethods = synchronizePaymentMethods(
+        prevState.paymentMethods,
+        newTotal
+      );
 
       return {
         ...prevState,
         products: updatedProducts,
         total: newTotal,
+        paymentMethods: updatedPaymentMethods,
       };
     });
   };
@@ -1171,27 +1592,17 @@ const VentasPage = () => {
         return p;
       });
 
-      // Solo calcular el subtotal base
-      const newSubtotal =
-        calculateCombinedTotal(updatedProducts) + (prevState.manualAmount || 0);
+      const newTotal = calculateFinalTotal(
+        updatedProducts,
+        prevState.manualAmount || 0,
+        selectedPromotions
+      );
 
-      // Aplicar promoción si existe
-      let newTotal = newSubtotal;
-      if (selectedPromotions) {
-        let discountAmount = 0;
-        if (selectedPromotions.type === "PERCENTAGE_DISCOUNT") {
-          discountAmount = (newSubtotal * selectedPromotions.discount) / 100;
-        } else if (selectedPromotions.type === "FIXED_DISCOUNT") {
-          discountAmount = selectedPromotions.discount;
-        }
-        discountAmount = Math.min(discountAmount, newSubtotal);
-        newTotal = Math.max(0, newSubtotal - discountAmount);
-      }
-
-      const updatedPaymentMethods = [...prevState.paymentMethods];
-      if (updatedPaymentMethods.length > 0) {
-        updatedPaymentMethods[0].amount = newTotal;
-      }
+      // ✅ USAR LA FUNCIÓN CORREGIDA
+      const updatedPaymentMethods = synchronizePaymentMethods(
+        prevState.paymentMethods,
+        newTotal
+      );
 
       return {
         ...prevState,
@@ -1235,21 +1646,11 @@ const VentasPage = () => {
         return p;
       });
 
-      const newSubtotal =
-        calculateCombinedTotal(updatedProducts) + (prevState.manualAmount || 0);
-
-      // Si hay promoción activa, aplicar el descuento de la promoción
-      let newTotal = newSubtotal;
-      if (selectedPromotions) {
-        let discountAmount = 0;
-        if (selectedPromotions.type === "PERCENTAGE_DISCOUNT") {
-          discountAmount = (newSubtotal * selectedPromotions.discount) / 100;
-        } else if (selectedPromotions.type === "FIXED_DISCOUNT") {
-          discountAmount = selectedPromotions.discount;
-        }
-        discountAmount = Math.min(discountAmount, newSubtotal);
-        newTotal = Math.max(0, newSubtotal - discountAmount);
-      }
+      const newTotal = calculateFinalTotal(
+        updatedProducts,
+        prevState.manualAmount || 0,
+        selectedPromotions
+      );
 
       return {
         ...prevState,
@@ -1265,40 +1666,51 @@ const VentasPage = () => {
         (p) => p.id !== productId
       );
 
-      const newSubtotal =
-        calculateCombinedTotal(updatedProducts) + (prevState.manualAmount || 0);
+      const newTotal = calculateFinalTotal(
+        updatedProducts,
+        prevState.manualAmount || 0,
+        selectedPromotions
+      );
 
-      // Si hay promoción activa, aplicar el descuento de la promoción
-      let newTotal = newSubtotal;
-      if (selectedPromotions) {
-        let discountAmount = 0;
-        if (selectedPromotions.type === "PERCENTAGE_DISCOUNT") {
-          discountAmount = (newSubtotal * selectedPromotions.discount) / 100;
-        } else if (selectedPromotions.type === "FIXED_DISCOUNT") {
-          discountAmount = selectedPromotions.discount;
-        }
-        discountAmount = Math.min(discountAmount, newSubtotal);
-        newTotal = Math.max(0, newSubtotal - discountAmount);
-      }
+      // ✅ CORREGIDO: Actualizar métodos de pago cuando se remueve un producto
+      const updatedPaymentMethods = synchronizePaymentMethods(
+        prevState.paymentMethods,
+        newTotal
+      );
 
       return {
         ...prevState,
         products: updatedProducts,
         total: newTotal,
+        paymentMethods: updatedPaymentMethods,
       };
     });
   };
 
-  // Effects
   useEffect(() => {
     const fetchPromotions = async () => {
       try {
         const storedPromotions = await db.promotions.toArray();
-        const activePromotions = storedPromotions.filter(
-          (p) =>
-            p.status === "active" &&
-            (p.rubro === rubro || p.rubro === "Todos los rubros")
-        );
+        const now = new Date();
+
+        const activePromotions = storedPromotions.filter((p) => {
+          // Verificar estado activo
+          if (p.status !== "active") return false;
+
+          // Verificar rubro
+          if (!(p.rubro === rubro || p.rubro === "Todos los rubros"))
+            return false;
+
+          // Verificar vigencia
+          const startDate = new Date(p.startDate);
+          const endDate = p.endDate ? new Date(p.endDate) : null;
+
+          if (now < startDate) return false;
+          if (endDate && now > endDate) return false;
+
+          return true;
+        });
+
         setAvailablePromotions(activePromotions);
       } catch (error) {
         console.error("Error fetching promotions:", error);
@@ -1320,18 +1732,25 @@ const VentasPage = () => {
   }, [new Date().getMonth()]);
 
   useEffect(() => {
-    if (newSale.paymentMethods.length === 1) {
-      setNewSale((prev) => ({
-        ...prev,
-        paymentMethods: [
-          {
-            ...prev.paymentMethods[0],
-            amount: prev.total,
-          },
-        ],
-      }));
-    }
-  }, [newSale.total, newSale.paymentMethods.length]);
+    setNewSale((prev) => {
+      const currentPaymentTotal = prev.paymentMethods.reduce(
+        (sum, method) => sum + method.amount,
+        0
+      );
+
+      // Solo recalcular si hay una diferencia significativa
+      if (Math.abs(currentPaymentTotal - prev.total) > 0.01) {
+        return {
+          ...prev,
+          paymentMethods: synchronizePaymentMethods(
+            prev.paymentMethods,
+            prev.total
+          ),
+        };
+      }
+      return prev;
+    });
+  }, [newSale.total]);
 
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -1431,6 +1850,26 @@ const VentasPage = () => {
       router.push("/caja-diaria");
     }
   }, [shouldRedirectToCash, router]);
+
+  useEffect(() => {
+    const expectedTotal = calculateFinalTotal(
+      newSale.products,
+      newSale.manualAmount || 0,
+      selectedPromotions
+    );
+
+    // Solo actualizar si hay una diferencia significativa y la promoción está activa
+    if (Math.abs(newSale.total - expectedTotal) > 0.01 && selectedPromotions) {
+      setNewSale((prev) => ({
+        ...prev,
+        total: expectedTotal,
+        paymentMethods: synchronizePaymentMethods(
+          prev.paymentMethods,
+          expectedTotal
+        ),
+      }));
+    }
+  }, [newSale.products, newSale.manualAmount, selectedPromotions]);
 
   const indexOfLastSale = currentPage * itemsPerPage;
   const indexOfFirstSale = indexOfLastSale - itemsPerPage;
@@ -1723,8 +2162,8 @@ const VentasPage = () => {
             </div>
           }
         >
-          <div className="overflow-y-auto">
-            <div className="flex flex-col min-h-[50vh] 2xl:min-h-[60vh] max-h-[35vh] 2xl:max-h-[55vh]  overflow-y-auto">
+          <div className="overflow-y-auto  -mt-4">
+            <div className="flex flex-col min-h-[50vh] 2xl:min-h-[60vh] max-h-[33vh] 2xl:max-h-[55vh] overflow-y-auto px-4 2xl:px-10">
               <form
                 onSubmit={handleConfirmAddSale}
                 className="flex flex-col gap-2"
@@ -1933,40 +2372,11 @@ const VentasPage = () => {
                                               : p
                                           );
 
-                                        // Calcular nuevo subtotal con los descuentos/recargos actualizados
-                                        const newSubtotal =
-                                          calculateCombinedTotal(
-                                            updatedProducts
-                                          ) + (prev.manualAmount || 0);
-
-                                        // Si hay promoción activa, aplicar el descuento de la promoción
-                                        let newTotal = newSubtotal;
-                                        if (selectedPromotions) {
-                                          let discountAmount = 0;
-                                          if (
-                                            selectedPromotions.type ===
-                                            "PERCENTAGE_DISCOUNT"
-                                          ) {
-                                            discountAmount =
-                                              (newSubtotal *
-                                                selectedPromotions.discount) /
-                                              100;
-                                          } else if (
-                                            selectedPromotions.type ===
-                                            "FIXED_DISCOUNT"
-                                          ) {
-                                            discountAmount =
-                                              selectedPromotions.discount;
-                                          }
-                                          discountAmount = Math.min(
-                                            discountAmount,
-                                            newSubtotal
-                                          );
-                                          newTotal = Math.max(
-                                            0,
-                                            newSubtotal - discountAmount
-                                          );
-                                        }
+                                        const newTotal = calculateFinalTotal(
+                                          updatedProducts,
+                                          prev.manualAmount || 0,
+                                          selectedPromotions
+                                        );
 
                                         return {
                                           ...prev,
@@ -1997,40 +2407,11 @@ const VentasPage = () => {
                                             : p
                                       );
 
-                                      // Calcular nuevo subtotal con los descuentos/recargos actualizados
-                                      const newSubtotal =
-                                        calculateCombinedTotal(
-                                          updatedProducts
-                                        ) + (prev.manualAmount || 0);
-
-                                      // Si hay promoción activa, aplicar el descuento de la promoción
-                                      let newTotal = newSubtotal;
-                                      if (selectedPromotions) {
-                                        let discountAmount = 0;
-                                        if (
-                                          selectedPromotions.type ===
-                                          "PERCENTAGE_DISCOUNT"
-                                        ) {
-                                          discountAmount =
-                                            (newSubtotal *
-                                              selectedPromotions.discount) /
-                                            100;
-                                        } else if (
-                                          selectedPromotions.type ===
-                                          "FIXED_DISCOUNT"
-                                        ) {
-                                          discountAmount =
-                                            selectedPromotions.discount;
-                                        }
-                                        discountAmount = Math.min(
-                                          discountAmount,
-                                          newSubtotal
-                                        );
-                                        newTotal = Math.max(
-                                          0,
-                                          newSubtotal - discountAmount
-                                        );
-                                      }
+                                      const newTotal = calculateFinalTotal(
+                                        updatedProducts,
+                                        prev.manualAmount || 0,
+                                        selectedPromotions
+                                      );
 
                                       return {
                                         ...prev,
@@ -2148,9 +2529,10 @@ const VentasPage = () => {
                               setNewSale((prev) => ({
                                 ...prev,
                                 manualProfitPercentage: value || 0,
-                                total: calculateTotal(
+                                total: calculateFinalTotal(
                                   prev.products,
-                                  prev.manualAmount || 0
+                                  prev.manualAmount || 0,
+                                  selectedPromotions
                                 ),
                               }));
                             }}

@@ -96,7 +96,7 @@ export const systemActualizations: Actualization[] = [
     id: 14,
     title: `Versión 1.5.3 - Actualización`,
     message:
-      "- Agregado el módulo para crear promociones\n- Mejoras visuales y en el rendimiento\n-Agregada la actualización automática cuando hay una nueva versión de la aplicación disponible.",
+      "- Agregado el módulo para crear promociones\n-Agregada la actualización automática cuando hay una nueva versión de la aplicación disponible\n- Mejoras visuales y en el rendimiento",
     date: new Date().toISOString(),
   },
 ];

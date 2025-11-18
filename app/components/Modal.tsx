@@ -42,7 +42,7 @@ const Modal: React.FC<ModalProps> = ({
       className={`${zIndex} fixed top-0 left-0 w-full h-full bg-gray_b/80 dark:bg-gray_l/80 flex justify-center items-center`}
     >
       <div
-        className={`${bgColor} max-h-[95vh] min-h-[23vh] w-[93vw] 2xl:w-[70vw] rounded-sm shadow-lg shadow-gray_b p-6 text-gray_b dark:text-white flex flex-col`}
+        className={`${bgColor} min-h-[23vh] w-[93vw] 2xl:w-[70vw] rounded-sm shadow-lg shadow-gray_b p-6 text-gray_b dark:text-white flex flex-col`}
       >
         <h2 className="text-xl font-bold">{title}</h2>
 

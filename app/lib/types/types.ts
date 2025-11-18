@@ -264,6 +264,7 @@ export type Sale = {
     date: string;
   };
   concept?: string;
+  appliedPromotion?: Promotion;
 };
 
 export type SaleItem = {
@@ -714,6 +715,9 @@ export type Promotion = {
   status: PromotionStatus;
   discount: number;
   rubro: string;
+  startDate: string;
+  endDate?: string;
+  minPurchaseAmount?: number;
   createdAt: string;
   updatedAt: string;
 };
