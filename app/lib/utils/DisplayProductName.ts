@@ -3,12 +3,13 @@ import { ProductDisplayInfo, Rubro } from "../types/types";
 const getDisplayProductName = (
   productOrName: ProductDisplayInfo | string,
   rubro?: Rubro,
-  showSizeAndColor: boolean = true
+  showSizeAndColor: boolean = true,
+  showLot: boolean = false
 ): string => {
   const isProductObject = typeof productOrName !== "string";
   const productName = isProductObject ? productOrName.name : productOrName;
   const lot = isProductObject ? productOrName.lot : undefined;
-  let displayName = lot ? `[L-${lot}] ${productName}` : productName;
+  let displayName = (lot && showLot) ? `[L-${lot}] ${productName}` : productName;
 
   const shouldDisplayDetails =
     showSizeAndColor || rubro?.toLowerCase() === "Todos los rubros";

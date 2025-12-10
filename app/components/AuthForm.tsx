@@ -1,10 +1,23 @@
 "use client";
 import React, { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
-import Button from "./Button";
+import {
+  Box,
+  Typography,
+  FormControlLabel,
+  Checkbox,
+  Link,
+  Paper,
+  useTheme,
+} from "@mui/material";
+import {
+  Visibility as VisibilityIcon,
+  VisibilityOff as VisibilityOffIcon,
+} from "@mui/icons-material";
 import { AuthData } from "../lib/types/types";
 import Image from "next/image";
-import Logo from "../../public/logo.png";
+import Logo from "@/public/logo.png";
+import Input from "./Input";
+import Button from "./Button"; // Importa tu botón personalizado
 
 interface AuthFormProps {
   type?: "login" | "register";
@@ -26,10 +39,7 @@ const AuthForm: React.FC<AuthFormProps> = ({
     password: "",
   });
   const [showPassword, setShowPassword] = useState(false);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const theme = useTheme();
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -45,97 +55,136 @@ const AuthForm: React.FC<AuthFormProps> = ({
     }
   };
 
+  const handleClickShowPassword = () => setShowPassword((show) => !show);
+
   return (
-    <form
+    <Paper
+      component="form"
       onSubmit={handleSubmit}
-      className="bg-blue_xl text-gray_b flex flex-col justify-center w-[35%] xl:w-[25%] p-10 space-y-6 shadow-2xl shadow-blue_b z-40"
+      elevation={8}
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        width: { xs: "90%", sm: "70%", md: "35%", xl: "25%" },
+        p: 5,
+        gap: 2,
+        backgroundColor: "#e0f2fe",
+        color: "#374151",
+        zIndex: 40,
+        borderRadius: 2,
+      }}
     >
-      <div className="hidden  justify-center">
+      <Box sx={{ display: "none", justifyContent: "center" }}>
         <Image src={Logo} alt="logo" width={100} height={100} />
-      </div>
-      <h2 className="font-semibold text-3xl 2xl:text-4xl text-center text-gray_b">
+      </Box>
+
+      <Typography
+        variant="h4"
+        component="h2"
+        sx={{
+          fontWeight: 600,
+          textAlign: "center",
+          color: "#374151",
+          fontSize: { xs: "1.875rem", lg: "2.25rem" },
+        }}
+      >
         {type === "login" ? "Iniciar sesión" : "Registrarse"}
-      </h2>
+      </Typography>
 
-      <div className="flex flex-col">
-        <label htmlFor="username">Usuario</label>
-        <input
-          type="text"
-          id="username"
-          name="username"
-          value={formData.username}
-          onChange={handleChange}
-          required
-          placeholder="Escribe tu nombre de usuario"
-          className="placeholder:text-gray_l outline-none p-2 border-[1px] border-blue_l rounded-sm  transition-colors duration-300"
-        />
-      </div>
+      <Input
+        label="Usuario"
+        name="username"
+        value={formData.username}
+        onChange={(value) =>
+          setFormData({ ...formData, username: value.toString() })
+        }
+        placeholder="Escribe tu nombre de usuario"
+        fullWidth
+        required
+        capitalize={false}
+      />
 
-      <div>
-        <label htmlFor="password">Contraseña</label>
-        <div className="relative border-[1px] border-blue_l rounded-sm  transition-colors duration-300">
-          <input
-            type={showPassword ? "text" : "password"}
-            id="password"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            required
-            placeholder="Escribe tu contraseña"
-            className="placeholder:text-gray_l w-full outline-none p-2 pr-14"
-          />
-          <button
-            type="button"
-            className="cursor-pointer absolute right-3 top-1/2 -translate-y-1/2"
-            onClick={() => setShowPassword(!showPassword)}
-          >
-            {showPassword ? (
-              <EyeOff className="h-5 w-5 text-gray_m" />
-            ) : (
-              <Eye className="h-5 w-5 text-gray_m" />
-            )}
-          </button>
-        </div>
-      </div>
+      <Input
+        label="Contraseña"
+        name="password"
+        type={showPassword ? "text" : "password"}
+        value={formData.password}
+        onChange={(value) =>
+          setFormData({ ...formData, password: value.toString() })
+        }
+        placeholder="Escribe tu contraseña"
+        fullWidth
+        required
+        buttonIcon={showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+        onButtonClick={handleClickShowPassword}
+        buttonTitle={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+      />
 
       {showTermsCheckbox && (
-        <div className="space-y-2">
-          <div className="flex items-center">
-            <input
-              id="terms-checkbox"
-              type="checkbox"
-              checked={acceptedTerms}
-              onChange={handleTermsChange}
-              className="cursor-pointer w-4 h-4 text-blue_b bg-gray_xxl border-gray_m rounded "
-            />
-            <label
-              htmlFor="terms-checkbox"
-              className="ms-2 text-sm font-medium text-gray_b dark:text-gray_m"
-            >
-              Acepto los términos y condiciones
-            </label>
-          </div>
-          <a
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                id="terms-checkbox"
+                checked={acceptedTerms}
+                onChange={handleTermsChange}
+                sx={{
+                  color: theme.palette.primary.main,
+                  "&.Mui-checked": {
+                    color: theme.palette.primary.main,
+                  },
+                }}
+              />
+            }
+            label={
+              <Typography variant="body2" sx={{ color: "text.primary" }}>
+                Acepto los términos y condiciones
+              </Typography>
+            }
+          />
+          <Link
             href="/terminos-y-condiciones"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue_b dark:text-blue_m text-xs hover:underline"
+            variant="body2"
+            sx={{
+              color: theme.palette.primary.main,
+              textDecoration: "none",
+              "&:hover": {
+                textDecoration: "underline",
+              },
+              fontSize: "0.75rem",
+            }}
           >
             Leer términos y condiciones
-          </a>
-        </div>
+          </Link>
+        </Box>
       )}
 
-      <div className="flex items-center justify-center pt-4">
+      <Box sx={{ display: "flex", justifyContent: "center", pt: 2 }}>
         <Button
           type="submit"
-          text={type === "login" ? "Iniciar Sesión" : "Registrarse"}
-          colorText="text-white"
-          colorTextHover="hover:text-white"
+          variant="contained"
           disabled={showTermsCheckbox && !acceptedTerms}
+          fullWidth
+          text={type === "login" ? "Iniciar Sesión" : "Registrarse"}
+          title={
+            type === "login"
+              ? "Iniciar sesión en el sistema"
+              : "Crear una nueva cuenta"
+          }
+          isPrimaryAction={true}
+          size="medium"
+          sx={{
+            "&.Mui-disabled": {
+              backgroundColor: theme.palette.action.disabledBackground,
+              color: theme.palette.action.disabled,
+            },
+          }}
         />
-      </div>
-    </form>
+      </Box>
+    </Paper>
   );
 };
 

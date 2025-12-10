@@ -1,9 +1,25 @@
-"use client";
+﻿"use client";
 
 import { NotificationType } from "@/app/lib/types/types";
-import { XMarkIcon, CheckIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
+import {
+  Box,
+  Typography,
+  IconButton,
+  List,
+  ListItem,
+  useTheme,
+  alpha,
+} from "@mui/material";
+import {
+  Close as CloseIcon,
+  Check as CheckIcon,
+  Delete as DeleteIcon,
+  CheckCircle as CheckCircleIcon,
+} from "@mui/icons-material";
+import CustomChip from "../CustomChip";
+import CustomGlobalTooltip from "../CustomTooltipGlobal";
 
 interface NotificationDropdownProps {
   notifications: NotificationType[];
@@ -20,75 +36,158 @@ const NotificationDropdown = ({
   onMarkAllAsRead,
   onClose,
 }: NotificationDropdownProps) => {
+  const theme = useTheme();
   const unreadNotifications = notifications.filter((n) => !n.read);
   const readNotifications = notifications.filter((n) => n.read);
 
   return (
-    <div className="absolute right-0 mt-2 w-120 bg-white dark:bg-gray_b rounded-md shadow dark:shadow-gray_l overflow-hidden z-50 border border-gay-200 dark:border-gray_b ">
-      <div className="p-3 border-b border-gray_xl dark:border-gray_m flex justify-between items-center bg-gray_xxl dark:bg-black">
-        <h3 className="font-medium text-gray_m dark:text-white">
+    <Box
+      sx={{
+        position: "absolute",
+        right: 0,
+        top: "100%",
+        mt: 1,
+        width: 400,
+        bgcolor: "background.paper",
+        borderRadius: 1,
+        boxShadow: 3,
+        overflow: "hidden",
+        zIndex: 50,
+        border: `1px solid ${theme.palette.divider}`,
+      }}
+    >
+      {/* Header */}
+      <Box
+        sx={{
+          p: 2,
+          borderBottom: `1px solid ${theme.palette.divider}`,
+          bgcolor: "grey.50",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <Typography variant="h6" component="h3" color="text.primary">
           Notificaciones
-        </h3>
-        <div className="flex space-x-2">
+        </Typography>
+        <Box sx={{ display: "flex", gap: 2 }}>
           {unreadNotifications.length > 0 && (
-            <button
-              onClick={onMarkAllAsRead}
-              className="cursor-pointer text-xs text-blue_b dark:text-blue_b hover:underline"
-              title="Marcar todas como leídas"
-            >
-              <CheckIcon className="h-4 w-4" />
-            </button>
+            <CustomGlobalTooltip title="Marcar todas como leídas">
+              <IconButton
+                onClick={onMarkAllAsRead}
+                size="small"
+                sx={{
+                  color: "primary.main",
+                  "&:hover": {
+                    backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                  },
+                }}
+              >
+                <CheckIcon fontSize="small" />
+              </IconButton>
+            </CustomGlobalTooltip>
           )}
-          <button
-            onClick={onClose}
-            className="cursor-pointer text-gray_l hover:text-gray_b dark:hover:text-gray_xl"
-            title="Cerrar"
-          >
-            <XMarkIcon className="h-5 w-5" />
-          </button>
-        </div>
-      </div>
+          <CustomGlobalTooltip title="Cerrar">
+            <IconButton
+              onClick={onClose}
+              size="small"
+              sx={{
+                color: "text.secondary",
+                "&:hover": {
+                  backgroundColor: alpha(theme.palette.text.secondary, 0.1),
+                },
+              }}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </CustomGlobalTooltip>
+        </Box>
+      </Box>
 
-      <div className="max-h-[55vh] overflow-y-auto">
+      {/* Notifications List */}
+      <Box sx={{ maxHeight: "55vh", overflow: "auto" }}>
         {notifications.length === 0 ? (
-          <div className="p-4 text-center text-gray_l dark:text-gray_xl">
-            No hay notificaciones
-          </div>
+          <Box sx={{ p: 3, textAlign: "center" }}>
+            <Typography variant="body2" color="text.secondary">
+              No hay notificaciones
+            </Typography>
+          </Box>
         ) : (
           <>
+            {/* Unread Notifications Section */}
             {unreadNotifications.length > 0 && (
-              <div className="bg-blue_l dark:bg-blue_m px-3 py-1 text-xs text-white font-semibold dark:text-blue_xl  ">
-                Sin leer
-              </div>
+              <>
+                <Box
+                  sx={{
+                    px: 2,
+                    py: 1,
+                    bgcolor: "primary.main",
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "white",
+                      fontWeight: "bold",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Sin leer
+                  </Typography>
+                </Box>
+                <List sx={{ p: 0 }}>
+                  {unreadNotifications.map((notification) => (
+                    <NotificationItem
+                      key={notification.id}
+                      notification={notification}
+                      onMarkAsRead={onMarkAsRead}
+                      onDelete={onDelete}
+                      isUnread={true}
+                    />
+                  ))}
+                </List>
+              </>
             )}
-            {unreadNotifications.map((notification) => (
-              <NotificationItem
-                key={notification.id}
-                notification={notification}
-                onMarkAsRead={onMarkAsRead}
-                onDelete={onDelete}
-                isUnread={true}
-              />
-            ))}
 
+            {/* Read Notifications Section */}
             {readNotifications.length > 0 && (
-              <div className="bg-gray_xxl font-semibold dark:bg-gray_m px-3 py-1 text-xs text-gray_m dark:text-gray_xl">
-                Leídas
-              </div>
+              <>
+                <Box
+                  sx={{
+                    px: 2,
+                    py: 1,
+                    bgcolor:
+                      theme.palette.mode === "dark" ? "grey.800" : "grey.200",
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      fontWeight: "bold",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Leídas
+                  </Typography>
+                </Box>
+                <List sx={{ p: 0 }}>
+                  {readNotifications.map((notification) => (
+                    <NotificationItem
+                      key={notification.id}
+                      notification={notification}
+                      onMarkAsRead={onMarkAsRead}
+                      onDelete={onDelete}
+                      isUnread={false}
+                    />
+                  ))}
+                </List>
+              </>
             )}
-            {readNotifications.map((notification) => (
-              <NotificationItem
-                key={notification.id}
-                notification={notification}
-                onMarkAsRead={onMarkAsRead}
-                onDelete={onDelete}
-                isUnread={false}
-              />
-            ))}
           </>
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 };
 
@@ -103,59 +202,97 @@ const NotificationItem = ({
   onDelete: (id: number) => void;
   isUnread: boolean;
 }) => {
+  const theme = useTheme();
+
   return (
-    <div
-      className={`p-3 border-b border-gray_xl dark:border-gray_m ${
-        isUnread ? "bg-blue_xl dark:bg-blue_xl" : ""
-      }`}
+    <ListItem
+      sx={{
+        p: 2,
+        borderBottom: `1px solid ${theme.palette.divider}`,
+        bgcolor: isUnread
+          ? alpha(theme.palette.primary.light, 0.1)
+          : "transparent",
+        "&:last-child": {
+          borderBottom: "none",
+        },
+      }}
     >
-      <div className="flex justify-between">
-        <div className="flex-1 min-w-0">
-          <h4
-            className={`text-sm font-medium truncate ${
-              isUnread ? "text-gray_b " : " dark:text-white"
-            }`}
-          >
-            {notification.title}
-          </h4>
-          <p
-            className={`text-sm text-gray_b dark:text-gray_m mt-1 whitespace-pre-line ${
-              isUnread ? "" : "dark:text-gray_xl"
-            }`}
-          >
-            {notification.message}
-          </p>
-          <div className={`flex items-center mt-1 text-xs text-gray_l`}>
-            <span>
-              {formatDistanceToNow(new Date(notification.date || new Date()), {
-                addSuffix: true,
-                locale: es,
-              })}
-            </span>
-          </div>
-        </div>
-        <div className="ml-2 flex items-start">
-          <button
-            onClick={() => notification.id && onDelete(notification.id)}
-            className={`${
-              isUnread ? "text-gray_m" : "dark:text-gray_xl"
-            } cursor-pointer  hover:text-red_m dark:hover:text-red_m p-1`}
-            title="Eliminar"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
-          {isUnread && notification.id && (
-            <button
-              onClick={() => onMarkAsRead(notification.id!)}
-              className="cursor-pointer text-gray_m hover:text-green_b dark:hover:text-green_b p-1 ml-1"
-              title="Marcar como leída"
-            >
-              <CheckIcon className="h-4 w-4" />
-            </button>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography
+          variant="subtitle2"
+          sx={{
+            fontWeight: isUnread ? "bold" : "normal",
+            color: isUnread ? "text.primary" : "text.primary",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {notification.title}
+        </Typography>
+        <Typography
+          variant="body2"
+          sx={{
+            color: isUnread ? "text.primary" : "text.secondary",
+            mt: 0.5,
+            whiteSpace: "pre-line",
+            wordBreak: "break-word",
+          }}
+        >
+          {notification.message}
+        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", mt: 1 }}>
+          <Typography variant="caption" color="text.secondary">
+            {formatDistanceToNow(new Date(notification.date || new Date()), {
+              addSuffix: true,
+              locale: es,
+            })}
+          </Typography>
+          {isUnread && (
+            <CustomChip
+              label="Nuevo"
+              size="small"
+              color="primary"
+              sx={{ ml: 1, height: 20, fontSize: "0.6rem" }}
+            />
           )}
-        </div>
-      </div>
-    </div>
+        </Box>
+      </Box>
+      <Box sx={{ ml: 1, display: "flex", flexDirection: "column", gap: 0.5 }}>
+        <CustomGlobalTooltip title="Eliminar">
+          <IconButton
+            onClick={() => notification.id && onDelete(notification.id)}
+            size="small"
+            sx={{
+              color: "text.secondary",
+              "&:hover": {
+                color: "error.main",
+                backgroundColor: alpha(theme.palette.error.main, 0.1),
+              },
+            }}
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </CustomGlobalTooltip>
+        {isUnread && notification.id && (
+          <CustomGlobalTooltip title="Marcar como leída">
+            <IconButton
+              onClick={() => onMarkAsRead(notification.id!)}
+              size="small"
+              sx={{
+                color: "text.secondary",
+                "&:hover": {
+                  color: "success.main",
+                  backgroundColor: alpha(theme.palette.success.main, 0.1),
+                },
+              }}
+            >
+              <CheckCircleIcon fontSize="small" />
+            </IconButton>
+          </CustomGlobalTooltip>
+        )}
+      </Box>
+    </ListItem>
   );
 };
 

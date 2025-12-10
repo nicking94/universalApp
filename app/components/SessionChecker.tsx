@@ -2,7 +2,7 @@
 "use client";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { db } from "../database/db";
+import { db } from "@/app/database/db";
 import { TRIAL_CREDENTIALS, USERS } from "../lib/constants/constants";
 import { useAuth } from "../context/AuthContext";
 

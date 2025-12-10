@@ -1,5 +1,12 @@
 "use client";
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+  SyntheticEvent,
+  useMemo,
+  useCallback,
+  useRef,
+} from "react";
 import { db } from "@/app/database/db";
 import {
   Budget,
@@ -14,23 +21,12 @@ import {
 } from "@/app/lib/types/types";
 import ProtectedRoute from "@/app/components/ProtectedRoute";
 import Modal from "@/app/components/Modal";
-import Button from "@/app/components/Button";
 import Input from "@/app/components/Input";
 import Notification from "@/app/components/Notification";
 import Pagination from "@/app/components/Pagination";
-import {
-  Edit,
-  Plus,
-  Trash,
-  FileText,
-  Download,
-  StickyNote,
-  ShoppingCart,
-} from "lucide-react";
 import SearchBar from "@/app/components/SearchBar";
 import { useRubro } from "@/app/context/RubroContext";
 import { usePagination } from "@/app/context/PaginationContext";
-import Select, { MultiValue, SingleValue } from "react-select";
 import { formatCurrency } from "@/app/lib/utils/currency";
 import CustomDatePicker from "@/app/components/CustomDatePicker";
 import { PDFDownloadLink } from "@react-pdf/renderer";
@@ -42,18 +38,88 @@ import { getLocalDateString } from "@/app/lib/utils/getLocalDate";
 import { ensureCashIsOpen } from "@/app/lib/utils/cash";
 import { useRouter } from "next/navigation";
 
+import {
+  Box,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  IconButton,
+  useTheme,
+  Card,
+  CardContent,
+  Divider,
+  Autocomplete,
+  TextField,
+} from "@mui/material";
+import {
+  Add,
+  Delete,
+  Edit,
+  Download,
+  Note,
+  ShoppingCart,
+  Description,
+} from "@mui/icons-material";
+import Button from "@/app/components/Button";
+import Select from "@/app/components/Select";
+import CustomChip from "@/app/components/CustomChip";
+import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
+import ProductSearchAutocomplete from "@/app/components/ProductSearchAutocomplete";
+import CustomGlobalTooltip from "@/app/components/CustomTooltipGlobal";
+
+interface CustomerOption {
+  value: string;
+  label: string;
+}
+
+interface StatusOption {
+  value: "pendiente" | "aprobado" | "rechazado";
+  label: string;
+}
+
+interface BudgetItem extends SaleItem {
+  basePrice?: number;
+}
+
+interface BudgetFormData {
+  date: string;
+  customerName: string;
+  customerPhone: string;
+  items: BudgetItem[];
+  total: number;
+  deposit: string;
+  remaining: number;
+  expirationDate: string;
+  notes: string;
+  status: "pendiente" | "aprobado" | "rechazado" | "cobrado";
+  customerId?: string;
+}
+
+interface ConversionFactors {
+  [key: string]: {
+    base: string;
+    factor: number;
+  };
+}
+
+interface StockAvailability {
+  available: boolean;
+  availableQuantity: number;
+  availableUnit: string;
+}
+
 const PresupuestosPage = () => {
   const { rubro } = useRubro();
   const { businessData } = useBusinessData();
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [filteredBudgets, setFilteredBudgets] = useState<Budget[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newBudget, setNewBudget] = useState<
-    Omit<Budget, "id" | "createdAt" | "updatedAt"> & {
-      items: Array<SaleItem & { basePrice?: number }>;
-      customerId?: string;
-    }
-  >({
+  const [newBudget, setNewBudget] = useState<BudgetFormData>({
     date: new Date().toISOString(),
     customerName: "",
     customerPhone: "",
@@ -70,13 +136,9 @@ const PresupuestosPage = () => {
   const [budgetToConvert, setBudgetToConvert] = useState<Budget | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [customerOptions, setCustomerOptions] = useState<
-    { value: string; label: string }[]
-  >([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<{
-    value: string;
-    label: string;
-  } | null>(null);
+  const [customerOptions, setCustomerOptions] = useState<CustomerOption[]>([]);
+  const [selectedCustomer, setSelectedCustomer] =
+    useState<CustomerOption | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [budgetToDelete, setBudgetToDelete] = useState<Budget | null>(null);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
@@ -92,9 +154,14 @@ const PresupuestosPage = () => {
     id: string | null;
     name: string;
   } | null>(null);
-  const router = useRouter();
 
-  const CONVERSION_FACTORS = {
+  const router = useRouter();
+  const theme = useTheme();
+
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const productSearchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const CONVERSION_FACTORS: ConversionFactors = {
     A: { base: "A", factor: 1 },
     Bulto: { base: "Bulto", factor: 1 },
     Cajón: { base: "Cajón", factor: 1 },
@@ -115,7 +182,7 @@ const PresupuestosPage = () => {
     "Unid.": { base: "Unid.", factor: 1 },
     V: { base: "V", factor: 1 },
     W: { base: "W", factor: 1 },
-  } as const;
+  };
 
   const unitOptions: UnitOption[] = [
     { value: "A", label: "Amperio", convertible: false },
@@ -140,53 +207,52 @@ const PresupuestosPage = () => {
     { value: "W", label: "Watt", convertible: false },
   ];
 
-  const convertToBaseUnit = (quantity: number, fromUnit: string): number => {
-    const unitInfo =
-      CONVERSION_FACTORS[fromUnit as keyof typeof CONVERSION_FACTORS];
-    return unitInfo ? quantity * unitInfo.factor : quantity;
-  };
+  const statusOptions: StatusOption[] = [
+    { value: "pendiente", label: "Pendiente" },
+    { value: "aprobado", label: "Aprobado" },
+    { value: "rechazado", label: "Rechazado" },
+  ];
 
-  const convertFromBaseUnit = (quantity: number, toUnit: string): number => {
-    const unitInfo =
-      CONVERSION_FACTORS[toUnit as keyof typeof CONVERSION_FACTORS];
-    return unitInfo ? quantity / unitInfo.factor : quantity;
-  };
+  const convertToBaseUnit = useCallback(
+    (quantity: number, fromUnit: string): number => {
+      const unitInfo = CONVERSION_FACTORS[fromUnit];
+      return unitInfo ? quantity * unitInfo.factor : quantity;
+    },
+    []
+  );
 
-  const convertUnit = (
-    quantity: number,
-    fromUnit: string,
-    toUnit: string
-  ): number => {
-    if (fromUnit === toUnit) return quantity;
-    const baseQuantity = convertToBaseUnit(quantity, fromUnit);
-    return convertFromBaseUnit(baseQuantity, toUnit);
-  };
+  const convertFromBaseUnit = useCallback(
+    (quantity: number, toUnit: string): number => {
+      const unitInfo = CONVERSION_FACTORS[toUnit];
+      return unitInfo ? quantity / unitInfo.factor : quantity;
+    },
+    []
+  );
 
-  const getCompatibleUnits = (productUnit: string): UnitOption[] => {
-    if (productUnit === "Unid.") return [];
+  const convertUnit = useCallback(
+    (quantity: number, fromUnit: string, toUnit: string): number => {
+      if (fromUnit === toUnit) return quantity;
+      const baseQuantity = convertToBaseUnit(quantity, fromUnit);
+      return convertFromBaseUnit(baseQuantity, toUnit);
+    },
+    [convertToBaseUnit, convertFromBaseUnit]
+  );
 
-    const productUnitInfo =
-      CONVERSION_FACTORS[productUnit as keyof typeof CONVERSION_FACTORS];
-    if (!productUnitInfo) return unitOptions.filter((u) => !u.convertible);
+  const getCompatibleUnits = useCallback(
+    (productUnit: string): UnitOption[] => {
+      if (productUnit === "Unid.") return [];
 
-    return unitOptions.filter((option) => {
-      if (!option.convertible) return false;
-      const optionInfo =
-        CONVERSION_FACTORS[option.value as keyof typeof CONVERSION_FACTORS];
-      return optionInfo?.base === productUnitInfo.base;
-    });
-  };
+      const productUnitInfo = CONVERSION_FACTORS[productUnit];
+      if (!productUnitInfo) return unitOptions.filter((u) => !u.convertible);
 
-  const productOptions: readonly ProductOption[] = products
-    .filter((p) => rubro === "Todos los rubros" || p.rubro === rubro)
-    .map((p) => ({
-      value: p.id,
-      label: `${p.name}${p.size ? ` (${p.size})` : ""}${
-        p.color ? ` - ${p.color}` : ""
-      }`,
-      product: p,
-      isDisabled: p.stock <= 0,
-    })) as readonly ProductOption[];
+      return unitOptions.filter((option) => {
+        if (!option.convertible) return false;
+        const optionInfo = CONVERSION_FACTORS[option.value];
+        return optionInfo?.base === productUnitInfo.base;
+      });
+    },
+    []
+  );
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -245,105 +311,109 @@ const PresupuestosPage = () => {
 
   const indexOfLastBudget = currentPage * itemsPerPage;
   const indexOfFirstBudget = indexOfLastBudget - itemsPerPage;
-  const currentBudgets = filteredBudgets.slice(
-    indexOfFirstBudget,
-    indexOfLastBudget
+  const currentBudgets = useMemo(
+    () => filteredBudgets.slice(indexOfFirstBudget, indexOfLastBudget),
+    [filteredBudgets, indexOfFirstBudget, indexOfLastBudget]
   );
 
-  const showNotification = (
-    message: string,
-    type: "success" | "error" | "info"
-  ) => {
-    setNotificationMessage(message);
-    setNotificationType(type);
-    setIsNotificationOpen(true);
-    setTimeout(() => setIsNotificationOpen(false), 2500);
-  };
+  const showNotification = useCallback(
+    (message: string, type: "success" | "error" | "info") => {
+      setNotificationMessage(message);
+      setNotificationType(type);
+      setIsNotificationOpen(true);
+      setTimeout(() => setIsNotificationOpen(false), 2500);
+    },
+    []
+  );
 
-  const calculateTotalAndRemaining = (
-    items: Array<SaleItem & { basePrice?: number }>,
-    deposit: string
-  ) => {
-    const total = items.reduce(
-      (total, item) =>
-        total + item.price * item.quantity * (1 - (item.discount || 0) / 100),
-      0
-    );
-    const depositValue = deposit === "" ? 0 : parseFloat(deposit);
-    const remaining = total - (isNaN(depositValue) ? 0 : depositValue);
-    return { total, remaining };
-  };
+  const calculateTotalAndRemaining = useCallback(
+    (items: BudgetItem[], deposit: string) => {
+      const total = items.reduce(
+        (total, item) =>
+          total + item.price * item.quantity * (1 - (item.discount || 0) / 100),
+        0
+      );
+      const depositValue = deposit === "" ? 0 : parseFloat(deposit);
+      const remaining = total - (isNaN(depositValue) ? 0 : depositValue);
+      return { total, remaining };
+    },
+    []
+  );
+
   const handleNewBudgetClick = async () => {
     const { needsRedirect } = await ensureCashIsOpen();
 
     if (needsRedirect) {
       router.push(`/caja-diaria`);
-
       return;
     }
 
     setIsModalOpen(true);
   };
 
-  const checkStockAvailability = (
-    product: Product,
-    requestedQuantity: number,
-    requestedUnit: string
-  ): {
-    available: boolean;
-    availableQuantity: number;
-    availableUnit: string;
-  } => {
-    try {
+  const checkStockAvailability = useCallback(
+    (
+      product: Product,
+      requestedQuantity: number,
+      requestedUnit: string
+    ): StockAvailability => {
+      try {
+        const stockInBase = convertToBaseUnit(
+          Number(product.stock),
+          product.unit
+        );
+        const requestedInBase = convertToBaseUnit(
+          requestedQuantity,
+          requestedUnit
+        );
+
+        if (stockInBase >= requestedInBase) {
+          return {
+            available: true,
+            availableQuantity: requestedQuantity,
+            availableUnit: requestedUnit,
+          };
+        } else {
+          const availableInRequestedUnit = convertFromBaseUnit(
+            stockInBase,
+            requestedUnit
+          );
+          return {
+            available: false,
+            availableQuantity: parseFloat(availableInRequestedUnit.toFixed(3)),
+            availableUnit: requestedUnit,
+          };
+        }
+      } catch (error) {
+        console.error("Error checking stock:", error);
+        return {
+          available: false,
+          availableQuantity: 0,
+          availableUnit: requestedUnit,
+        };
+      }
+    },
+    [convertToBaseUnit, convertFromBaseUnit]
+  );
+
+  const updateStockAfterSale = useCallback(
+    (productId: number, soldQuantity: number, unit: string): number => {
+      const product = products.find((p) => p.id === productId);
+      if (!product)
+        throw new Error(`Producto con ID ${productId} no encontrado`);
+
       const stockInBase = convertToBaseUnit(
         Number(product.stock),
         product.unit
       );
-      const requestedInBase = convertToBaseUnit(
-        requestedQuantity,
-        requestedUnit
-      );
+      const soldInBase = convertToBaseUnit(soldQuantity, unit);
+      const newStockInBase = stockInBase - soldInBase;
 
-      if (stockInBase >= requestedInBase) {
-        return {
-          available: true,
-          availableQuantity: requestedQuantity,
-          availableUnit: requestedUnit,
-        };
-      } else {
-        const availableInRequestedUnit = convertFromBaseUnit(
-          stockInBase,
-          requestedUnit
-        );
-        return {
-          available: false,
-          availableQuantity: parseFloat(availableInRequestedUnit.toFixed(3)),
-          availableUnit: requestedUnit,
-        };
-      }
-    } catch (error) {
-      console.error("Error checking stock:", error);
-      return {
-        available: false,
-        availableQuantity: 0,
-        availableUnit: requestedUnit,
-      };
-    }
-  };
-  const updateStockAfterSale = (
-    productId: number,
-    soldQuantity: number,
-    unit: string
-  ): number => {
-    const product = products.find((p) => p.id === productId);
-    if (!product) throw new Error(`Producto con ID ${productId} no encontrado`);
+      return convertFromBaseUnit(newStockInBase, product.unit);
+    },
+    [products, convertToBaseUnit, convertFromBaseUnit]
+  );
 
-    const stockInBase = convertToBaseUnit(Number(product.stock), product.unit);
-    const soldInBase = convertToBaseUnit(soldQuantity, unit);
-    const newStockInBase = stockInBase - soldInBase;
-
-    return convertFromBaseUnit(newStockInBase, product.unit);
-  };
   const handleConvertToSale = async (paymentMethods: PaymentSplit[]) => {
     if (!budgetToConvert) return;
 
@@ -525,178 +595,172 @@ const PresupuestosPage = () => {
       showNotification("Error al convertir presupuesto a venta", "error");
     }
   };
-  const handleProductSelect = (newValue: MultiValue<ProductOption>) => {
-    const selectedProducts = Array.from(newValue).map((option) => {
-      const product = products.find((p) => p.id === option.value);
-      return {
-        productId: option.value,
-        productName: product?.name || "",
-        price: product?.price || 0,
-        quantity: 1,
-        unit: product?.unit || "Unid.",
-        discount: 0,
-        size: product?.size,
-        color: product?.color,
-        basePrice: product
-          ? product.price / convertToBaseUnit(1, product.unit)
-          : 0,
-      };
-    });
 
-    const { total, remaining } = calculateTotalAndRemaining(
-      selectedProducts,
-      newBudget.deposit
-    );
+  const handleQuantityChange = useCallback(
+    (productId: number, quantity: number, unit: Product["unit"]) => {
+      setNewBudget((prevState) => {
+        const product = products.find((p) => p.id === productId);
+        if (!product) return prevState;
 
-    setNewBudget((prev) => ({
-      ...prev,
-      items: selectedProducts,
-      total,
-      remaining,
-    }));
-  };
-
-  const handleQuantityChange = (
-    productId: number,
-    quantity: number,
-    unit: Product["unit"]
-  ) => {
-    setNewBudget((prevState) => {
-      const product = products.find((p) => p.id === productId);
-      if (!product) return prevState;
-
-      const stockCheck = checkStockAvailability(product, quantity, unit);
-      if (!stockCheck.available) {
-        showNotification(
-          `No hay suficiente stock para ${
-            product.name
-          }. Stock disponible: ${stockCheck.availableQuantity.toFixed(2)} ${
-            stockCheck.availableUnit
-          }`,
-          "error"
-        );
-        return prevState;
-      }
-
-      const updatedItems = prevState.items.map((item) => {
-        if (item.productId === productId) {
-          const newPrice = product.price;
-          return {
-            ...item,
-            quantity,
-            unit,
-            price: parseFloat(newPrice.toFixed(2)),
-            basePrice: product.price,
-          };
-        }
-        return item;
-      });
-
-      const { total, remaining } = calculateTotalAndRemaining(
-        updatedItems,
-        prevState.deposit
-      );
-
-      return {
-        ...prevState,
-        items: updatedItems,
-        total,
-        remaining,
-      };
-    });
-  };
-  const handleUnitChange = (
-    productId: number,
-    selectedOption: SingleValue<UnitOption>,
-    currentQuantity: number
-  ) => {
-    if (!selectedOption) return;
-
-    setNewBudget((prev) => {
-      const updatedItems = prev.items.map((item) => {
-        if (item.productId === productId) {
-          const product = products.find((p) => p.id === productId);
-          if (!product) return item;
-
-          const compatibleUnits = getCompatibleUnits(product.unit);
-          const isCompatible = compatibleUnits.some(
-            (u) => u.value === selectedOption.value
+        const stockCheck = checkStockAvailability(product, quantity, unit);
+        if (!stockCheck.available) {
+          showNotification(
+            `No hay suficiente stock para ${
+              product.name
+            }. Stock disponible: ${stockCheck.availableQuantity.toFixed(2)} ${
+              stockCheck.availableUnit
+            }`,
+            "error"
           );
-
-          if (!isCompatible) return item;
-
-          const newUnit = selectedOption.value as Product["unit"];
-          const basePrice =
-            item.basePrice ||
-            product.price / convertToBaseUnit(1, product.unit);
-          const newPrice = basePrice * convertToBaseUnit(1, newUnit);
-          const newQuantity = convertUnit(currentQuantity, item.unit, newUnit);
-
-          return {
-            ...item,
-            unit: newUnit,
-            quantity: parseFloat(newQuantity.toFixed(3)),
-            price: parseFloat(newPrice.toFixed(2)),
-            basePrice: basePrice,
-          };
+          return prevState;
         }
-        return item;
+
+        const updatedItems = prevState.items.map((item) => {
+          if (item.productId === productId) {
+            const newPrice = product.price;
+            return {
+              ...item,
+              quantity,
+              unit,
+              price: parseFloat(newPrice.toFixed(2)),
+              basePrice: product.price,
+            };
+          }
+          return item;
+        });
+
+        const { total, remaining } = calculateTotalAndRemaining(
+          updatedItems,
+          prevState.deposit
+        );
+
+        return {
+          ...prevState,
+          items: updatedItems,
+          total,
+          remaining,
+        };
       });
+    },
+    [
+      products,
+      checkStockAvailability,
+      showNotification,
+      calculateTotalAndRemaining,
+    ]
+  );
 
-      return {
-        ...prev,
-        items: updatedItems,
-        total: calculateTotalAndRemaining(updatedItems, prev.deposit).total,
-      };
-    });
-  };
+  const handleUnitChange = useCallback(
+    (
+      productId: number,
+      selectedOption: UnitOption | null,
+      currentQuantity: number
+    ) => {
+      if (!selectedOption) return;
 
-  const handleDiscountChange = (productId: number, discount: string) => {
-    let discountValue = discount === "" ? 0 : parseInt(discount) || 0;
+      setNewBudget((prev) => {
+        const updatedItems = prev.items.map((item) => {
+          if (item.productId === productId) {
+            const product = products.find((p) => p.id === productId);
+            if (!product) return item;
 
-    if (discountValue < 0) discountValue = 0;
-    if (discountValue > 100) discountValue = 100;
+            const compatibleUnits = getCompatibleUnits(product.unit);
+            const isCompatible = compatibleUnits.some(
+              (u) => u.value === selectedOption.value
+            );
 
-    setNewBudget((prev) => {
-      const updatedItems = prev.items.map((item) =>
-        item.productId === productId
-          ? { ...item, discount: discountValue }
-          : item
-      );
+            if (!isCompatible) return item;
 
-      const { total, remaining } = calculateTotalAndRemaining(
-        updatedItems,
-        prev.deposit
-      );
+            const newUnit = selectedOption.value as Product["unit"];
+            const basePrice =
+              item.basePrice ||
+              product.price / convertToBaseUnit(1, product.unit);
+            const newPrice = basePrice * convertToBaseUnit(1, newUnit);
+            const newQuantity = convertUnit(
+              currentQuantity,
+              item.unit,
+              newUnit
+            );
 
-      return {
-        ...prev,
-        items: updatedItems,
-        total,
-        remaining,
-      };
-    });
-  };
+            return {
+              ...item,
+              unit: newUnit,
+              quantity: parseFloat(newQuantity.toFixed(3)),
+              price: parseFloat(newPrice.toFixed(2)),
+              basePrice: basePrice,
+            };
+          }
+          return item;
+        });
 
-  const handleRemoveProduct = (productId: number) => {
-    setNewBudget((prev) => {
-      const updatedItems = prev.items.filter(
-        (item) => item.productId !== productId
-      );
+        return {
+          ...prev,
+          items: updatedItems,
+          total: calculateTotalAndRemaining(updatedItems, prev.deposit).total,
+        };
+      });
+    },
+    [
+      products,
+      getCompatibleUnits,
+      convertToBaseUnit,
+      convertUnit,
+      calculateTotalAndRemaining,
+    ]
+  );
 
-      const { total, remaining } = calculateTotalAndRemaining(
-        updatedItems,
-        prev.deposit
-      );
+  const handleDiscountChange = useCallback(
+    (productId: number, discount: string) => {
+      let discountValue = discount === "" ? 0 : parseInt(discount) || 0;
 
-      return {
-        ...prev,
-        items: updatedItems,
-        total,
-        remaining,
-      };
-    });
-  };
+      if (discountValue < 0) discountValue = 0;
+      if (discountValue > 100) discountValue = 100;
+
+      setNewBudget((prev) => {
+        const updatedItems = prev.items.map((item) =>
+          item.productId === productId
+            ? { ...item, discount: discountValue }
+            : item
+        );
+
+        const { total, remaining } = calculateTotalAndRemaining(
+          updatedItems,
+          prev.deposit
+        );
+
+        return {
+          ...prev,
+          items: updatedItems,
+          total,
+          remaining,
+        };
+      });
+    },
+    [calculateTotalAndRemaining]
+  );
+
+  const handleRemoveProduct = useCallback(
+    (productId: number) => {
+      setNewBudget((prev) => {
+        const updatedItems = prev.items.filter(
+          (item) => item.productId !== productId
+        );
+
+        const { total, remaining } = calculateTotalAndRemaining(
+          updatedItems,
+          prev.deposit
+        );
+
+        return {
+          ...prev,
+          items: updatedItems,
+          total,
+          remaining,
+        };
+      });
+    },
+    [calculateTotalAndRemaining]
+  );
 
   const handleAddBudget = async () => {
     if (!newBudget.customerName.trim()) {
@@ -771,6 +835,7 @@ const PresupuestosPage = () => {
             isDeposit: true,
             budgetId: budgetToAdd.id,
             fromBudget: true,
+            createdAt: new Date().toISOString(),
           };
 
           const updatedCash = {
@@ -791,7 +856,6 @@ const PresupuestosPage = () => {
       setBudgets(allBudgets);
       setFilteredBudgets(filtered);
 
-      // Limpiar el estado
       setNewBudget({
         date: new Date().toISOString(),
         customerName: "",
@@ -813,19 +877,19 @@ const PresupuestosPage = () => {
     }
   };
 
-  const generateBudgetId = (customerName: string): string => {
+  const generateBudgetId = useCallback((customerName: string): string => {
     const cleanName = customerName
       .trim()
       .replace(/\s+/g, "-")
       .replace(/[^a-zA-Z0-9-]/g, "");
     const timestamp = Date.now().toString().slice(-5);
     return `${cleanName}-${timestamp}`;
-  };
+  }, []);
 
-  const handleDeleteClick = (budget: Budget) => {
+  const handleDeleteClick = useCallback((budget: Budget) => {
     setBudgetToDelete(budget);
     setIsDeleteModalOpen(true);
-  };
+  }, []);
 
   const handleConfirmDelete = async () => {
     if (!budgetToDelete) return;
@@ -846,42 +910,45 @@ const PresupuestosPage = () => {
     }
   };
 
-  const handleEditClick = (budget: Budget) => {
-    setEditingBudget(budget);
-    setNewBudget({
-      date: budget.date,
-      customerName: budget.customerName,
-      customerPhone: budget.customerPhone || "",
-      customerId: budget.customerId,
-      items: budget.items.map((item) => ({
-        ...item,
-        basePrice:
-          item.basePrice ||
-          (products.find((p) => p.id === item.productId)?.price || 0) /
-            convertToBaseUnit(1, item.unit),
-      })),
-      total: budget.total,
-      deposit: budget.deposit,
-      remaining: budget.remaining,
-      expirationDate: budget.expirationDate || "",
-      notes: budget.notes || "",
-      status: budget.status || "pendiente",
-    });
+  const handleEditClick = useCallback(
+    (budget: Budget) => {
+      setEditingBudget(budget);
+      setNewBudget({
+        date: budget.date,
+        customerName: budget.customerName,
+        customerPhone: budget.customerPhone || "",
+        customerId: budget.customerId,
+        items: budget.items.map((item) => ({
+          ...item,
+          basePrice:
+            item.basePrice ||
+            (products.find((p) => p.id === item.productId)?.price || 0) /
+              convertToBaseUnit(1, item.unit),
+        })),
+        total: budget.total,
+        deposit: budget.deposit,
+        remaining: budget.remaining,
+        expirationDate: budget.expirationDate || "",
+        notes: budget.notes || "",
+        status: budget.status || "pendiente",
+      });
 
-    if (budget.customerId) {
-      const customer = customers.find((c) => c.id === budget.customerId);
-      if (customer) {
-        setSelectedCustomer({
-          value: customer.id,
-          label: customer.name,
-        });
+      if (budget.customerId) {
+        const customer = customers.find((c) => c.id === budget.customerId);
+        if (customer) {
+          setSelectedCustomer({
+            value: customer.id,
+            label: customer.name,
+          });
+        }
+      } else {
+        setSelectedCustomer(null);
       }
-    } else {
-      setSelectedCustomer(null);
-    }
 
-    setIsModalOpen(true);
-  };
+      setIsModalOpen(true);
+    },
+    [products, customers, convertToBaseUnit]
+  );
 
   const handleUpdateBudget = async () => {
     if (!editingBudget || !newBudget.customerName.trim()) {
@@ -944,275 +1011,488 @@ const PresupuestosPage = () => {
     }
   };
 
-  const handleDownloadPDF = (budget: Budget) => {
-    return (
-      <PDFDownloadLink
-        document={
-          <BudgetPDF
-            budget={{
-              ...budget,
-              deposit: budget.deposit || "0",
-              remaining: budget.remaining || budget.total,
-            }}
-            businessData={businessData}
-          />
-        }
-        fileName={`Presupuesto de ${budget.customerName} - ${new Date(
-          budget.createdAt
-        ).toLocaleDateString("es-ES")}.pdf`}
-      >
-        {({ loading }) => (
-          <Button
-            icon={<Download size={18} />}
-            colorText="text-gray_b"
-            colorTextHover="hover:text-white"
-            colorBg="bg-transparent"
-            colorBgHover="hover:bg-blue_b"
-            px="px-1"
-            py="py-1"
-            minwidth="min-w-0"
-            disabled={loading}
-            title="Descargar presupuesto"
-          />
-        )}
-      </PDFDownloadLink>
-    );
-  };
+  const handleDownloadPDF = useCallback(
+    (budget: Budget) => {
+      return (
+        <PDFDownloadLink
+          document={
+            <BudgetPDF
+              budget={{
+                ...budget,
+                deposit: budget.deposit || "0",
+                remaining: budget.remaining || budget.total,
+              }}
+              businessData={businessData}
+            />
+          }
+          fileName={`Presupuesto de ${budget.customerName} - ${new Date(
+            budget.createdAt
+          ).toLocaleDateString("es-ES")}.pdf`}
+        >
+          {({ loading }) => (
+            <CustomGlobalTooltip title="Descargar presupuesto">
+              <span>
+                <IconButton
+                  size="small"
+                  disabled={loading}
+                  sx={{
+                    color: theme.palette.text.secondary,
+                    "&:hover": {
+                      backgroundColor: theme.palette.primary.main,
+                      color: "white",
+                    },
+                  }}
+                >
+                  <Download fontSize="small" />
+                </IconButton>
+              </span>
+            </CustomGlobalTooltip>
+          )}
+        </PDFDownloadLink>
+      );
+    },
+    [businessData, theme]
+  );
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    setCurrentPage(1);
-  };
+  const handleSearch = useCallback(
+    (query: string) => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
 
-  const handleShowNotes = (budget: Budget) => {
+      searchTimeoutRef.current = setTimeout(() => {
+        setSearchQuery(query);
+        setCurrentPage(1);
+      }, 300);
+    },
+    [setCurrentPage]
+  );
+
+  const handleShowNotes = useCallback((budget: Budget) => {
     setSelectedCustomerForNotes({
       id: budget.customerId || null,
       name: budget.customerName,
     });
     setNotesModalOpen(true);
-  };
+  }, []);
 
-  const handleCustomerSelect = (
-    selectedOption: { value: string; label: string } | null
-  ) => {
-    setSelectedCustomer(selectedOption);
-    if (selectedOption) {
-      const customer = customers.find((c) => c.id === selectedOption.value);
-      if (customer) {
+  const handleCustomerSelect = useCallback(
+    (event: SyntheticEvent | null, selectedOption: CustomerOption | null) => {
+      setSelectedCustomer(selectedOption);
+      if (selectedOption) {
+        const customer = customers.find((c) => c.id === selectedOption.value);
+        if (customer) {
+          setNewBudget((prev) => ({
+            ...prev,
+            customerName: customer.name,
+            customerPhone: customer.phone || "",
+          }));
+        }
+      } else {
         setNewBudget((prev) => ({
           ...prev,
-          customerName: customer.name,
-          customerPhone: customer.phone || "",
+          customerName: "",
+          customerPhone: "",
         }));
       }
-    } else {
-      setNewBudget((prev) => ({
-        ...prev,
-        customerName: "",
-        customerPhone: "",
-      }));
-    }
-  };
+    },
+    [customers]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      if (productSearchTimeoutRef.current) {
+        clearTimeout(productSearchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <ProtectedRoute>
-      <div className="px-10 2xl:px-10 py-4 text-gray_l dark:text-white h-[calc(100vh-80px)]">
-        <h1 className="text-lg 2xl:text-xl font-semibold mb-2">Presupuestos</h1>
-        <div className="flex justify-between mb-2">
-          <div className="w-full max-w-md">
-            <SearchBar onSearch={handleSearch} />
-          </div>
-          {rubro !== "Todos los rubros" && (
-            <Button
-              icon={<Plus className="w-4 h-4" />}
-              text="Nuevo Presupuesto"
-              colorText="text-white"
-              colorTextHover="text-white mt-3"
-              onClick={handleNewBudgetClick}
-            />
-          )}
-        </div>
-        <div className="flex flex-col justify-between h-[calc(100vh-200px)]">
-          <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
-            <table className="w-full table-auto divide-y divide-gray_xl">
-              <thead className="bg-gradient-to-bl from-blue_m to-blue_b text-white text-xs">
-                <tr>
-                  <th className="p-2 text-start">Cliente</th>
-                  <th className="p-2 text-center">Teléfono</th>
-                  <th className="p-2 text-center">Total</th>
-                  <th className="p-2 text-center">Fecha Presupuesto</th>
-                  <th className="p-2 text-center">Fecha Expiración</th>
-                  <th className="p-2 text-center">Estado</th>
-                  {rubro !== "Todos los rubros" && (
-                    <th className="p-2 text-center w-40 max-w-40">Acciones</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody className="bg-white text-gray_b divide-y divide-gray_xl ">
-                {currentBudgets.length > 0 ? (
-                  currentBudgets.map((budget) => (
-                    <tr
-                      key={budget.id}
-                      className="hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300 text-xs 2xl:text-sm"
-                    >
-                      <td className="font-semibold p-2 border border-gray_xl text-start">
-                        {budget.customerName}
-                      </td>
-                      <td className="p-2 border border-gray_xl text-center ">
-                        {budget.customerPhone || "-"}
-                      </td>
+      <Box
+        sx={{
+          px: 4,
+          py: 2,
+          height: "100vh",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <Typography variant="h5" fontWeight="semibold" mb={2}>
+          Presupuestos
+        </Typography>
 
-                      <td className="p-2 border border-gray_xl text-center">
-                        {budget.status === "cobrado" ? (
-                          <div className="flex flex-col items-center">
-                            <span className="line-through text-gray_l">
-                              $
-                              {(
-                                budget.total -
+        {/* Header con búsqueda y acciones */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            mb: 2,
+            width: "100%",
+          }}
+        >
+          <Box
+            sx={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+            }}
+          >
+            <SearchBar onSearch={handleSearch} />
+          </Box>
+          <Box
+            sx={{
+              width: "100%",
+              display: "flex",
+              justifyContent: "flex-end",
+              alignItems: "center",
+              mt: 1,
+              gap: 2,
+              visibility: rubro === "Todos los rubros" ? "hidden" : "visible",
+            }}
+          >
+            <Button
+              variant="contained"
+              onClick={handleNewBudgetClick}
+              sx={{
+                bgcolor: "primary.main",
+                "&:hover": { bgcolor: "primary.dark" },
+              }}
+              startIcon={<Add />}
+            >
+              Nuevo Presupuesto
+            </Button>
+          </Box>
+        </Box>
+
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            flex: 1,
+          }}
+        >
+          <Box sx={{ flex: 1, minHeight: "auto" }}>
+            <TableContainer
+              component={Paper}
+              sx={{ maxHeight: "63vh", flex: 1 }}
+            >
+              <Table stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell
+                      sx={{
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      Cliente
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                        fontWeight: "bold",
+                      }}
+                      align="center"
+                    >
+                      Teléfono
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                        fontWeight: "bold",
+                      }}
+                      align="center"
+                    >
+                      Total
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                        fontWeight: "bold",
+                        textAlign: "center",
+                      }}
+                    >
+                      Fecha Presupuesto
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                        fontWeight: "bold",
+                        textAlign: "center",
+                      }}
+                    >
+                      Fecha Expiración
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                        fontWeight: "bold",
+                        textAlign: "center",
+                      }}
+                    >
+                      Estado
+                    </TableCell>
+                    {rubro !== "Todos los rubros" && (
+                      <TableCell
+                        sx={{
+                          bgcolor: "primary.main",
+                          color: "primary.contrastText",
+                          fontWeight: "bold",
+                          textAlign: "center",
+                        }}
+                      >
+                        Acciones
+                      </TableCell>
+                    )}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {currentBudgets.length > 0 ? (
+                    currentBudgets.map((budget) => (
+                      <TableRow
+                        key={budget.id}
+                        sx={{
+                          border: "1px solid",
+                          borderColor: "divider",
+                          "&:hover": {
+                            backgroundColor: "action.hover",
+                            transform: "translateY(-1px)",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                          },
+                          transition: "all 0.3s ease-in-out",
+                        }}
+                      >
+                        <TableCell sx={{ fontWeight: "medium" }}>
+                          {budget.customerName}
+                        </TableCell>
+                        <TableCell sx={{ textAlign: "center" }}>
+                          {budget.customerPhone || "-"}
+                        </TableCell>
+                        <TableCell sx={{ textAlign: "center" }}>
+                          {budget.status === "cobrado" ? (
+                            <Box
+                              sx={{
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                              }}
+                            >
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  textDecoration: "line-through",
+                                  color: "text.disabled",
+                                }}
+                              >
+                                {formatCurrency(
+                                  budget.total -
+                                    (budget.deposit
+                                      ? parseFloat(budget.deposit)
+                                      : 0)
+                                )}
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                sx={{ color: "primary.main" }}
+                              >
+                                (Cobrado)
+                              </Typography>
+                            </Box>
+                          ) : (
+                            formatCurrency(
+                              budget.total -
                                 (budget.deposit
                                   ? parseFloat(budget.deposit)
                                   : 0)
-                              ).toFixed(2)}
-                            </span>
-                            <span className="text-xs text-blue_b font-normal">
-                              (Cobrado)
-                            </span>
-                          </div>
-                        ) : (
-                          `$${(
-                            budget.total -
-                            (budget.deposit ? parseFloat(budget.deposit) : 0)
-                          ).toFixed(2)}`
-                        )}
-                      </td>
-                      <td className="p-2 border border-gray_xl text-center">
-                        {new Date(budget.createdAt).toLocaleDateString("es-AR")}
-                      </td>
-                      <td className="p-2 border border-gray_xl text-center">
-                        {budget.expirationDate
-                          ? new Date(budget.expirationDate).toLocaleDateString(
-                              "es-AR"
                             )
-                          : "-"}
-                      </td>
-
-                      <td className="p-2 border border-gray_xl text-center">
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs ${
-                            budget.status === "aprobado"
-                              ? "bg-green_xl text-green_b"
-                              : budget.status === "rechazado"
-                              ? "bg-red_xl text-red_b"
-                              : budget.status === "cobrado"
-                              ? "bg-blue_xl text-blue_b"
-                              : "bg-yellow_xl text-yellow_b"
-                          }`}
-                        >
-                          {budget.status}
-                        </span>
-                      </td>
-                      {rubro !== "Todos los rubros" && (
-                        <td className="p-2 border border-gray_xl">
-                          <div className="flex justify-center items-center gap-2 h-full">
-                            <Button
-                              icon={<ShoppingCart size={18} />}
-                              colorText={
-                                budget.status === "cobrado"
-                                  ? "text-gray_m"
-                                  : "text-gray_b"
-                              }
-                              colorTextHover={
-                                budget.status === "cobrado"
-                                  ? ""
-                                  : "hover:text-white"
-                              }
-                              colorBg="bg-transparent"
-                              colorBgHover={
-                                budget.status === "cobrado"
-                                  ? ""
-                                  : "hover:bg-green_m"
-                              }
-                              px="px-1"
-                              py="py-1"
-                              minwidth="min-w-0"
-                              onClick={() => {
-                                if (budget.status !== "cobrado") {
-                                  setBudgetToConvert(budget);
-                                  setIsConvertModalOpen(true);
-                                }
+                          )}
+                        </TableCell>
+                        <TableCell sx={{ textAlign: "center" }}>
+                          {new Date(budget.createdAt).toLocaleDateString(
+                            "es-AR"
+                          )}
+                        </TableCell>
+                        <TableCell sx={{ textAlign: "center" }}>
+                          {budget.expirationDate
+                            ? new Date(
+                                budget.expirationDate
+                              ).toLocaleDateString("es-AR")
+                            : "-"}
+                        </TableCell>
+                        <TableCell sx={{ textAlign: "center" }}>
+                          <CustomChip
+                            label={budget.status}
+                            size="small"
+                            color={
+                              budget.status === "aprobado"
+                                ? "success"
+                                : budget.status === "rechazado"
+                                ? "error"
+                                : budget.status === "cobrado"
+                                ? "success"
+                                : "warning"
+                            }
+                            variant="filled"
+                          />
+                        </TableCell>
+                        {rubro !== "Todos los rubros" && (
+                          <TableCell>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                justifyContent: "center",
+                                gap: 0.5,
                               }}
-                              disabled={budget.status === "cobrado"}
-                              title={
-                                budget.status === "cobrado"
-                                  ? "Presupuesto ya cobrado"
-                                  : "Cobrar como venta"
-                              }
-                            />
-                            {handleDownloadPDF(budget)}
-                            <Button
-                              icon={<StickyNote size={18} />}
-                              colorText="text-gray_b"
-                              colorTextHover="hover:text-white"
-                              colorBg="bg-transparent"
-                              colorBgHover="hover:bg-blue_b"
-                              px="px-1"
-                              py="py-1"
-                              minwidth="min-w-0"
-                              onClick={() => handleShowNotes(budget)}
-                              disabled={!budget.customerId}
-                              title={
-                                !budget.customerId
-                                  ? "No hay presupuesto asociado"
-                                  : "Ver notas del presupuesto"
-                              }
-                            />
+                            >
+                              <CustomGlobalTooltip
+                                title={
+                                  budget.status === "cobrado"
+                                    ? "Presupuesto ya cobrado"
+                                    : "Cobrar como venta"
+                                }
+                              >
+                                <span>
+                                  {" "}
+                                  {/* Wrapper necesario para tooltip con elemento deshabilitado */}
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => {
+                                      if (budget.status !== "cobrado") {
+                                        setBudgetToConvert(budget);
+                                        setIsConvertModalOpen(true);
+                                      }
+                                    }}
+                                    disabled={budget.status === "cobrado"}
+                                    sx={{
+                                      borderRadius: "4px",
+                                      color:
+                                        budget.status === "cobrado"
+                                          ? "text.disabled"
+                                          : "text.secondary",
+                                      "&:hover":
+                                        budget.status !== "cobrado"
+                                          ? {
+                                              backgroundColor: "success.main",
+                                              color: "white",
+                                            }
+                                          : {},
+                                    }}
+                                  >
+                                    <ShoppingCart fontSize="small" />
+                                  </IconButton>
+                                </span>
+                              </CustomGlobalTooltip>
 
-                            <Button
-                              icon={<Edit size={18} />}
-                              colorText="text-gray_b"
-                              colorTextHover="hover:text-white"
-                              colorBg="bg-transparent"
-                              colorBgHover="hover:bg-blue_b"
-                              px="px-1"
-                              py="py-1"
-                              minwidth="min-w-0"
-                              onClick={() => handleEditClick(budget)}
-                              title="Editar presupuesto"
-                            />
-                            <Button
-                              icon={<Trash size={18} />}
-                              colorText="text-gray_b"
-                              colorTextHover="hover:text-white"
-                              colorBg="bg-transparent"
-                              colorBgHover="hover:bg-red_m"
-                              px="px-1"
-                              py="py-1"
-                              minwidth="min-w-0"
-                              onClick={() => handleDeleteClick(budget)}
-                              title="Eliminar presupuesto"
-                            />
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  ))
-                ) : (
-                  <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
-                    <td colSpan={7} className="py-4 text-center">
-                      <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
-                        <FileText size={64} className="mb-4 text-gray_m" />
-                        <p className="text-gray_m">
-                          {searchQuery
-                            ? "No se encontraron presupuestos"
-                            : "No hay presupuestos registrados"}
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                              {handleDownloadPDF(budget)}
+
+                              <CustomGlobalTooltip
+                                title={
+                                  !budget.customerId
+                                    ? "No hay cliente asociado"
+                                    : "Ver notas del cliente"
+                                }
+                              >
+                                <span>
+                                  {" "}
+                                  {/* Wrapper necesario para tooltip con elemento deshabilitado */}
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleShowNotes(budget)}
+                                    disabled={!budget.customerId}
+                                    sx={{
+                                      borderRadius: "4px",
+                                      color: "text.secondary",
+                                      "&:hover": {
+                                        backgroundColor: "info.main",
+                                        color: "white",
+                                      },
+                                    }}
+                                  >
+                                    <Note fontSize="small" />
+                                  </IconButton>
+                                </span>
+                              </CustomGlobalTooltip>
+                              <CustomGlobalTooltip title="Editar presupuesto">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleEditClick(budget)}
+                                  sx={{
+                                    borderRadius: "4px",
+                                    color: "text.secondary",
+                                    "&:hover": {
+                                      backgroundColor: "primary.main",
+                                      color: "white",
+                                    },
+                                  }}
+                                >
+                                  <Edit fontSize="small" />
+                                </IconButton>
+                              </CustomGlobalTooltip>
+
+                              <CustomGlobalTooltip title="Eliminar presupuesto">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleDeleteClick(budget)}
+                                  sx={{
+                                    borderRadius: "4px",
+                                    color: "text.secondary",
+                                    "&:hover": {
+                                      backgroundColor: "error.main",
+                                      color: "white",
+                                    },
+                                  }}
+                                >
+                                  <Delete fontSize="small" />
+                                </IconButton>
+                              </CustomGlobalTooltip>
+                            </Box>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            color: "text.secondary",
+                          }}
+                        >
+                          <Description
+                            sx={{
+                              fontSize: 64,
+                              mb: 2,
+                              color: "text.disabled",
+                            }}
+                          />
+                          <Typography>
+                            {searchQuery
+                              ? "No se encontraron presupuestos"
+                              : "No hay presupuestos registrados"}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
 
           {filteredBudgets.length > 0 && (
             <Pagination
@@ -1221,7 +1501,7 @@ const PresupuestosPage = () => {
               totalItems={filteredBudgets.length}
             />
           )}
-        </div>
+        </Box>
 
         {isConvertModalOpen && budgetToConvert && (
           <ConvertToSaleModal
@@ -1231,6 +1511,7 @@ const PresupuestosPage = () => {
             onConfirm={handleConvertToSale}
           />
         )}
+
         <Modal
           isOpen={isModalOpen}
           onClose={() => {
@@ -1251,21 +1532,11 @@ const PresupuestosPage = () => {
             setSelectedCustomer(null);
           }}
           title={editingBudget ? "Editar Presupuesto" : "Nuevo Presupuesto"}
+          bgColor="bg-white dark:bg-gray_b"
           buttons={
-            <>
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
               <Button
-                text={editingBudget ? "Actualizar" : "Crear"}
-                colorText="text-white"
-                colorTextHover="text-white"
-                onClick={editingBudget ? handleUpdateBudget : handleAddBudget}
-                hotkey="enter"
-              />
-              <Button
-                text="Cancelar"
-                colorText="text-gray_b dark:text-white"
-                colorTextHover="hover:dark:text-white"
-                colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
+                variant="text"
                 onClick={() => {
                   setIsModalOpen(false);
                   setEditingBudget(null);
@@ -1283,399 +1554,561 @@ const PresupuestosPage = () => {
                   });
                   setSelectedCustomer(null);
                 }}
-                hotkey="esc"
-              />
-            </>
+                sx={{
+                  color: "text.secondary",
+                  borderColor: "text.secondary",
+                  "&:hover": {
+                    backgroundColor: "action.hover",
+                    borderColor: "text.primary",
+                  },
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="contained"
+                onClick={editingBudget ? handleUpdateBudget : handleAddBudget}
+                isPrimaryAction={true}
+                sx={{
+                  bgcolor: "primary.main",
+                  "&:hover": { bgcolor: "primary.dark" },
+                }}
+              >
+                {editingBudget ? "Actualizar" : "Crear"}
+              </Button>
+            </Box>
           }
         >
-          <div className="space-y-2">
-            <div className="flex items-center space-x-4">
-              <div className="w-full">
-                <label className="block text-sm font-medium text-gray_m dark:text-white">
-                  Cliente existente
-                </label>
-                <Select
-                  options={customerOptions}
-                  noOptionsMessage={() => "Sin opciones"}
-                  value={selectedCustomer}
-                  onChange={handleCustomerSelect}
-                  placeholder="Buscar cliente"
-                  isClearable
-                  className="text-gray_m"
-                  classNamePrefix="react-select"
-                  menuPosition="fixed"
-                />
-              </div>
-            </div>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <Box sx={{ width: "100%" }}>
+              <Select
+                label="Seleccionar cliente existente"
+                options={customerOptions}
+                value={selectedCustomer?.value || ""}
+                onChange={(value: string) => {
+                  const selected = customerOptions.find(
+                    (option) => option.value === value
+                  );
+                  handleCustomerSelect(null, selected || null);
+                }}
+                size="small"
+                variant="outlined"
+                sx={{ mt: 0.5 }}
+              />
+            </Box>
 
-            <div className="flex items-center space-x-4">
-              <Input
-                label="Nombre del cliente"
-                value={newBudget.customerName}
-                onChange={(e) =>
-                  setNewBudget({ ...newBudget, customerName: e.target.value })
-                }
-                placeholder="Ingrese el nombre del cliente"
-                required
-                disabled={!!selectedCustomer}
-              />
-              <Input
-                label="Teléfono (opcional)"
-                value={newBudget.customerPhone || ""}
-                onChange={(e) =>
-                  setNewBudget({
-                    ...newBudget,
-                    customerPhone: e.target.value,
-                  })
-                }
-                placeholder="Ingrese el teléfono"
-                disabled={!!selectedCustomer}
-              />
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <CustomDatePicker
-                label="Fecha de expiración"
-                value={newBudget.expirationDate}
-                onChange={(date) =>
-                  setNewBudget({ ...newBudget, expirationDate: date })
-                }
-              />
-              <div className="w-full">
-                <label className="block text-sm font-medium text-gray_b dark:text-white">
-                  Estado
-                </label>
-                <Select
-                  options={[
-                    { value: "pendiente", label: "Pendiente" },
-                    { value: "aprobado", label: "Aprobado" },
-                    { value: "rechazado", label: "Rechazado" },
-                  ]}
-                  noOptionsMessage={() => "Sin opciones"}
-                  value={
-                    newBudget?.status
-                      ? {
-                          value: newBudget.status,
-                          label:
-                            newBudget.status.charAt(0).toUpperCase() +
-                            newBudget.status.slice(1),
-                        }
-                      : null
+            <Box sx={{ display: "flex", gap: 2 }}>
+              <Box sx={{ width: "50%" }}>
+                <Input
+                  label="Nombre del cliente"
+                  value={newBudget.customerName}
+                  onRawChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setNewBudget({ ...newBudget, customerName: e.target.value })
                   }
-                  onChange={(selectedOption) => {
-                    if (selectedOption) {
-                      setNewBudget({
-                        ...newBudget,
-                        status: selectedOption.value as
-                          | "pendiente"
-                          | "aprobado"
-                          | "rechazado",
-                      });
-                    }
-                  }}
-                  className="text-gray_m min-w-40"
-                  classNamePrefix="react-select"
-                  menuPosition="fixed"
-                  isClearable={false}
+                  placeholder="Ingrese el nombre del cliente"
+                  required
+                  disabled={!!selectedCustomer}
                 />
-              </div>
-            </div>
-            <div className="max-h-[28rem]">
-              <h3 className="font-medium mb-2">Productos</h3>
-              <div className="mb-4 max-h-[10rem] ">
+              </Box>
+              <Box sx={{ width: "50%" }}>
+                <Input
+                  label="Teléfono (opcional)"
+                  value={newBudget.customerPhone || ""}
+                  onRawChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setNewBudget({
+                      ...newBudget,
+                      customerPhone: e.target.value,
+                    })
+                  }
+                  placeholder="Ingrese el teléfono"
+                  disabled={!!selectedCustomer}
+                />
+              </Box>
+            </Box>
+
+            <Box sx={{ display: "flex", gap: 2 }}>
+              <Box sx={{ width: "50%" }}>
+                <CustomDatePicker
+                  label="Fecha de expiración"
+                  value={newBudget.expirationDate || ""}
+                  onChange={(date: string) =>
+                    setNewBudget({ ...newBudget, expirationDate: date || "" })
+                  }
+                />
+              </Box>
+              <Box sx={{ width: "50%" }}>
                 <Select
-                  isMulti
-                  options={productOptions}
-                  noOptionsMessage={() => "Sin opciones"}
-                  placeholder="Buscar productos"
-                  className="text-gray_m"
-                  classNamePrefix="react-select"
-                  onChange={handleProductSelect}
-                  value={newBudget.items.map((item) => {
+                  label="Estado"
+                  options={statusOptions.map((option) => ({
+                    value: option.value,
+                    label: option.label,
+                  }))}
+                  value={newBudget.status}
+                  onChange={(value: string) => {
+                    setNewBudget({
+                      ...newBudget,
+                      status: value as "pendiente" | "aprobado" | "rechazado",
+                    });
+                  }}
+                  size="small"
+                  variant="outlined"
+                />
+              </Box>
+            </Box>
+
+            <Box>
+              <Box sx={{ mb: 2 }}>
+                <ProductSearchAutocomplete
+                  products={products}
+                  selectedProducts={newBudget.items.map((item) => {
                     const product = products.find(
                       (p) => p.id === item.productId
                     );
                     return {
                       value: item.productId,
-                      label: `${item.productName}${
-                        item.size ? ` (${item.size})` : ""
-                      }${item.color ? ` - ${item.color}` : ""}`,
+                      label: getDisplayProductName(
+                        {
+                          name: product?.name || item.productName,
+                          size: product?.size || item.size,
+                          color: product?.color || item.color,
+                          rubro: product?.rubro || item.rubro,
+                          lot: product?.lot,
+                        },
+                        rubro,
+                        true
+                      ),
                       product: product!,
                       isDisabled: false,
                     } as ProductOption;
                   })}
-                  getOptionValue={(option) => option.value.toString()}
-                  getOptionLabel={(option) => option.label}
-                  styles={{
-                    menuPortal: (base) => ({
-                      ...base,
-                      zIndex: 9999,
-                    }),
-                    control: (provided) => ({
-                      ...provided,
-                      maxHeight: "70px",
-                      "@media (max-width: 1024px)": {
-                        maxHeight: "200px",
-                      },
-                      overflowY: "auto",
-                    }),
-                    multiValue: (provided) => ({
-                      ...provided,
-                      maxWidth: "200px",
-                    }),
+                  onProductSelect={(selectedOptions) => {
+                    // Filtrar solo las opciones que no están deshabilitadas
+                    const enabledOptions = selectedOptions.filter(
+                      (option) => !option.isDisabled
+                    );
+
+                    // Crear un mapa de los items existentes para preservar sus valores
+                    const existingItemsMap = new Map(
+                      newBudget.items.map((item) => [item.productId, item])
+                    );
+
+                    // Crear el nuevo array de items preservando los valores existentes
+                    const updatedItems = enabledOptions.map((option) => {
+                      const existingItem = existingItemsMap.get(option.value);
+                      const product =
+                        option.product ||
+                        products.find((p) => p.id === option.value);
+
+                      if (existingItem) {
+                        // Si el producto ya existe en el presupuesto, preserva sus valores
+                        return {
+                          ...existingItem,
+                          productName:
+                            product?.name || existingItem.productName,
+                          price: product?.price || existingItem.price,
+                          unit: product?.unit || existingItem.unit,
+                          basePrice: product
+                            ? product.price / convertToBaseUnit(1, product.unit)
+                            : existingItem.basePrice,
+                        };
+                      } else {
+                        // Si es un producto nuevo, usar valores por defecto
+                        return {
+                          productId: option.value,
+                          productName: product?.name || "",
+                          price: product?.price || 0,
+                          quantity: 1,
+                          unit: product?.unit || "Unid.",
+                          discount: 0,
+                          size: product?.size,
+                          color: product?.color,
+                          basePrice: product
+                            ? product.price / convertToBaseUnit(1, product.unit)
+                            : 0,
+                        };
+                      }
+                    });
+
+                    const { total, remaining } = calculateTotalAndRemaining(
+                      updatedItems,
+                      newBudget.deposit
+                    );
+
+                    setNewBudget((prev) => ({
+                      ...prev,
+                      items: updatedItems,
+                      total,
+                      remaining,
+                    }));
                   }}
+                  onSearchChange={(query) => {
+                    console.log("Búsqueda de productos:", query);
+                  }}
+                  rubro={rubro}
+                  placeholder="Seleccionar productos"
+                  maxDisplayed={50}
                 />
-              </div>
+              </Box>
 
               {newBudget.items.length > 0 && (
-                <div className="border border-gray_xl rounded-lg overflow-hidden">
-                  <div className="overflow-y-auto max-h-[15vh] 2xl:max-h-[26vh]">
-                    <table className="min-w-full divide-y divide-gray_xl text-gray_b">
-                      <thead className="bg-gradient-to-r from-blue_b to-blue_m text-white">
-                        <tr>
-                          <th className="p-2 text-left text-xs font-medium  tracking-wider">
-                            Producto
-                          </th>
-                          <th className="p-2 text-center text-xs font-medium  tracking-wider">
-                            Unidad
-                          </th>
-                          <th className="p-2 text-center text-xs font-medium  tracking-wider">
-                            Cantidad
-                          </th>
-                          <th className="w-40 max-w-40 p-2 text-center text-xs font-medium  tracking-wider">
-                            Descuento (%)
-                          </th>
-                          <th className="p-2 text-center text-xs font-medium  tracking-wider">
-                            Precio Unit.
-                          </th>
-                          <th className=" p-2 text-center text-xs font-medium  tracking-wider">
-                            Subtotal
-                          </th>
-                          <th className=" p-2 text-center text-xs font-medium  tracking-wider">
-                            Acciones
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray_xl">
-                        {newBudget.items.map((item) => {
-                          const product = products.find(
-                            (p) => p.id === item.productId
-                          );
-                          return (
-                            <tr
-                              key={item.productId}
-                              className="hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
+                <Card variant="outlined">
+                  <CardContent sx={{ p: 0 }}>
+                    <Box sx={{ maxHeight: "35vh", overflow: "auto" }}>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow
+                            sx={{ backgroundColor: theme.palette.primary.main }}
+                          >
+                            <TableCell
+                              sx={{ color: "white", fontWeight: "bold" }}
                             >
-                              <td className="p-2 whitespace-nowrap">
-                                {item.productName}
-                                {item.size && ` (${item.size})`}
-                                {item.color && ` - ${item.color}`}
-                              </td>
-                              <td className="p-2 whitespace-nowrap w-50 max-w-50">
-                                {product?.unit === "Unid." ? (
-                                  <div className="flex items-center justify-center h-full text-gray_b">
-                                    Unidad
-                                  </div>
-                                ) : (
-                                  <Select
-                                    placeholder="Unidad"
-                                    options={
-                                      product
-                                        ? getCompatibleUnits(product.unit)
-                                        : []
-                                    }
-                                    noOptionsMessage={() =>
-                                      "No se encontraron opciones"
-                                    }
-                                    value={unitOptions.find(
-                                      (option) => option.value === item.unit
-                                    )}
-                                    onChange={(selectedOption) => {
-                                      if (selectedOption && product) {
-                                        handleUnitChange(
-                                          item.productId,
-                                          selectedOption,
-                                          item.quantity
-                                        );
+                              Producto
+                            </TableCell>
+                            <TableCell
+                              sx={{
+                                color: "white",
+                                fontWeight: "bold",
+                                textAlign: "center",
+                              }}
+                            >
+                              Unidad
+                            </TableCell>
+                            <TableCell
+                              sx={{
+                                color: "white",
+                                fontWeight: "bold",
+                                textAlign: "center",
+                              }}
+                            >
+                              Cantidad
+                            </TableCell>
+                            <TableCell
+                              sx={{
+                                color: "white",
+                                fontWeight: "bold",
+                                textAlign: "center",
+                              }}
+                            >
+                              Descuento (%)
+                            </TableCell>
+                            <TableCell
+                              sx={{
+                                color: "white",
+                                fontWeight: "bold",
+                                textAlign: "center",
+                              }}
+                            >
+                              Precio Unit.
+                            </TableCell>
+                            <TableCell
+                              sx={{
+                                color: "white",
+                                fontWeight: "bold",
+                                textAlign: "center",
+                              }}
+                            >
+                              Subtotal
+                            </TableCell>
+                            <TableCell
+                              sx={{
+                                color: "white",
+                                fontWeight: "bold",
+                                textAlign: "center",
+                              }}
+                            >
+                              Acciones
+                            </TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {newBudget.items.map((item) => {
+                            const product = products.find(
+                              (p) => p.id === item.productId
+                            );
+                            return (
+                              <TableRow key={item.productId}>
+                                <TableCell>
+                                  {item.productName}
+                                  {item.size && ` (${item.size})`}
+                                  {item.color && ` - ${item.color}`}
+                                </TableCell>
+                                <TableCell>
+                                  {product?.unit === "Unid." ? (
+                                    <Typography
+                                      variant="body2"
+                                      sx={{ textAlign: "center" }}
+                                    >
+                                      Unidad
+                                    </Typography>
+                                  ) : (
+                                    <Autocomplete
+                                      options={
+                                        product
+                                          ? getCompatibleUnits(product.unit)
+                                          : []
                                       }
-                                    }}
-                                    className="text-gray_m"
-                                    menuPosition="fixed"
-                                  />
-                                )}
-                              </td>
-                              <td className="p-2 whitespace-nowrap w-10 max-w-10">
-                                <Input
-                                  type="number"
-                                  step={
-                                    item.unit === "Kg" || item.unit === "L"
-                                      ? "0.001"
-                                      : "1"
-                                  }
-                                  value={
-                                    item.quantity === 0 ? "" : item.quantity
-                                  }
-                                  onChange={(e) => {
-                                    const value = e.target.value;
-                                    if (value === "") {
-                                      handleQuantityChange(
-                                        item.productId,
-                                        0,
-                                        item.unit
-                                      );
-                                    } else {
-                                      const numValue = parseFloat(value);
-                                      if (!isNaN(numValue)) {
+                                      value={unitOptions.find(
+                                        (option) => option.value === item.unit
+                                      )}
+                                      onChange={(
+                                        event: SyntheticEvent,
+                                        newValue: UnitOption | null
+                                      ) => {
+                                        if (newValue && product) {
+                                          handleUnitChange(
+                                            item.productId,
+                                            newValue,
+                                            item.quantity
+                                          );
+                                        }
+                                      }}
+                                      renderInput={(params) => (
+                                        <TextField
+                                          {...params}
+                                          placeholder="Unidad"
+                                          size="small"
+                                        />
+                                      )}
+                                      isOptionEqualToValue={(option, value) =>
+                                        option.value === value.value
+                                      }
+                                      noOptionsText="No se encontraron opciones"
+                                    />
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    step={
+                                      item.unit === "Kg" || item.unit === "L"
+                                        ? "0.001"
+                                        : "1"
+                                    }
+                                    value={
+                                      item.quantity === 0 ? "" : item.quantity
+                                    }
+                                    onRawChange={(
+                                      e: React.ChangeEvent<HTMLInputElement>
+                                    ) => {
+                                      const value = e.target.value;
+                                      if (value === "") {
                                         handleQuantityChange(
                                           item.productId,
-                                          Math.max(0.001, numValue),
+                                          0,
+                                          item.unit
+                                        );
+                                      } else {
+                                        const numValue = parseFloat(value);
+                                        if (!isNaN(numValue)) {
+                                          handleQuantityChange(
+                                            item.productId,
+                                            Math.max(0.001, numValue),
+                                            item.unit
+                                          );
+                                        }
+                                      }
+                                    }}
+                                    onBlur={(
+                                      e: React.FocusEvent<HTMLInputElement>
+                                    ) => {
+                                      if (
+                                        e.target.value === "" ||
+                                        parseFloat(e.target.value) < 0.001
+                                      ) {
+                                        handleQuantityChange(
+                                          item.productId,
+                                          1,
                                           item.unit
                                         );
                                       }
+                                    }}
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    step="1"
+                                    value={
+                                      item.discount === 0 ? "" : item.discount
                                     }
-                                  }}
-                                  onBlur={(e) => {
-                                    if (
-                                      e.target.value === "" ||
-                                      parseFloat(e.target.value) < 0.001
-                                    ) {
-                                      handleQuantityChange(
-                                        item.productId,
-                                        1,
-                                        item.unit
-                                      );
-                                    }
-                                  }}
-                                />
-                              </td>
-                              <td className="p-2 whitespace-nowrap w-10 max-w-10">
-                                <Input
-                                  type="number"
-                                  step="1"
-                                  value={
-                                    item.discount === 0 ? "" : item.discount
-                                  }
-                                  onChange={(e) => {
-                                    const value = e.target.value;
-                                    if (
-                                      value === "" ||
-                                      /^[0-9]*$/.test(value)
-                                    ) {
-                                      handleDiscountChange(
-                                        item.productId,
-                                        value
-                                      );
-                                    }
-                                  }}
-                                  onBlur={(e) => {
-                                    if (e.target.value === "") {
-                                      handleDiscountChange(item.productId, "0");
-                                    } else {
-                                      const numValue = parseInt(e.target.value);
-                                      if (isNaN(numValue)) {
+                                    onRawChange={(
+                                      e: React.ChangeEvent<HTMLInputElement>
+                                    ) => {
+                                      const value = e.target.value;
+                                      if (
+                                        value === "" ||
+                                        /^[0-9]*$/.test(value)
+                                      ) {
                                         handleDiscountChange(
                                           item.productId,
-                                          "0"
-                                        );
-                                      } else if (numValue < 0) {
-                                        handleDiscountChange(
-                                          item.productId,
-                                          "0"
-                                        );
-                                      } else if (numValue > 100) {
-                                        handleDiscountChange(
-                                          item.productId,
-                                          "100"
+                                          value
                                         );
                                       }
-                                    }
-                                  }}
-                                />
-                              </td>
-                              <td className="text-center p-2 whitespace-nowrap ">
-                                {formatCurrency(item.price)}
-                              </td>
-                              <td className=" text-center p-2 whitespace-nowrap">
-                                {formatCurrency(
-                                  item.price *
-                                    item.quantity *
-                                    (1 - (item.discount || 0) / 100)
-                                )}
-                              </td>
-                              <td className="px-4 py-2 whitespace-nowrap ">
-                                <button
-                                  onClick={() =>
-                                    handleRemoveProduct(item.productId)
+                                    }}
+                                    onBlur={(
+                                      e: React.FocusEvent<HTMLInputElement>
+                                    ) => {
+                                      if (e.target.value === "") {
+                                        handleDiscountChange(
+                                          item.productId,
+                                          "0"
+                                        );
+                                      } else {
+                                        const numValue = parseInt(
+                                          e.target.value
+                                        );
+                                        if (isNaN(numValue)) {
+                                          handleDiscountChange(
+                                            item.productId,
+                                            "0"
+                                          );
+                                        } else if (numValue < 0) {
+                                          handleDiscountChange(
+                                            item.productId,
+                                            "0"
+                                          );
+                                        } else if (numValue > 100) {
+                                          handleDiscountChange(
+                                            item.productId,
+                                            "100"
+                                          );
+                                        }
+                                      }
+                                    }}
+                                  />
+                                </TableCell>
+                                <TableCell sx={{ textAlign: "center" }}>
+                                  {formatCurrency(item.price)}
+                                </TableCell>
+                                <TableCell sx={{ textAlign: "center" }}>
+                                  {formatCurrency(
+                                    item.price *
+                                      item.quantity *
+                                      (1 - (item.discount || 0) / 100)
+                                  )}
+                                </TableCell>
+                                <TableCell sx={{ textAlign: "center" }}>
+                                  <CustomGlobalTooltip title="Eliminar producto">
+                                    <IconButton
+                                      onClick={() =>
+                                        handleRemoveProduct(item.productId)
+                                      }
+                                      size="small"
+                                      sx={{
+                                        color: "error.main",
+                                        "&:hover": {
+                                          color: "error.dark",
+                                        },
+                                      }}
+                                    >
+                                      <Delete fontSize="small" />
+                                    </IconButton>
+                                  </CustomGlobalTooltip>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </Box>
+
+                    <Divider />
+
+                    <Box sx={{ p: 2, backgroundColor: theme.palette.grey[50] }}>
+                      <Box sx={{ display: "flex", alignItems: "center" }}>
+                        <Box sx={{ width: "50%" }}>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 2,
+                            }}
+                          >
+                            <Box sx={{ width: "50%" }}>
+                              <Input
+                                label="Seña en efectivo (opcional)"
+                                type="number"
+                                value={newBudget.deposit}
+                                onRawChange={(
+                                  e: React.ChangeEvent<HTMLInputElement>
+                                ) => {
+                                  const value = e.target.value;
+                                  if (
+                                    value === "" ||
+                                    /^[0-9]*\.?[0-9]*$/.test(value)
+                                  ) {
+                                    const depositValue =
+                                      value === "" ? 0 : parseFloat(value);
+                                    const remaining =
+                                      newBudget.total - depositValue;
+                                    setNewBudget({
+                                      ...newBudget,
+                                      deposit: value,
+                                      remaining,
+                                    });
                                   }
-                                  className="text-red_m hover:text-red_b cursor-pointer w-full flex items-center justify-center"
-                                >
-                                  <Trash size={18} />
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="flex justify-between items-center bg-gray_xxl px-4 py-3 text-gray_b">
-                    <div className="flex w-full max-w-[30vw] items-center space-x-4">
-                      <Input
-                        colorLabel="text-gray_m"
-                        label="Seña en efectivo (opcional)"
-                        type="number"
-                        value={newBudget.deposit}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          if (value === "" || /^[0-9]*\.?[0-9]*$/.test(value)) {
-                            const depositValue =
-                              value === "" ? 0 : parseFloat(value);
-                            const remaining = newBudget.total - depositValue;
-                            setNewBudget({
-                              ...newBudget,
-                              deposit: value,
-                              remaining,
-                            });
-                          }
-                        }}
-                        onBlur={(e) => {
-                          if (e.target.value === "") {
-                            setNewBudget({
-                              ...newBudget,
-                              deposit: "",
-                              remaining: newBudget.total,
-                            });
-                          } else {
-                            const numValue = parseFloat(e.target.value);
-                            if (isNaN(numValue)) {
-                              setNewBudget({
-                                ...newBudget,
-                                deposit: "",
-                                remaining: newBudget.total,
-                              });
-                            }
-                          }
-                        }}
-                        placeholder="Ingrese el monto de la seña"
-                      />
-                      <div className="w-full">
-                        <label className="block text-sm font-medium text-gray_m  mb-1">
-                          Saldo restante
-                        </label>
-                        <div className="p-2 border border-gray_xl rounded-md bg-gray_xxl">
-                          {formatCurrency(newBudget.remaining)}
-                        </div>
-                      </div>
-                    </div>
-                    <span className="font-bold text-xl  ">
-                      Total: {formatCurrency(newBudget.total)}
-                    </span>
-                  </div>
-                </div>
+                                }}
+                                onBlur={(
+                                  e: React.FocusEvent<HTMLInputElement>
+                                ) => {
+                                  if (e.target.value === "") {
+                                    setNewBudget({
+                                      ...newBudget,
+                                      deposit: "",
+                                      remaining: newBudget.total,
+                                    });
+                                  } else {
+                                    const numValue = parseFloat(e.target.value);
+                                    if (isNaN(numValue)) {
+                                      setNewBudget({
+                                        ...newBudget,
+                                        deposit: "",
+                                        remaining: newBudget.total,
+                                      });
+                                    }
+                                  }
+                                }}
+                                placeholder="Ingrese el monto de la seña"
+                              />
+                            </Box>
+                            <Box sx={{ width: "50%" }}>
+                              <TextField
+                                label="Saldo restante"
+                                value={formatCurrency(newBudget.remaining)}
+                                InputProps={{
+                                  readOnly: true,
+                                  sx: {
+                                    backgroundColor: "background.paper",
+                                    "& .MuiInputBase-input": {
+                                      textAlign: "center",
+                                      fontWeight: "medium",
+                                    },
+                                  },
+                                }}
+                                InputLabelProps={{
+                                  shrink: true,
+                                }}
+                                variant="outlined"
+                                fullWidth
+                                size="small"
+                              />
+                            </Box>
+                          </Box>
+                        </Box>
+                        <Box sx={{ width: "50%", textAlign: "right" }}>
+                          <Typography variant="h6" fontWeight="bold">
+                            Total: {formatCurrency(newBudget.total)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+                  </CardContent>
+                </Card>
               )}
-            </div>
-          </div>
+            </Box>
+          </Box>
         </Modal>
+
         <Modal
           isOpen={isDeleteModalOpen}
           onClose={() => setIsDeleteModalOpen(false)}
@@ -1683,29 +2116,48 @@ const PresupuestosPage = () => {
           buttons={
             <>
               <Button
-                text="Eliminar"
-                colorText="text-white"
-                colorTextHover="text-white"
-                onClick={handleConfirmDelete}
-                hotkey="enter"
-              />
-              <Button
-                text="Cancelar"
-                colorText="text-gray_b dark:text-white"
-                colorTextHover="hover:dark:text-white"
-                colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
+                variant="text"
                 onClick={() => setIsDeleteModalOpen(false)}
-                hotkey="esc"
-              />
+                sx={{
+                  color: "text.secondary",
+                  borderColor: "divider",
+                  "&:hover": {
+                    backgroundColor: "action.hover",
+                    borderColor: "text.secondary",
+                  },
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleConfirmDelete}
+                isPrimaryAction={true}
+                sx={{
+                  backgroundColor: "error.main",
+                  "&:hover": {
+                    backgroundColor: "error.dark",
+                  },
+                }}
+              >
+                Sí, Eliminar
+              </Button>
             </>
           }
         >
-          <p>
-            ¿Está seguro que desea eliminar el presupuesto de{" "}
-            {budgetToDelete?.customerName}?
-          </p>
+          <Box sx={{ textAlign: "center", py: 2 }}>
+            <Delete
+              sx={{ fontSize: 48, color: "error.main", mb: 2, mx: "auto" }}
+            />
+            <Typography variant="h6" fontWeight="semibold" sx={{ mb: 1 }}>
+              ¿Está seguro/a que desea eliminar el presupuesto?
+            </Typography>
+            <Typography variant="body2" fontWeight="semibold" sx={{ mb: 1 }}>
+              El presupuesto será eliminado permanentemente.
+            </Typography>
+          </Box>
         </Modal>
+
         {selectedCustomerForNotes && (
           <CustomerNotes
             customerId={selectedCustomerForNotes.id}
@@ -1714,12 +2166,13 @@ const PresupuestosPage = () => {
             onClose={() => setNotesModalOpen(false)}
           />
         )}
+
         <Notification
           isOpen={isNotificationOpen}
           message={notificationMessage}
           type={notificationType}
         />
-      </div>
+      </Box>
     </ProtectedRoute>
   );
 };

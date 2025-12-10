@@ -1,42 +1,10 @@
+import { SxProps } from "@mui/material";
+
 export type Theme = {
   id: number;
   value: string;
 };
 export type PrinterType = "80mm" | "40mm" | "unknown";
-
-export interface QzWebsocket {
-  connect: () => Promise<void>;
-  disconnect: () => void;
-  isConnected: () => boolean;
-}
-export interface PrinterOptions {
-  encoding?: string;
-}
-export interface QzConfigs {
-  create: (printerName: string, options?: PrinterOptions) => unknown;
-}
-export interface PrintJob {
-  type: string;
-  format: string;
-  data: string;
-}
-
-export interface QzApi {
-  websocket: QzWebsocket;
-  configs: QzConfigs;
-  printers: {
-    find: () => Promise<string[]>;
-
-    default?: string;
-  };
-  print: (config: unknown, data: PrintJob[]) => Promise<void>;
-}
-
-declare global {
-  interface Window {
-    qz?: QzApi;
-  }
-}
 
 export type User = {
   id: number;
@@ -50,23 +18,15 @@ export type AuthData = {
   username: string;
   password: string;
 };
-export type SortField =
-  | "name"
-  | "expiration"
-  | "stock"
-  | "costPrice"
-  | "price"
-  | "category"
-  | "brand"
-  | "size"
-  | "color"
-  | "location";
-
-export type SortDirection = "asc" | "desc";
 
 export type ButtonProps = {
   onClick?: (e?: React.MouseEvent<HTMLButtonElement>) => void;
   children?: React.ReactNode;
+  variant?: "contained" | "outlined" | "text";
+  color?: "primary" | "success" | "error" | "warning" | "info";
+  startIcon?: React.ReactNode;
+  endIcon?: React.ReactNode;
+  sx?: SxProps<Theme>;
   px?: string;
   py?: string;
   width?: string;
@@ -114,12 +74,14 @@ export type ModalProps = {
   onConfirm?: () => void;
   onClose: () => void;
   isOpen: boolean;
-  title?: string;
+  title?: React.ReactNode;
   children?: React.ReactNode;
   bgColor?: string;
   buttons?: React.ReactNode;
   minheight?: string;
   zIndex?: string;
+  fixedTotal?: React.ReactNode;
+  primaryButtonRef?: React.Ref<HTMLButtonElement>;
 };
 
 export type InputProps = {
@@ -150,13 +112,7 @@ export type UserMenuProps = {
   handleCloseSession: () => void;
 };
 
-export type ProductTableProps = {
-  products: Product[];
-  onAdd: (product: Product) => void;
-  onDelete: (id: number) => void;
-  onEdit: (product: Product) => void;
-};
-export type Rubro = "Todos los rubros" | "comercio" | "indumentaria" | "";
+export type Rubro = "Todos los rubros" | "comercio" | "indumentaria" | string;
 
 export type Product = {
   id: number;
@@ -226,15 +182,6 @@ export type UnitOption = {
   convertible?: boolean;
 };
 
-export type ProductCardProps = {
-  product: {
-    id: number;
-    name: string;
-    description: string;
-    price: number;
-  };
-  onDelete: (id: number) => void;
-};
 export type SearchBarProps = {
   onSearch: (query: string) => void;
 };
@@ -317,13 +264,11 @@ export type PaymentSplit = {
   method: PaymentMethod;
   amount: number;
   isDeposit?: boolean;
-  paymentMethod?: "EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "CHEQUE" | "MIXTO";
 };
-
-export type MovementType = "INGRESO" | "EGRESO";
 
 export type DailyCashMovement = {
   id: number;
+  dailyCashId?: number;
   isDeposit?: boolean;
   originalAmount?: number;
   isBudgetGroup?: boolean;
@@ -380,6 +325,9 @@ export type DailyCashMovement = {
   budgetId?: string;
   fromBudget?: boolean;
   expenseCategory?: string;
+  customerName?: string;
+  createdAt?: string;
+  timestamp?: string;
 };
 
 export type DailyCash = {
@@ -482,21 +430,7 @@ export type SupplierProduct = {
   supplierId: number;
   productId: number;
 };
-export type DatepickerProps = {
-  value: string | undefined;
-  onChange: (value: string | undefined) => void;
-  error?: string | null;
-  isClearable?: boolean;
-  label?: string;
-  placeholderText?: string;
-};
-export type TicketProps = {
-  items: { nombre: string; cantidad: number; precio: number; unit?: string }[];
-  total: number;
-  fecha: string;
-  paymentMethods?: { method: string; amount: number }[];
-  isCredit?: boolean;
-};
+
 export type UnifiedFilter = {
   field: string;
   value: string;
@@ -509,9 +443,6 @@ export type ExpenseFilter = UnifiedFilter & {
   field: keyof Expense;
 };
 
-export type ProductFilters = ProductFilter[];
-export type ExpenseFilters = ExpenseFilter[];
-
 export type SortConfig<T> = {
   field: keyof T;
   direction: "asc" | "desc";
@@ -523,24 +454,9 @@ export type Filter<T> = {
 };
 
 export type Filters<T> = Filter<T>[];
-export type ExpenseSortConfig = {
-  field: keyof Expense;
-  direction: "asc" | "desc";
-};
-export type CategoryOption = {
-  value: {
-    name: string;
-    rubro: Rubro;
-    isLegacy?: boolean;
-  };
-  label: string;
-};
+
 export type CustomCategory = {
   id?: number;
-  name: string;
-  rubro: Rubro;
-};
-export type GlobalCategory = {
   name: string;
   rubro: Rubro;
 };
@@ -562,53 +478,11 @@ export type NotificationType = {
   isDeleted?: boolean;
 };
 
-export type GroupedOption = {
-  label: string;
-  options: ClothingSizeOption & {
-    groupType: string;
-  };
-};
-export type FilterOption = {
-  value: string;
-  label: string;
-  groupType: keyof UnifiedFilter;
-  name?: string;
-  rubro?: Rubro;
-};
-
-export type GroupedFilterOption = {
-  label: string;
-  options: FilterOption[];
-};
 export type MonthOption = {
   value: number;
   label: string;
 };
 
-export interface SerialPortRequestOptions {
-  filters: SerialPortFilter[];
-}
-
-export interface SerialPortFilter {
-  usbVendorId?: number;
-  usbProductId?: number;
-}
-
-export interface SerialPort {
-  readonly readable: ReadableStream<Uint8Array> | null;
-  readonly writable: WritableStream<Uint8Array> | null;
-  open: (options: SerialOptions) => Promise<void>;
-  close: () => Promise<void>;
-}
-
-export interface SerialOptions {
-  baudRate: number;
-  dataBits?: number;
-  stopBits?: number;
-  parity?: string;
-  bufferSize?: number;
-  flowControl?: string;
-}
 export interface BusinessData {
   id?: number;
   name: string;
@@ -624,25 +498,6 @@ export type UserPreferences = {
   acceptedTermsDate?: string;
   itemsPerPage?: number;
   appVersion?: string;
-};
-export type DailyData = {
-  date: string;
-  ingresos: number;
-  egresos: number;
-  ganancia: number;
-};
-export type WeeklyData = {
-  week: string;
-  ingresos: number;
-  egresos: number;
-  ganancia: number;
-};
-
-export type MonthlyData = {
-  month: string;
-  ingresos: number;
-  egresos: number;
-  ganancia: number;
 };
 
 export interface Note {

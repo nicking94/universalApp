@@ -1,11 +1,39 @@
+"use client";
 import { formatCurrency } from "../lib/utils/currency";
-import { Budget, PaymentSplit, PaymentMethod } from "../lib/types/types";
-import Select from "react-select";
-import { useState } from "react";
+import {
+  Budget,
+  PaymentSplit,
+  PaymentMethod,
+  SaleItem,
+} from "../lib/types/types";
+import { useState, useEffect, useMemo } from "react";
 import Modal from "./Modal";
-import Button from "./Button";
 import InputCash from "./InputCash";
-import { Trash, Plus } from "lucide-react";
+import Button from "./Button";
+import Select, { SelectOption } from "./Select";
+import {
+  Box,
+  Typography,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  IconButton,
+  Divider,
+  Alert,
+  useTheme,
+  Chip,
+  Card,
+  CardContent,
+} from "@mui/material";
+import {
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  ShoppingCart,
+} from "@mui/icons-material";
 
 interface ConvertToSaleModalProps {
   isOpen: boolean;
@@ -14,7 +42,7 @@ interface ConvertToSaleModalProps {
   onConfirm: (paymentMethods: PaymentSplit[]) => void;
 }
 
-const paymentOptions = [
+const paymentOptions: SelectOption<PaymentMethod>[] = [
   { value: "EFECTIVO", label: "Efectivo" },
   { value: "TRANSFERENCIA", label: "Transferencia" },
   { value: "TARJETA", label: "Tarjeta" },
@@ -26,18 +54,30 @@ export const ConvertToSaleModal = ({
   budget,
   onConfirm,
 }: ConvertToSaleModalProps) => {
-  const totalToPay =
-    budget.total - (budget.deposit ? parseFloat(budget.deposit) : 0);
+  const theme = useTheme();
+  const totalToPay = useMemo(
+    () => budget.total - (budget.deposit ? parseFloat(budget.deposit) : 0),
+    [budget]
+  );
 
   const [paymentMethods, setPaymentMethods] = useState<PaymentSplit[]>([
     { method: "EFECTIVO", amount: totalToPay },
   ]);
+
+  const [error, setError] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    setPaymentMethods([{ method: "EFECTIVO", amount: totalToPay }]);
+    setError("");
+  }, [totalToPay]);
 
   const handlePaymentMethodChange = (
     index: number,
     field: keyof PaymentSplit,
     value: string | number
   ) => {
+    setError("");
     setPaymentMethods((prev) => {
       const updated = [...prev];
 
@@ -51,7 +91,6 @@ export const ConvertToSaleModal = ({
           ...updated[index],
           amount: parseFloat(numericValue.toFixed(2)),
         };
-
         if (updated.length === 2) {
           const otherIndex = index === 0 ? 1 : 0;
           const remaining = totalToPay - numericValue;
@@ -131,165 +170,438 @@ export const ConvertToSaleModal = ({
       (acc, method) => acc + parseFloat(method.amount.toFixed(2)),
       0
     );
-    return Math.abs(sum - parseFloat(totalToPay.toFixed(2))) < 0.01;
+    const isValid = Math.abs(sum - parseFloat(totalToPay.toFixed(2))) < 0.01;
+
+    if (!isValid) {
+      setError(
+        `La suma de los montos (${formatCurrency(
+          sum
+        )}) no coincide con el total a pagar (${formatCurrency(totalToPay)})`
+      );
+    }
+
+    return isValid;
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!validatePaymentMethods()) {
       return;
     }
-    onConfirm(paymentMethods);
+
+    setIsSubmitting(true);
+    try {
+      await onConfirm(paymentMethods);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  const getPaymentMethodColor = (method: PaymentMethod) => {
+    switch (method) {
+      case "EFECTIVO":
+        return "success";
+      case "TRANSFERENCIA":
+        return "primary";
+      case "TARJETA":
+        return "secondary";
+      default:
+        return "default";
+    }
+  };
+
+  const totalAmount = paymentMethods.reduce(
+    (sum, method) => sum + method.amount,
+    0
+  );
+  const amountDifference = totalAmount - totalToPay;
+
+  const renderProductItem = (item: SaleItem, index: number) => (
+    <TableRow
+      key={index}
+      hover
+      sx={{
+        "&:last-child td, &:last-child th": { border: 0 },
+        "&:hover": {
+          backgroundColor: theme.palette.action.hover,
+        },
+      }}
+    >
+      <TableCell>
+        <Box>
+          <Typography variant="body2" fontWeight="medium">
+            {item.productName}
+          </Typography>
+          <Box sx={{ display: "flex", gap: 0.5, mt: 0.5, flexWrap: "wrap" }}>
+            {item.size && (
+              <Chip
+                label={item.size}
+                size="small"
+                variant="outlined"
+                sx={{ height: 20 }}
+              />
+            )}
+            {item.color && (
+              <Chip
+                label={item.color}
+                size="small"
+                variant="outlined"
+                sx={{ height: 20 }}
+              />
+            )}
+          </Box>
+        </Box>
+      </TableCell>
+      <TableCell align="center">
+        <Typography variant="body2" color="text.secondary">
+          {item.quantity} {item.unit}
+        </Typography>
+      </TableCell>
+      <TableCell align="center">
+        <Typography variant="body2" color="text.secondary">
+          {item.discount || 0}%
+        </Typography>
+      </TableCell>
+      <TableCell align="right">
+        <Typography variant="body2" fontWeight="medium">
+          {formatCurrency(
+            item.price * item.quantity * (1 - (item.discount || 0) / 100)
+          )}
+        </Typography>
+      </TableCell>
+    </TableRow>
+  );
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Cobrar presupuesto de ${budget.customerName}`}
+      title={
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <ShoppingCart fontSize="small" />
+          <Typography variant="h6" component="span">
+            Cobrar presupuesto de {budget.customerName}
+          </Typography>
+        </Box>
+      }
+      bgColor="bg-white dark:bg-gray_b"
       buttons={
-        <>
+        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
           <Button
-            text="Confirmar Cobro"
-            colorText="text-white"
-            colorTextHover="text-white"
-            onClick={handleConfirm}
-          />
-          <Button
-            text="Cancelar"
-            colorText="text-gray_b dark:text-white"
-            colorTextHover="hover:dark:text-white"
-            colorBg="bg-transparent dark:bg-gray_m"
-            colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
+            variant="text"
             onClick={onClose}
-          />
-        </>
+            disabled={isSubmitting}
+            sx={{
+              color: "text.secondary",
+              "&:hover": {
+                backgroundColor: "action.hover",
+              },
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleConfirm}
+            disabled={isSubmitting}
+            isPrimaryAction={true}
+            sx={{
+              bgcolor: "primary.main",
+              "&:hover": { bgcolor: "primary.dark" },
+              minWidth: 140,
+            }}
+          >
+            {isSubmitting ? "Procesando..." : "Confirmar Cobro"}
+          </Button>
+        </Box>
       }
     >
-      <div className="space-y-4">
-        <div className="border border-gray_xl rounded-lg p-4">
-          <h3 className="font-medium mb-2">Productos del presupuesto</h3>
-          <div className="max-h-40 overflow-y-auto">
-            <table className="min-w-full divide-y divide-gray_xl">
-              <thead className="bg-gray_xxl">
-                <tr>
-                  <th className="px-2 py-1 text-left text-xs font-medium text-gray_l uppercase tracking-wider">
-                    Producto
-                  </th>
-                  <th className="px-2 py-1 text-center text-xs font-medium text-gray_l uppercase tracking-wider">
-                    Cantidad
-                  </th>
-                  <th className="px-2 py-1 text-center text-xs font-medium text-gray_l uppercase tracking-wider">
-                    Descuento (%)
-                  </th>
-                  <th className="px-2 py-1 text-right text-xs font-medium text-gray_l uppercase tracking-wider">
-                    Subtotal
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray_xl">
-                {budget.items.map((item, index) => (
-                  <tr
-                    key={index}
-                    className="hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
-                  >
-                    <td className="px-2 py-1 whitespace-nowrap text-sm text-gray_b">
-                      {item.productName}
-                      {item.size && ` (${item.size})`}
-                      {item.color && ` - ${item.color}`}
-                    </td>
-                    <td className="px-2 py-1 whitespace-nowrap text-sm text-gray_m text-center">
-                      {item.quantity} {item.unit}
-                    </td>
-                    <td className="px-2 py-1 whitespace-nowrap text-sm text-gray_m text-center">
-                      {item.discount || 0}%
-                    </td>
-                    <td className="px-2 py-1 whitespace-nowrap text-sm text-gray_m text-right">
-                      {formatCurrency(
-                        item.price *
-                          item.quantity *
-                          (1 - (item.discount || 0) / 100)
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mt-2 border-t-1 flex justify-between items-center py-2">
-            <span className="font-semibold">Seña:</span>
-            <span className="text-lg">
-              {formatCurrency(budget.deposit ? parseFloat(budget.deposit) : 0)}
-            </span>
-          </div>
-
-          <div className="flex justify-between items-center">
-            <span className="font-bold">Total a pagar:</span>
-            <span className="font-bold text-lg">
-              {formatCurrency(totalToPay)}
-            </span>
-          </div>
-        </div>
-
-        <div>
-          <h3 className="font-medium mb-2">Métodos de pago</h3>
-          {paymentMethods.map((method, index) => (
-            <div key={index} className="flex items-center gap-2 mb-2">
-              <Select
-                options={paymentOptions}
-                noOptionsMessage={() => "Sin opciones"}
-                value={paymentOptions.find((o) => o.value === method.method)}
-                onChange={(selected) =>
-                  selected &&
-                  handlePaymentMethodChange(index, "method", selected.value)
-                }
-                className="min-w-40"
-                classNamePrefix="react-select"
-              />
-
-              <div className="relative w-full">
-                <InputCash
-                  value={method.amount}
-                  onChange={(value) =>
-                    handlePaymentMethodChange(index, "amount", value)
-                  }
-                  placeholder="Monto"
-                />
-                {index === paymentMethods.length - 1 &&
-                  paymentMethods.reduce((sum, m) => sum + m.amount, 0) >
-                    totalToPay + 0.1 && (
-                    <span className="text-xs text-red_m ml-2">
-                      Exceso:{" "}
-                      {formatCurrency(
-                        paymentMethods.reduce((sum, m) => sum + m.amount, 0) -
-                          totalToPay
-                      )}
-                    </span>
-                  )}
-              </div>
-
-              {paymentMethods.length > 1 && (
-                <button
-                  onClick={() => removePaymentMethod(index)}
-                  className="text-red_m hover:text-red_b cursor-pointer"
-                >
-                  <Trash size={18} />
-                </button>
-              )}
-            </div>
-          ))}
-
-          {paymentMethods.length < paymentOptions.length && (
-            <button
-              onClick={addPaymentMethod}
-              className="text-blue_m hover:text-blue_b text-sm flex items-center"
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        {/* Resumen del presupuesto */}
+        <Card variant="outlined">
+          <CardContent>
+            {/* Productos del presupuesto */}
+            <Typography
+              variant="subtitle1"
+              gutterBottom
+              fontWeight="medium"
+              sx={{ mb: 2 }}
             >
-              <Plus size={18} className="mr-1" />
-              Agregar otro método de pago
-            </button>
-          )}
-        </div>
-      </div>
+              Productos
+            </Typography>
+
+            <TableContainer
+              sx={{
+                maxHeight: 200,
+                border: `1px solid ${theme.palette.divider}`,
+                borderRadius: 1,
+                overflow: "auto",
+              }}
+            >
+              <Table size="small" stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell
+                      sx={{
+                        fontWeight: "bold",
+                        fontSize: "0.75rem",
+                        bgcolor: "primary.main",
+                        color: "white",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Producto
+                    </TableCell>
+                    <TableCell
+                      align="center"
+                      sx={{
+                        fontWeight: "bold",
+                        fontSize: "0.75rem",
+                        bgcolor: "primary.main",
+                        color: "white",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Cantidad
+                    </TableCell>
+                    <TableCell
+                      align="center"
+                      sx={{
+                        fontWeight: "bold",
+                        fontSize: "0.75rem",
+                        bgcolor: "primary.main",
+                        color: "white",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Descuento
+                    </TableCell>
+                    <TableCell
+                      align="right"
+                      sx={{
+                        fontWeight: "bold",
+                        fontSize: "0.75rem",
+                        bgcolor: "primary.main",
+                        color: "white",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Subtotal
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>{budget.items.map(renderProductItem)}</TableBody>
+              </Table>
+            </TableContainer>
+
+            {/* Totales */}
+            <Box
+              sx={{
+                mt: 3,
+                p: 2,
+                bgcolor: theme.palette.grey[50],
+                borderRadius: 1,
+                border: `1px solid ${theme.palette.divider}`,
+              }}
+            >
+              <Box
+                sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Total presupuesto:
+                </Typography>
+                <Typography variant="body2" fontWeight="medium">
+                  {formatCurrency(budget.total)}
+                </Typography>
+              </Box>
+
+              <Box
+                sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Seña abonada:
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="success.main"
+                  fontWeight="medium"
+                >
+                  {formatCurrency(
+                    budget.deposit ? parseFloat(budget.deposit) : 0
+                  )}
+                </Typography>
+              </Box>
+
+              <Divider sx={{ my: 1 }} />
+
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <Typography variant="h6" fontWeight="bold">
+                  Total a pagar:
+                </Typography>
+                <Typography variant="h5" fontWeight="bold" color="primary">
+                  {formatCurrency(totalToPay)}
+                </Typography>
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
+
+        {/* Métodos de pago */}
+        <Card variant="outlined">
+          <CardContent>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+              <Typography variant="subtitle1" fontWeight="medium">
+                Métodos de pago
+              </Typography>
+            </Box>
+
+            {error && (
+              <Alert
+                severity="error"
+                sx={{ mb: 2 }}
+                onClose={() => setError("")}
+              >
+                {error}
+              </Alert>
+            )}
+
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {paymentMethods.map((method, index) => (
+                <Box
+                  key={index}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 2,
+                    p: 1.5,
+                    border: `1px solid ${theme.palette.divider}`,
+                    borderRadius: 1,
+                    bgcolor: theme.palette.background.paper,
+                  }}
+                >
+                  <Box sx={{ minWidth: 140 }}>
+                    <Select<PaymentMethod>
+                      label="Método"
+                      options={paymentOptions}
+                      value={method.method}
+                      onChange={(value) =>
+                        handlePaymentMethodChange(index, "method", value)
+                      }
+                      size="small"
+                      fullWidth
+                    />
+                  </Box>
+
+                  <Box sx={{ flex: 1, position: "relative" }}>
+                    <InputCash
+                      value={method.amount}
+                      onChange={(value) =>
+                        handlePaymentMethodChange(index, "amount", value)
+                      }
+                      label="Monto"
+                      disabled={paymentMethods.length === 2 && index === 1}
+                    />
+                  </Box>
+
+                  {paymentMethods.length > 1 && (
+                    <IconButton
+                      onClick={() => removePaymentMethod(index)}
+                      color="error"
+                      size="small"
+                      sx={{ ml: 1 }}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                </Box>
+              ))}
+            </Box>
+
+            {paymentMethods.length < paymentOptions.length && (
+              <Button
+                onClick={addPaymentMethod}
+                icon={<AddIcon />}
+                iconPosition="left"
+                variant="text"
+                size="small"
+              >
+                Agregar otro método de pago
+              </Button>
+            )}
+
+            {/* Resumen de montos */}
+            <Paper variant="outlined" sx={{ p: 2, mt: 2, borderRadius: 1 }}>
+              <Typography variant="subtitle2" gutterBottom fontWeight="bold">
+                Resumen de pagos:
+              </Typography>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {paymentMethods.map((method, index) => (
+                  <Box
+                    key={index}
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Chip
+                      label={
+                        paymentOptions.find((o) => o.value === method.method)
+                          ?.label
+                      }
+                      size="small"
+                      color={getPaymentMethodColor(method.method)}
+                      variant="outlined"
+                      sx={{ fontWeight: "medium" }}
+                    />
+                    <Typography variant="body1" fontWeight="medium">
+                      {formatCurrency(method.amount)}
+                    </Typography>
+                  </Box>
+                ))}
+                <Divider sx={{ my: 1 }} />
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <Typography variant="body1" fontWeight="bold">
+                    Total a pagar:
+                  </Typography>
+                  <Typography
+                    variant="h6"
+                    fontWeight="bold"
+                    color={
+                      Math.abs(totalAmount - totalToPay) < 0.01
+                        ? "success.main"
+                        : "error.main"
+                    }
+                  >
+                    {formatCurrency(totalAmount)}
+                  </Typography>
+                </Box>
+
+                {Math.abs(totalAmount - totalToPay) >= 0.01 && (
+                  <Box sx={{ textAlign: "right", mt: 0.5 }}>
+                    <Typography variant="caption" color="error">
+                      {totalAmount > totalToPay
+                        ? `Excede por ${formatCurrency(amountDifference)}`
+                        : `Falta ${formatCurrency(-amountDifference)}`}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </Paper>
+          </CardContent>
+        </Card>
+      </Box>
     </Modal>
   );
 };

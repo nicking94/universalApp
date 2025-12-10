@@ -5,14 +5,16 @@ import React, {
   useState,
   ReactNode,
   useEffect,
+  useCallback,
 } from "react";
-import { db } from "../database/db";
+import { db } from "@/app/database/db";
 
 interface PaginationContextType {
   currentPage: number;
   itemsPerPage: number;
   setCurrentPage: (page: number) => void;
   setItemsPerPage: (items: number) => void;
+  resetToFirstPage: () => void; // Añadir esta función
   isLoading?: boolean;
 }
 
@@ -26,6 +28,9 @@ export const PaginationProvider: React.FC<{ children: ReactNode }> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const resetToFirstPage = useCallback(() => {
+    setCurrentPage(1);
+  }, []);
 
   useEffect(() => {
     const loadPreferences = async () => {
@@ -95,6 +100,7 @@ export const PaginationProvider: React.FC<{ children: ReactNode }> = ({
         itemsPerPage,
         setCurrentPage,
         setItemsPerPage,
+        resetToFirstPage,
         isLoading,
       }}
     >

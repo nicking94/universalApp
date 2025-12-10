@@ -1,8 +1,6 @@
 "use client";
-import React, { useState, useEffect, useRef, useMemo } from "react";
-import Select from "react-select";
+import React, { useState, useEffect, useMemo } from "react";
 import {
-  CategoryOption,
   Expense,
   ExpenseFilter,
   Product,
@@ -11,13 +9,15 @@ import {
   SortConfig,
   UnifiedFilter,
 } from "../lib/types/types";
+import { Box, Stack, useTheme } from "@mui/material";
+import {
+  FilterList as FilterIcon,
+  Clear as ClearIcon,
+} from "@mui/icons-material";
+import Select, { SelectOption } from "./Select";
 import Button from "./Button";
-import { FaFilter, FaTimes } from "react-icons/fa";
-
-interface SortOption<T> {
-  value: SortConfig<T>;
-  label: string;
-}
+import Modal from "./Modal";
+import CustomChip from "./CustomChip";
 
 interface AdvancedFilterPanelProps<T> {
   data?: T[];
@@ -34,67 +34,66 @@ const AdvancedFilterPanel = <T extends Product | Expense>({
   rubro,
   isExpense = false,
 }: AdvancedFilterPanelProps<T>) => {
-  const [selectedExpenseType, setSelectedExpenseType] =
-    useState<CategoryOption | null>(null);
+  const [selectedExpenseType, setSelectedExpenseType] = useState<string>("");
   const [selectedExpenseCategory, setSelectedExpenseCategory] =
-    useState<CategoryOption | null>(null);
+    useState<string>("");
   const [selectedPaymentMethod, setSelectedPaymentMethod] =
-    useState<CategoryOption | null>(null);
-  const [selectedCategory, setSelectedCategory] =
-    useState<CategoryOption | null>(null);
-  const [selectedSize, setSelectedSize] = useState<CategoryOption | null>(null);
-  const [selectedColors, setSelectedColors] = useState<CategoryOption | null>(
-    null
-  );
-  const [selectedSeason, setSelectedSeason] = useState<CategoryOption | null>(
-    null
-  );
-  const [selectedBrands, setSelectedBrands] = useState<CategoryOption | null>(
-    null
-  );
+    useState<string>("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedSize, setSelectedSize] = useState<string>("");
+  const [selectedColors, setSelectedColors] = useState<string>("");
+  const [selectedSeason, setSelectedSeason] = useState<string>("");
+  const [selectedBrands, setSelectedBrands] = useState<string>("");
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-  const [selectedSort, setSelectedSort] = useState<SortOption<T> | null>(null);
-  const modalRef = useRef<HTMLDivElement>(null);
+  const [selectedSort, setSelectedSort] = useState<string>("");
   const [prevRubro, setPrevRubro] = useState<Rubro>(rubro);
+  const theme = useTheme();
 
-  const expenseTypeOptions = [
-    { value: { name: "EGRESO", rubro }, label: "Egreso" },
-    { value: { name: "INGRESO", rubro }, label: "Ingreso" },
+  const expenseTypeOptions: SelectOption<string>[] = [
+    { value: "EGRESO", label: "Egreso" },
+    { value: "INGRESO", label: "Ingreso" },
   ];
 
-  const paymentMethodOptions = [
-    { value: { name: "EFECTIVO", rubro }, label: "Efectivo" },
-    { value: { name: "TRANSFERENCIA", rubro }, label: "Transferencia" },
-    { value: { name: "TARJETA", rubro }, label: "Tarjeta" },
+  const paymentMethodOptions: SelectOption<string>[] = [
+    { value: "EFECTIVO", label: "Efectivo" },
+    { value: "TRANSFERENCIA", label: "Transferencia" },
+    { value: "TARJETA", label: "Tarjeta" },
   ];
 
-  const expenseCategoryOptions = useMemo(() => {
+  const expenseCategoryOptions: SelectOption<string>[] = useMemo(() => {
     if (!isExpense) return [];
+
+    const filteredData = (data as Expense[]).filter((expense) => {
+      if (rubro === "Todos los rubros") return true;
+
+      return expense.rubro === rubro;
+    });
+
     return Array.from(
       new Set(
-        (data as Expense[])
+        filteredData
           .map((e) => e.category)
           .filter((category): category is string => !!category)
       )
     ).map((category) => ({
-      value: { name: category, rubro },
+      value: category,
       label: category,
     }));
-  }, [data, rubro, isExpense]);
+  }, [data, isExpense, rubro]);
 
   const clearAllFilters = () => {
     if (isExpense) {
-      setSelectedExpenseType(null);
-      setSelectedExpenseCategory(null);
-      setSelectedPaymentMethod(null);
+      setSelectedExpenseType("");
+      setSelectedExpenseCategory("");
+      setSelectedPaymentMethod("");
     } else {
-      setSelectedCategory(null);
-      setSelectedSize(null);
-      setSelectedColors(null);
-      setSelectedSeason(null);
-      setSelectedBrands(null);
+      setSelectedCategory("");
+      setSelectedSize("");
+      setSelectedColors("");
+      setSelectedSeason("");
+      setSelectedBrands("");
     }
-    setSelectedSort(null);
+    setSelectedSort("");
     onApplyFilters([]);
     onApplySort({ field: "name" as keyof T, direction: "asc" });
   };
@@ -112,19 +111,19 @@ const AdvancedFilterPanel = <T extends Product | Expense>({
       if (selectedExpenseType) {
         newFilters.push({
           field: "type",
-          value: selectedExpenseType.value.name,
+          value: selectedExpenseType,
         });
       }
       if (selectedExpenseCategory) {
         newFilters.push({
           field: "category",
-          value: selectedExpenseCategory.value.name,
+          value: selectedExpenseCategory,
         });
       }
       if (selectedPaymentMethod) {
         newFilters.push({
           field: "paymentMethod",
-          value: selectedPaymentMethod.value.name,
+          value: selectedPaymentMethod,
         });
       }
       onApplyFilters(newFilters);
@@ -133,32 +132,32 @@ const AdvancedFilterPanel = <T extends Product | Expense>({
       if (selectedCategory) {
         newFilters.push({
           field: "customCategories",
-          value: selectedCategory.value.name,
+          value: selectedCategory,
         });
       }
       if (selectedSeason) {
         newFilters.push({
           field: "season",
-          value: selectedSeason.value.name,
+          value: selectedSeason,
         });
       }
       if (rubro === "indumentaria") {
         if (selectedSize) {
           newFilters.push({
             field: "size",
-            value: selectedSize.value.name,
+            value: selectedSize,
           });
         }
         if (selectedColors) {
           newFilters.push({
             field: "color",
-            value: selectedColors.value.name,
+            value: selectedColors,
           });
         }
         if (selectedBrands) {
           newFilters.push({
             field: "brand",
-            value: selectedBrands.value.name,
+            value: selectedBrands,
           });
         }
       }
@@ -178,29 +177,7 @@ const AdvancedFilterPanel = <T extends Product | Expense>({
     onApplyFilters,
   ]);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const isReactSelectElement = (event.target as Element)?.closest(
-        ".react-select-container, .react-select__control, .react-select__menu, .react-select__option, .react-select__dropdown-indicator, .react-select__clear-indicator"
-      );
-
-      if (
-        modalRef.current &&
-        !modalRef.current.contains(event.target as Node) &&
-        !isReactSelectElement
-      ) {
-        setIsFiltersOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  const getUniqueValues = (field: keyof Product): CategoryOption[] => {
+  const getUniqueValues = (field: keyof Product): SelectOption<string>[] => {
     if (isExpense) return [];
 
     const uniqueValues = Array.from(
@@ -218,15 +195,12 @@ const AdvancedFilterPanel = <T extends Product | Expense>({
     ).sort((a, b) => a.localeCompare(b));
 
     return uniqueValues.map((value: string) => ({
-      value: {
-        name: value,
-        rubro: rubro,
-      },
+      value: value,
       label: value,
     }));
   };
 
-  const categoryOptions = useMemo(() => {
+  const categoryOptions: SelectOption<string>[] = useMemo(() => {
     if (isExpense) return [];
 
     return (data as Product[])
@@ -244,20 +218,14 @@ const AdvancedFilterPanel = <T extends Product | Expense>({
         ) {
           return [
             {
-              value: {
-                name: p.customCategories[0].name,
-                rubro: p.customCategories[0].rubro || p.rubro || rubro,
-              },
+              value: p.customCategories[0].name,
               label: p.customCategories[0].name,
             },
           ];
         } else if (p.category) {
           return [
             {
-              value: {
-                name: p.category,
-                rubro: p.rubro || rubro,
-              },
+              value: p.category,
               label: `${p.category}`,
             },
           ];
@@ -268,224 +236,196 @@ const AdvancedFilterPanel = <T extends Product | Expense>({
         (cat, index, self) =>
           index ===
           self.findIndex(
-            (c) =>
-              c.value.name.toLowerCase() === cat.value.name.toLowerCase() &&
-              c.value.rubro === cat.value.rubro
+            (c) => c.value.toLowerCase() === cat.value.toLowerCase()
           )
       )
-      .sort((a, b) => a.value.name.localeCompare(b.value.name));
+      .sort((a, b) => a.value.localeCompare(b.value));
   }, [data, rubro, isExpense]);
 
-  const sizeOptions = useMemo(
+  const sizeOptions: SelectOption<string>[] = useMemo(
     () =>
       rubro === "indumentaria" && !isExpense ? getUniqueValues("size") : [],
     [rubro, isExpense, data]
   );
 
-  const colorOptions = useMemo(
+  const colorOptions: SelectOption<string>[] = useMemo(
     () =>
       rubro === "indumentaria" && !isExpense ? getUniqueValues("color") : [],
     [rubro, isExpense, data]
   );
 
-  const brandOptions = useMemo(
+  const brandOptions: SelectOption<string>[] = useMemo(
     () =>
       rubro === "indumentaria" && !isExpense ? getUniqueValues("brand") : [],
     [rubro, isExpense, data]
   );
 
-  const seasonOptionsDynamic = useMemo(
+  const seasonOptionsDynamic: SelectOption<string>[] = useMemo(
     () => (!isExpense ? getUniqueValues("season") : []),
     [rubro, isExpense, data]
   );
 
-  const sortOptions: SortOption<T>[] = useMemo(
+  const sortOptions: SelectOption<string>[] = useMemo(
     () =>
       isExpense
         ? [
             {
-              value: { field: "amount" as keyof T, direction: "asc" },
+              value: "amount-asc",
               label: "Monto (Menor a Mayor)",
             },
             {
-              value: { field: "amount" as keyof T, direction: "desc" },
+              value: "amount-desc",
               label: "Monto (Mayor a Menor)",
             },
             {
-              value: { field: "date" as keyof T, direction: "desc" },
+              value: "date-desc",
               label: "Fecha (Más reciente)",
             },
             {
-              value: { field: "date" as keyof T, direction: "asc" },
+              value: "date-asc",
               label: "Fecha (Más antigua)",
             },
           ]
         : [
             {
-              value: { field: "name" as keyof T, direction: "asc" },
+              value: "name-asc",
               label: "Nombre (A-Z)",
             },
             {
-              value: { field: "name" as keyof T, direction: "desc" },
+              value: "name-desc",
               label: "Nombre (Z-A)",
             },
             {
-              value: { field: "price" as keyof T, direction: "asc" },
+              value: "price-asc",
               label: "Precio (Menor a Mayor)",
             },
             {
-              value: { field: "price" as keyof T, direction: "desc" },
+              value: "price-desc",
               label: "Precio (Mayor a Menor)",
             },
             {
-              value: { field: "stock" as keyof T, direction: "desc" },
+              value: "stock-desc",
               label: "Mayor stock primero",
             },
             {
-              value: { field: "stock" as keyof T, direction: "asc" },
+              value: "stock-asc",
               label: "Menor stock primero",
             },
           ],
     [isExpense]
   );
 
-  const handleSortChange = (option: SortOption<T> | null) => {
-    setSelectedSort(option);
-    if (option) {
-      onApplySort(option.value);
+  const sortConfigMap: Record<string, SortConfig<T>> = useMemo(
+    () => ({
+      "amount-asc": { field: "amount" as keyof T, direction: "asc" },
+      "amount-desc": { field: "amount" as keyof T, direction: "desc" },
+      "date-desc": { field: "date" as keyof T, direction: "desc" },
+      "date-asc": { field: "date" as keyof T, direction: "asc" },
+      "name-asc": { field: "name" as keyof T, direction: "asc" },
+      "name-desc": { field: "name" as keyof T, direction: "desc" },
+      "price-asc": { field: "price" as keyof T, direction: "asc" },
+      "price-desc": { field: "price" as keyof T, direction: "desc" },
+      "stock-desc": { field: "stock" as keyof T, direction: "desc" },
+      "stock-asc": { field: "stock" as keyof T, direction: "asc" },
+    }),
+    []
+  );
+
+  const handleSortChange = (value: string) => {
+    setSelectedSort(value);
+    const config = sortConfigMap[value];
+    if (config) {
+      onApplySort(config);
     }
   };
-  useEffect(() => {
-    if (rubro !== prevRubro) {
-      clearAllFilters();
-      setPrevRubro(rubro);
-    }
-  }, [rubro, prevRubro]);
+
+  const handleSelectChange =
+    (setter: React.Dispatch<React.SetStateAction<string>>) =>
+    (value: string) => {
+      setter(value);
+    };
 
   const renderFilters = () => {
     if (isExpense) {
       return (
         <>
-          <div className="flex flex-col w-full">
-            <label className="block text-gray_m dark:text-white text-sm font-semibold">
-              Tipo
-            </label>
-            <Select<CategoryOption>
-              options={expenseTypeOptions}
-              noOptionsMessage={() => "Sin opciones"}
-              value={selectedExpenseType}
-              onChange={(newValue) => setSelectedExpenseType(newValue)}
-              placeholder="Tipo"
-              isClearable
-              className="text-sm text-gray_l react-select-container"
-            />
-          </div>
+          <Select<string>
+            label="Tipo"
+            options={expenseTypeOptions}
+            value={selectedExpenseType}
+            onChange={handleSelectChange(setSelectedExpenseType)}
+            fullWidth
+            size="small"
+          />
 
-          <div className="flex flex-col w-full">
-            <label className="block text-gray_m dark:text-white text-sm font-semibold">
-              Categoría
-            </label>
-            <Select<CategoryOption>
-              options={expenseCategoryOptions}
-              noOptionsMessage={() => "Sin opciones"}
-              value={selectedExpenseCategory}
-              onChange={(newValue) => setSelectedExpenseCategory(newValue)}
-              placeholder="Categoría"
-              isClearable
-              className="text-sm text-gray_l react-select-container"
-            />
-          </div>
+          <Select<string>
+            label="Categoría"
+            options={expenseCategoryOptions}
+            value={selectedExpenseCategory}
+            onChange={handleSelectChange(setSelectedExpenseCategory)}
+            fullWidth
+            size="small"
+          />
 
-          <div className="flex flex-col w-full">
-            <label className="block text-gray_m dark:text-white text-sm font-semibold">
-              Método de Pago
-            </label>
-            <Select<CategoryOption>
-              options={paymentMethodOptions}
-              noOptionsMessage={() => "Sin opciones"}
-              value={selectedPaymentMethod}
-              onChange={(newValue) => setSelectedPaymentMethod(newValue)}
-              placeholder="Método de pago"
-              isClearable
-              className="text-sm text-gray_l react-select-container"
-            />
-          </div>
+          <Select<string>
+            label="Método de Pago"
+            options={paymentMethodOptions}
+            value={selectedPaymentMethod}
+            onChange={handleSelectChange(setSelectedPaymentMethod)}
+            fullWidth
+            size="small"
+          />
         </>
       );
     } else {
       return (
         <>
-          <div className="flex flex-col w-full">
-            <label className="block text-gray_m dark:text-white text-sm font-semibold">
-              Categorías
-            </label>
-            <Select<CategoryOption>
-              options={categoryOptions}
-              value={selectedCategory}
-              onChange={(newValue) => setSelectedCategory(newValue)}
-              placeholder="Categoría"
-              isClearable
-              className="text-sm text-gray_l react-select-container"
-            />
-          </div>
+          <Select<string>
+            label="Categorías"
+            options={categoryOptions}
+            value={selectedCategory}
+            onChange={handleSelectChange(setSelectedCategory)}
+            fullWidth
+            size="small"
+          />
 
-          <div>
-            <label className="block text-gray_m dark:text-white text-sm font-semibold">
-              Temporadas
-            </label>
-            <Select<CategoryOption>
-              options={seasonOptionsDynamic}
-              value={selectedSeason}
-              onChange={(newValue) => setSelectedSeason(newValue)}
-              placeholder="Temporada"
-              isClearable
-              className="text-sm text-gray_l react-select-container"
-            />
-          </div>
+          <Select<string>
+            label="Temporadas"
+            options={seasonOptionsDynamic}
+            value={selectedSeason}
+            onChange={handleSelectChange(setSelectedSeason)}
+            fullWidth
+            size="small"
+          />
 
           {rubro === "indumentaria" && (
             <>
-              <div>
-                <label className="block text-gray_m dark:text-white text-sm font-semibold">
-                  Talles
-                </label>
-                <Select<CategoryOption>
-                  options={sizeOptions}
-                  value={selectedSize}
-                  onChange={(newValue) => setSelectedSize(newValue)}
-                  placeholder="Talle"
-                  isClearable
-                  className="text-sm text-gray_l react-select-container"
-                />
-              </div>
+              <Select<string>
+                label="Talles"
+                options={sizeOptions}
+                value={selectedSize}
+                onChange={handleSelectChange(setSelectedSize)}
+                fullWidth
+                size="small"
+              />
 
-              <div>
-                <label className="block text-gray_m dark:text-white text-sm font-semibold">
-                  Colores
-                </label>
-                <Select<CategoryOption>
-                  options={colorOptions}
-                  value={selectedColors}
-                  onChange={(newValue) => setSelectedColors(newValue)}
-                  placeholder="Color"
-                  isClearable
-                  className="text-sm text-gray_l react-select-container"
-                />
-              </div>
+              <Select<string>
+                label="Colores"
+                options={colorOptions}
+                value={selectedColors}
+                onChange={handleSelectChange(setSelectedColors)}
+                fullWidth
+                size="small"
+              />
 
-              <div>
-                <label className="block text-gray_m dark:text-white text-sm font-semibold">
-                  Marcas
-                </label>
-                <Select<CategoryOption>
-                  options={brandOptions}
-                  value={selectedBrands}
-                  onChange={(newValue) => setSelectedBrands(newValue)}
-                  placeholder="Marca"
-                  isClearable
-                  className="text-sm text-gray_l react-select-container"
-                />
-              </div>
+              <Select<string>
+                label="Marcas"
+                options={brandOptions}
+                value={selectedBrands}
+                onChange={handleSelectChange(setSelectedBrands)}
+                fullWidth
+                size="small"
+              />
             </>
           )}
         </>
@@ -493,76 +433,134 @@ const AdvancedFilterPanel = <T extends Product | Expense>({
     }
   };
 
+  const getActiveFiltersCount = () => {
+    if (isExpense) {
+      return [
+        selectedExpenseType,
+        selectedExpenseCategory,
+        selectedPaymentMethod,
+      ].filter(Boolean).length;
+    } else {
+      const baseFilters = [selectedCategory, selectedSeason].filter(
+        Boolean
+      ).length;
+      const clothingFilters =
+        rubro === "indumentaria"
+          ? [selectedSize, selectedColors, selectedBrands].filter(Boolean)
+              .length
+          : 0;
+      return baseFilters + clothingFilters;
+    }
+  };
+
+  const activeFiltersCount = getActiveFiltersCount();
+
   return (
-    <div className="relative flex flex-col gap-4 w-full">
-      <div className="flex justify-between items-center">
-        <div className="relative flex items-center gap-2">
-          <div className="w-70 max-w-50 2xl:max-w-70">
-            <Select
-              options={sortOptions}
-              value={selectedSort}
-              onChange={handleSortChange}
-              placeholder="Ordenar por..."
-              className="text-sm text-gray_l"
-              isClearable
-            />
-          </div>
-          {rubro !== "Todos los rubros" && (
+    <Box sx={{ width: "100%" }}>
+      <Stack direction="row" spacing={2} alignItems="center">
+        <Select<string>
+          label="Ordenar por"
+          options={sortOptions}
+          value={selectedSort}
+          onChange={handleSortChange}
+          fullWidth={false}
+          sx={{ minWidth: 200 }}
+        />
+
+        {rubro !== "Todos los rubros" && (
+          <Box sx={{ position: "relative" }}>
             <Button
-              icon={<FaFilter size={18} />}
-              minwidth="min-w-0"
-              colorText="text-white"
-              colorTextHover="text-white"
-              colorBg="bg-blue_b"
-              colorBgHover="hover:bg-blue_m"
-              onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+              text="Filtros"
+              icon={<FilterIcon />}
+              iconPosition="left"
+              onClick={() => setIsFiltersOpen(true)}
+              variant="contained"
+              size="small"
+              sx={{
+                backgroundColor: theme.palette.primary.main,
+                color: theme.palette.primary.contrastText,
+                "&:hover": {
+                  backgroundColor: theme.palette.primary.dark,
+                },
+              }}
             />
-          )}
-        </div>
-      </div>
-
-      {isFiltersOpen && (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          ref={modalRef}
-          className="absolute top-11 left-0 w-full min-w-[40rem] 2xl:min-w-[57rem] h-full z-50 flex items-start justify-center -mt-1.5"
-        >
-          <div className="w-full bg-white dark:bg-gray_m p-4 rounded-lg shadow-lg min-h-[15vh] flex flex-col shadow-gray_xl dark:shadow-gray_m">
-            <div className="flex-grow w-full p-2">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-sm text-gray_l dark:text-gray_xl mb-2">
-                  Filtrar Por:
-                </p>
-                <p
-                  onClick={clearAllFilters}
-                  className="flex items-center gap-2 cursor-pointer text-blue_b dark:text-blue_l hover:text-blue_m dark:hover:text-blue_xl text-sm font-medium"
-                >
-                  Limpiar Filtros
-                  <FaTimes size={18} />
-                </p>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">{renderFilters()}</div>
-            </div>
-
-            <div className="mt-6 flex justify-end pt-4 gap-4">
-              <Button
-                text="Cerrar"
-                colorText="text-gray_b dark:text-white"
-                colorTextHover="hover:dark:text-white"
-                colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
-                onClick={() => {
-                  setIsFiltersOpen(false);
-                  clearAllFilters();
+            {activeFiltersCount > 0 && (
+              <CustomChip
+                label={activeFiltersCount.toString()}
+                size="small"
+                sx={{
+                  position: "absolute",
+                  top: -8,
+                  right: -8,
+                  minWidth: 20,
+                  height: 20,
+                  fontSize: "0.75rem",
+                  backgroundColor: theme.palette.error.main,
+                  color: theme.palette.error.contrastText,
                 }}
-                hotkey="Escape"
               />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+            )}
+          </Box>
+        )}
+      </Stack>
+
+      <Modal
+        isOpen={isFiltersOpen}
+        title="Filtrar Por"
+        onClose={() => setIsFiltersOpen(false)}
+        buttons={
+          <>
+            <Button
+              text="Limpiar Filtros"
+              icon={<ClearIcon />}
+              iconPosition="left"
+              onClick={clearAllFilters}
+              variant="text"
+              size="small"
+              sx={{
+                color: theme.palette.text.secondary,
+                borderColor: theme.palette.divider,
+                "&:hover": {
+                  backgroundColor: theme.palette.action.hover,
+                  borderColor: theme.palette.text.secondary,
+                },
+              }}
+            />
+            <Button
+              text="Aplicar Filtros"
+              onClick={() => setIsFiltersOpen(false)}
+              variant="contained"
+              size="small"
+              isPrimaryAction={true}
+              sx={{
+                backgroundColor: theme.palette.primary.main,
+                color: theme.palette.primary.contrastText,
+                "&:hover": {
+                  backgroundColor: theme.palette.primary.dark,
+                },
+              }}
+            />
+          </>
+        }
+      >
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: {
+              xs: "1fr",
+              md:
+                isExpense || rubro !== "indumentaria"
+                  ? "repeat(2, 1fr)"
+                  : "repeat(3, 1fr)",
+            },
+            gap: 2,
+            mt: 1,
+          }}
+        >
+          {renderFilters()}
+        </Box>
+      </Modal>
+    </Box>
   );
 };
 

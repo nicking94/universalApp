@@ -1,4 +1,4 @@
-import { db } from "../database/db";
+import { db } from "@/app/database/db";
 
 export type Actualization = {
   id: number;
@@ -92,11 +92,18 @@ export const systemActualizations: Actualization[] = [
   //     "- Ahora podés agregar un concepto a la venta y visualizarlo en el listado de ventas. Mejoras en el rendimiento",
   //   date: new Date().toISOString(),
   // },
+  // {
+  //   id: 13,
+  //   title: `Versión 1.5.3 - Actualización`,
+  //   message:
+  //     "- Agregado el módulo para crear promociones\n-Agregada la actualización automática cuando hay una nueva versión de la aplicación disponible\n- Mejoras visuales y en el rendimiento",
+  //   date: new Date().toISOString(),
+  // },
   {
-    id: 13,
-    title: `Versión 1.5.3 - Actualización`,
+    id: 14,
+    title: `Versión 1.5.4 - Actualización`,
     message:
-      "- Agregado el módulo para crear promociones\n-Agregada la actualización automática cuando hay una nueva versión de la aplicación disponible\n- Mejoras visuales y en el rendimiento",
+      "- ¡Mejoramos el diseño de la aplicación para una mejor experiencia de usuario!\n- Nuevas funcionalidades:\n Calcular el vuelto automaticamente\n Mostrar la hora en la tabla de los detalles del dia en la caja diaria\n- Mejoras el rendimiento",
     date: new Date().toISOString(),
   },
 ];

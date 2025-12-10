@@ -1,82 +1,92 @@
-// app/login/page.tsx
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import AuthForm from "@/app/components/AuthForm";
-import Notification from "@/app/components/Notification";
-import { AuthData } from "@/app/lib/types/types";
-import { TRIAL_CREDENTIALS, USERS } from "@/app/lib/constants/constants";
 import { db } from "../../database/db";
+import { TRIAL_CREDENTIALS, USERS } from "@/app/lib/constants/constants";
+import { AuthData } from "@/app/lib/types/types";
+import AuthForm from "@/app/components/AuthForm";
 import Navidad from "@/app/components/LoginScreens/Navidad";
+import Notification from "@/app/components/Notification";
 
 const LoginPage = () => {
   const router = useRouter();
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [showTermsCheckbox, setShowTermsCheckbox] = useState(true);
+  const [showTermsCheckbox, setShowTermsCheckbox] = useState(false);
   const [isOpenNotification, setIsOpenNotification] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState("");
   const [notificationType, setNotificationType] = useState<
     "success" | "error" | "info"
   >("error");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
 
+  // Cargar preferencias y inicializar
   useEffect(() => {
-    const loadPreferences = async () => {
+    const initialize = async () => {
       try {
+        setIsLoading(true);
+
+        // 1. Cargar preferencias primero
         const preferences = await db.userPreferences.get(1);
         if (preferences) {
           setAcceptedTerms(preferences.acceptedTerms);
           setShowTermsCheckbox(!preferences.acceptedTerms);
+        } else {
+          // Si no hay preferencias, mostrar checkbox
+          setShowTermsCheckbox(true);
         }
-      } catch (error) {
-        console.error("Error cargando preferencias:", error);
-        setAcceptedTerms(false);
-        setShowTermsCheckbox(true);
-      }
-    };
-    loadPreferences();
-  }, []);
 
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get("expired") === "true") {
-      setNotificationMessage("Su periodo de prueba ha expirado");
-      setNotificationType("error");
-      setIsOpenNotification(true);
-      setTimeout(() => setIsOpenNotification(false), 2500);
-    }
+        // 2. Inicializar usuarios
+        for (const user of USERS) {
+          const existingUser = await db.users.get(user.id);
+          if (!existingUser || existingUser.username !== user.username) {
+            await db.users.put({
+              id: user.id,
+              username: user.username,
+              password: user.password,
+            });
+          }
+        }
 
-    // Manejar usuario inactivo
-    if (urlParams.get("inactive") === "true") {
-      setNotificationMessage("Usuario desactivado por falta de pago");
-      setNotificationType("error");
-      setIsOpenNotification(true);
-      setTimeout(() => setIsOpenNotification(false), 2500);
-    }
-
-    const initializeUsers = async () => {
-      // Verificar y corregir todos los usuarios, no solo el admin
-      for (const user of USERS) {
-        const existingUser = await db.users.get(user.id);
-        if (!existingUser || existingUser.username !== user.username) {
+        const adminUser = await db.users.get(2);
+        if (!adminUser || adminUser.username !== "administrador") {
           await db.users.put({
-            id: user.id,
-            username: user.username,
-            password: user.password,
+            id: 2,
+            username: "demo",
+            password: "demo",
           });
         }
-      }
 
-      const adminUser = await db.users.get(2);
-      if (!adminUser || adminUser.username !== "administrador") {
-        await db.users.put({
-          id: 2,
-          username: "demo",
-          password: "demo",
-        });
+        // 3. Verificar parámetros de URL
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get("expired") === "true") {
+          setNotificationMessage("Su periodo de prueba ha expirado");
+          setNotificationType("error");
+          setIsOpenNotification(true);
+          setTimeout(() => setIsOpenNotification(false), 2500);
+        }
+
+        if (urlParams.get("inactive") === "true") {
+          setNotificationMessage(
+            "Usuario desactivado. contacte al soporte técnico"
+          );
+          setNotificationType("error");
+          setIsOpenNotification(true);
+          setTimeout(() => setIsOpenNotification(false), 2500);
+        }
+
+        setIsInitialized(true);
+      } catch (error) {
+        console.error("Error en inicialización:", error);
+        setAcceptedTerms(false);
+        setShowTermsCheckbox(true);
+      } finally {
+        setIsLoading(false);
       }
     };
-    initializeUsers();
-  }, []);
+
+    initialize();
+  }, []); // Solo se ejecuta una vez al montar
 
   const checkTrialPeriod = async (userId: number) => {
     try {
@@ -111,6 +121,9 @@ const LoginPage = () => {
   };
 
   const handleLogin = async (data: AuthData) => {
+    if (!isInitialized) return;
+
+    // Solo verificar términos si se debe mostrar el checkbox
     if (showTermsCheckbox && !acceptedTerms) {
       setNotificationMessage("Debes aceptar los términos y condiciones");
       setNotificationType("error");
@@ -118,34 +131,26 @@ const LoginPage = () => {
       setTimeout(() => setIsOpenNotification(false), 2500);
       return;
     }
+
+    // Solo guardar preferencias si se muestra el checkbox y se aceptaron
     if (showTermsCheckbox) {
       await db.userPreferences.put({
         id: 1,
         acceptedTerms: true,
         acceptedTermsDate: new Date().toISOString(),
       });
+      // Actualizar estado local para que no se muestre más
+      setShowTermsCheckbox(false);
     }
-    if (!acceptedTerms) {
-      setNotificationMessage("Debes aceptar los términos y condiciones");
-      setNotificationType("error");
-      setIsOpenNotification(true);
-      setTimeout(() => setIsOpenNotification(false), 2500);
-      return;
-    }
-    await db.userPreferences.put({
-      id: 1,
-      acceptedTerms: true,
-      acceptedTermsDate: new Date().toISOString(),
-    });
 
-    // VERIFICAR SI EL USUARIO ESTÁ ACTIVO ANTES DE PERMITIR LOGIN
+    // Verificar si el usuario está desactivado
     const userFromConstants = USERS.find(
       (u) => u.username === data.username && u.password === data.password
     );
 
     if (userFromConstants && userFromConstants.isActive === false) {
       setNotificationMessage(
-        "Usuario desactivado por falta de pago. Contacte al administrador."
+        "Usuario desactivado. Contacte al soporte técnico."
       );
       setNotificationType("error");
       setIsOpenNotification(true);
@@ -153,6 +158,7 @@ const LoginPage = () => {
       return;
     }
 
+    // Verificar credenciales de prueba
     if (
       data.username === TRIAL_CREDENTIALS.username &&
       data.password === TRIAL_CREDENTIALS.password
@@ -192,6 +198,7 @@ const LoginPage = () => {
       }
     }
 
+    // Buscar usuario en la base de datos
     const user = await db.users
       .where("username")
       .equals(data.username)
@@ -206,6 +213,7 @@ const LoginPage = () => {
       return;
     }
 
+    // Verificar período de prueba para usuario demo
     if (data.username === TRIAL_CREDENTIALS.username) {
       const existingTrial = await db.trialPeriods.get(user.id);
 
@@ -227,6 +235,7 @@ const LoginPage = () => {
       }
     }
 
+    // Autenticar usuario
     await db.auth.put({ id: 1, isAuthenticated: true, userId: user.id });
     await db.appState.put({ id: 1, lastActiveDate: new Date() });
 
@@ -238,6 +247,18 @@ const LoginPage = () => {
       router.replace("/caja-diaria");
     }, 2500);
   };
+
+  // Mostrar loading mientras se inicializa
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-sky-50 to-blue-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Inicializando sistema...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex">

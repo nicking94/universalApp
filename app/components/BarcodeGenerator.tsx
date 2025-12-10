@@ -4,8 +4,11 @@ import Barcode from "react-barcode";
 import { formatCurrency } from "../lib/utils/currency";
 import { Product } from "../lib/types/types";
 import Modal from "./Modal";
-import Button from "./Button";
 import Input from "./Input";
+import Button from "./Button";
+import Checkbox from "./Checkbox";
+import { Box, Typography } from "@mui/material";
+import { Print as PrintIcon, Close as CloseIcon } from "@mui/icons-material";
 
 type BarcodeGeneratorProps = {
   product: Product;
@@ -22,7 +25,7 @@ const BarcodeGenerator = ({
 }: BarcodeGeneratorProps) => {
   const [barcodeValue, setBarcodeValue] = useState(product.barcode || "");
   const [isPrinting, setIsPrinting] = useState(false);
-  const [showPrice, setShowPrice] = useState(true); // Estado para controlar si mostrar el precio
+  const [showPrice, setShowPrice] = useState(true);
   const barcodeRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
@@ -148,71 +151,98 @@ const BarcodeGenerator = ({
       isOpen={true}
       onClose={onClose}
       title="Generador de Etiquetas"
-      bgColor="bg-white dark:bg-gray_b"
       buttons={
         <>
           <Button
-            text={isPrinting ? "Imprimiendo..." : "Imprimir Etiqueta"}
-            colorText="text-white"
-            colorTextHover="text-white"
-            onClick={handlePrint}
-            disabled={isPrinting}
-          />
-          <Button
-            text="Cerrar"
-            colorText="text-gray_b dark:text-white"
-            colorTextHover="hover:dark:text-white"
-            colorBg="bg-transparent dark:bg-gray_m"
-            colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
+            variant="outlined"
+            icon={<CloseIcon />}
+            iconPosition="left"
             onClick={onClose}
             disabled={isPrinting}
+            text="Cerrar"
+            sx={{
+              color: "#6b7280",
+              borderColor: "#d1d5db",
+              "&:hover": {
+                backgroundColor: "#f3f4f6",
+                borderColor: "#9ca3af",
+              },
+            }}
+          />
+          <Button
+            variant="contained"
+            icon={<PrintIcon />}
+            iconPosition="left"
+            onClick={handlePrint}
+            disabled={isPrinting}
+            isPrimaryAction={true}
+            text={isPrinting ? "Imprimiendo..." : "Imprimir Etiqueta"}
+            loading={isPrinting}
+            sx={{
+              backgroundColor: "background.primary",
+              "&:hover": {
+                backgroundColor: "#background.primary",
+              },
+            }}
           />
         </>
       }
     >
-      <div className="flex flex-col gap-4 ">
-        <div className="flex items-center gap-4">
-          <div className="w-full">
-            <label className="block text-gray_m dark:text-white text-sm font-semibold">
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Box sx={{ width: "100%" }}>
+            <Typography
+              variant="subtitle2"
+              component="label"
+              sx={{
+                display: "block",
+                mb: 1,
+                fontWeight: 600,
+                color: "text.secondary",
+              }}
+            >
               Valor del Código
-            </label>
+            </Typography>
             <Input
               type="text"
               value={barcodeValue}
-              onChange={(e) => {
+              onRawChange={(e) => {
                 setBarcodeValue(e.target.value);
                 if (onBarcodeChange) {
                   onBarcodeChange(e.target.value);
                 }
               }}
-              className="w-full p-2 border border-gray_xl bg-white text-gray_b rounded outline-none"
               disabled={isPrinting}
             />
-          </div>
-        </div>
+          </Box>
+        </Box>
 
         {/* Checkbox para mostrar/ocultar precio */}
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            id="showPrice"
-            checked={showPrice}
-            onChange={(e) => setShowPrice(e.target.checked)}
-            className="cursor-pointer w-4 h-4 text-blue_m bg-gray-100 border-gray-300 rounded "
-            disabled={isPrinting}
-          />
-          <label
-            htmlFor="showPrice"
-            className="ml-2 text-sm font-medium text-gray_m dark:text-white"
-          >
-            Mostrar precio en la etiqueta
-          </label>
-        </div>
+        <Checkbox
+          label="Mostrar precio en la etiqueta"
+          checked={showPrice}
+          onChange={setShowPrice}
+          disabled={isPrinting}
+          sx={{
+            color: "primary.main",
+            "&.Mui-checked": {
+              color: "primary.main",
+            },
+          }}
+        />
 
-        <div className="flex justify-center">
-          <div
+        <Box sx={{ display: "flex", justifyContent: "center" }}>
+          <Box
             ref={barcodeRef}
-            className="bg-white w-full flex flex-col items-center p-2"
+            sx={{
+              bgcolor: "white",
+              width: "100%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              p: 2,
+              minHeight: "18vh",
+            }}
           >
             <Barcode
               value={barcodeValue}
@@ -225,16 +255,35 @@ const BarcodeGenerator = ({
               fontSize={12}
             />
 
-            <div className="text-center text-black mt-4">
-              <p className="product-name">{product.name}</p>
+            <Box sx={{ textAlign: "center", color: "black", mt: 2 }}>
+              <Typography
+                className="product-name"
+                variant="h6"
+                sx={{
+                  fontWeight: "bold",
+                  fontSize: "1.5rem",
+                }}
+              >
+                {product.name}
+              </Typography>
 
               {showPrice && (
-                <p className="product-price">{formatCurrency(product.price)}</p>
+                <Typography
+                  className="product-price"
+                  variant="body1"
+                  sx={{
+                    fontWeight: "bold",
+                    fontSize: "1rem",
+                    mt: 1,
+                  }}
+                >
+                  {formatCurrency(product.price)}
+                </Typography>
               )}
-            </div>
-          </div>
-        </div>
-      </div>
+            </Box>
+          </Box>
+        </Box>
+      </Box>
     </Modal>
   );
 };

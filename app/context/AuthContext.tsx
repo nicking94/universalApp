@@ -1,7 +1,7 @@
 // context/AuthContext.tsx
 "use client";
 import { createContext, useContext, useState, useEffect } from "react";
-import { db } from "../database/db";
+import { db } from "@/app/database/db";
 import { USERS, PAYMENT_REMINDERS_CONFIG } from "../lib/constants/constants";
 
 interface User {

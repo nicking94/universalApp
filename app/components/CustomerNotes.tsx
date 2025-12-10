@@ -1,10 +1,60 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { db } from "@/app/database/db";
 import { CustomerNotesProps, Note } from "@/app/lib/types/types";
-import Button from "@/app/components/Button";
-import TextArea from "@/app/components/TextArea";
-import Modal from "@/app/components/Modal";
-import { Trash, Edit, Plus } from "lucide-react";
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Box,
+  Typography,
+  IconButton,
+  Button as MuiButton,
+  TextField,
+  Paper,
+  Divider,
+  Alert,
+  useTheme,
+  styled,
+} from "@mui/material";
+import { Delete, Edit, Add, Close } from "@mui/icons-material";
+
+const NoteCard = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(2),
+  backgroundColor: theme.palette.grey[50],
+  borderRadius: theme.shape.borderRadius,
+  position: "relative",
+  "&:hover .note-actions": {
+    opacity: 1,
+  },
+}));
+
+const NoteActions = styled(Box)(({ theme }) => ({
+  position: "absolute",
+  top: theme.spacing(1),
+  right: theme.spacing(1),
+  display: "flex",
+  gap: theme.spacing(0.5),
+  opacity: 0,
+  transition: "opacity 0.2s ease-in-out",
+}));
+
+const ActionButton = styled(IconButton)(({ theme }) => ({
+  width: 32,
+  height: 32,
+  backgroundColor: theme.palette.background.paper,
+  boxShadow: theme.shadows[1],
+  "&:hover": {
+    backgroundColor: theme.palette.grey[100],
+  },
+}));
+
+const StyledButton = styled(MuiButton)(({ theme }) => ({
+  textTransform: "none",
+  fontWeight: 600,
+  borderRadius: theme.shape.borderRadius,
+  gap: theme.spacing(1),
+}));
 
 const CustomerNotes = ({
   customerId,
@@ -15,6 +65,7 @@ const CustomerNotes = ({
   const [notes, setNotes] = useState<Note[]>([]);
   const [newNote, setNewNote] = useState("");
   const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const theme = useTheme();
 
   useEffect(() => {
     if (isOpen) {
@@ -90,112 +141,203 @@ const CustomerNotes = ({
     fetchNotes();
   };
 
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={`Notas de ${customerName}`}
-      minheight="min-h-[50vh]"
-      buttons={
-        <Button
-          text="Cerrar"
-          colorText="text-gray_b dark:text-white"
-          colorTextHover="hover:dark:text-white"
-          colorBg="bg-transparent dark:bg-gray_m"
-          colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
-          onClick={onClose}
-        />
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (
+        event.key === "Enter" &&
+        (event.ctrlKey || event.metaKey) &&
+        !editingNote &&
+        newNote.trim()
+      ) {
+        event.preventDefault();
+        handleAddNote();
       }
+    };
+
+    if (isOpen) {
+      document.addEventListener("keydown", handleKeyPress);
+    }
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyPress);
+    };
+  }, [isOpen, newNote, editingNote]);
+
+  return (
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 3,
+          minHeight: "50vh",
+          maxHeight: "80vh",
+        },
+      }}
     >
-      <div className="space-y-4 ">
-        <div className="space-y-2">
-          <TextArea
+      <DialogTitle
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          backgroundColor: theme.palette.grey[50],
+          borderBottom: `1px solid ${theme.palette.divider}`,
+        }}
+      >
+        <Typography variant="h6" component="h2" fontWeight="600">
+          Notas de {customerName}
+        </Typography>
+        <IconButton
+          onClick={onClose}
+          size="small"
+          sx={{
+            color: theme.palette.grey[600],
+            "&:hover": {
+              backgroundColor: theme.palette.grey[100],
+            },
+          }}
+        >
+          <Close />
+        </IconButton>
+      </DialogTitle>
+
+      <DialogContent
+        sx={{ p: 3, display: "flex", flexDirection: "column", gap: 2 }}
+      >
+        {/* Formulario de nueva/editar nota */}
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <TextField
             label={editingNote ? "Editar Nota" : "Nueva Nota"}
             value={editingNote ? editingNote.content : newNote}
-            onChange={(value) =>
+            onChange={(e) =>
               editingNote
-                ? setEditingNote({ ...editingNote, content: value })
-                : setNewNote(value)
+                ? setEditingNote({ ...editingNote, content: e.target.value })
+                : setNewNote(e.target.value)
             }
             placeholder="Escribe una nueva nota"
+            multiline
+            rows={3}
+            variant="outlined"
+            fullWidth
           />
-          <div className="flex justify-end">
+
+          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
             {editingNote ? (
               <>
-                <Button
-                  text="Actualizar"
-                  colorText="text-white"
-                  colorTextHover="text-white"
+                <StyledButton
+                  variant="contained"
                   onClick={handleUpdateNote}
-                />
-                <Button
-                  text="Cancelar"
-                  colorText="text-gray_b dark:text-white"
-                  colorTextHover="hover:dark:text-white"
-                  colorBg="bg-transparent dark:bg-gray_m"
-                  colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
+                  disabled={!editingNote.content.trim()}
+                >
+                  Actualizar
+                </StyledButton>
+                <StyledButton
+                  variant="outlined"
                   onClick={() => setEditingNote(null)}
-                />
+                >
+                  Cancelar
+                </StyledButton>
               </>
             ) : (
-              <Button
-                icon={<Plus size={18} />}
-                text="Agregar Nota"
-                colorText="text-white"
-                colorTextHover="text-white"
+              <StyledButton
+                variant="contained"
+                startIcon={<Add />}
                 onClick={handleAddNote}
                 disabled={!newNote.trim()}
-                hotkey="Enter"
-              />
+              >
+                Agregar Nota
+              </StyledButton>
             )}
-          </div>
-        </div>
+          </Box>
+        </Box>
 
-        <div className="space-y-4 max-h-[35vh] overflow-y-auto">
+        <Divider />
+
+        {/* Lista de notas */}
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            maxHeight: "35vh",
+            overflow: "auto",
+          }}
+        >
           {notes.length > 0 ? (
             notes.map((note) => (
-              <div
-                key={note.id}
-                className="p-3 bg-gray_xxl rounded-lg relative group"
-              >
-                <p className="whitespace-pre-wrap">{note.content}</p>
-                <p className="text-xs text-gray_m mt-1">
+              <NoteCard key={note.id} elevation={1}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    whiteSpace: "pre-wrap",
+                    lineHeight: 1.6,
+                  }}
+                >
+                  {note.content}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ mt: 1, display: "block" }}
+                >
                   {new Date(note.createdAt).toLocaleDateString("es-AR")}
-                </p>
-                <div className="flex absolute top-2 right-2 gap-2">
-                  <Button
-                    icon={<Edit size={18} />}
-                    colorText="text-gray_b"
-                    colorTextHover="hover:text-white"
-                    colorBg="bg-transparent"
-                    colorBgHover="hover:bg-blue_m"
-                    px="px-1"
-                    py="py-1"
-                    minwidth="min-w-0"
+                </Typography>
+
+                <NoteActions className="note-actions">
+                  <ActionButton
+                    size="small"
                     onClick={() => setEditingNote(note)}
-                  />
-                  <Button
-                    icon={<Trash size={18} />}
-                    colorText="text-gray_b"
-                    colorTextHover="hover:text-white"
-                    colorBg="bg-transparent"
-                    colorBgHover="hover:bg-red_m"
-                    px="px-1"
-                    py="py-1"
-                    minwidth="min-w-0"
+                    sx={{
+                      "&:hover": {
+                        backgroundColor: theme.palette.primary.light,
+                        color: theme.palette.primary.main,
+                      },
+                    }}
+                  >
+                    <Edit fontSize="small" />
+                  </ActionButton>
+                  <ActionButton
+                    size="small"
                     onClick={() => note.id && handleDeleteNote(note.id)}
-                  />
-                </div>
-              </div>
+                    sx={{
+                      "&:hover": {
+                        backgroundColor: theme.palette.error.light,
+                        color: theme.palette.error.main,
+                      },
+                    }}
+                  >
+                    <Delete fontSize="small" />
+                  </ActionButton>
+                </NoteActions>
+              </NoteCard>
             ))
           ) : (
-            <p className="text-center text-gray_m py-4">
+            <Alert severity="info" sx={{ mt: 2 }}>
               No hay notas para este cliente
-            </p>
+            </Alert>
           )}
-        </div>
-      </div>
-    </Modal>
+        </Box>
+      </DialogContent>
+
+      <DialogActions sx={{ p: 3, backgroundColor: theme.palette.grey[50] }}>
+        <StyledButton
+          variant="outlined"
+          onClick={onClose}
+          sx={{
+            borderColor: theme.palette.grey[400],
+            color: theme.palette.grey[700],
+            "&:hover": {
+              borderColor: theme.palette.grey[600],
+              backgroundColor: theme.palette.grey[100],
+            },
+          }}
+        >
+          Cerrar
+        </StyledButton>
+      </DialogActions>
+    </Dialog>
   );
 };
 

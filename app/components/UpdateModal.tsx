@@ -1,6 +1,18 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import Button from "./Button";
+import {
+  Dialog,
+  DialogContent,
+  DialogActions,
+  Button as MuiButton,
+  Typography,
+  Box,
+  CircularProgress,
+  LinearProgress,
+  useTheme,
+  useMediaQuery,
+} from "@mui/material";
+import { Refresh, SystemUpdateAlt } from "@mui/icons-material";
 
 interface UpdateModalProps {
   isOpen: boolean;
@@ -18,6 +30,8 @@ const UpdateModal: React.FC<UpdateModalProps> = ({
   isUpdating,
 }) => {
   const [progress, setProgress] = useState(0);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   useEffect(() => {
     let progressInterval: NodeJS.Timeout;
@@ -25,9 +39,8 @@ const UpdateModal: React.FC<UpdateModalProps> = ({
     if (isUpdating) {
       setProgress(0);
 
-      // Simular progreso durante 4 segundos
       const startTime = Date.now();
-      const duration = 4000; // 4 segundos
+      const duration = 2000;
 
       progressInterval = setInterval(() => {
         const elapsed = Date.now() - startTime;
@@ -47,79 +60,152 @@ const UpdateModal: React.FC<UpdateModalProps> = ({
     };
   }, [isUpdating]);
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-blue_b/80 bg-opacity-70 flex items-center justify-center z-[9999] p-4">
-      <div className="bg-white dark:bg-gray_b rounded-xl p-8 max-w-md w-full shadow-2xl border-2 border-blue_b">
-        <div className="text-center mb-6">
-          <div className="w-20 h-20 bg-blue_b rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg
-              className="w-10 h-10 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-          </div>
+    <Dialog
+      open={isOpen}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 3,
+          background: theme.palette.background.paper,
+          border: `2px solid ${theme.palette.primary.main}`,
+          color: theme.palette.text.primary,
+        },
+      }}
+      BackdropProps={{
+        sx: {
+          backgroundColor: "rgba(25, 55, 109, 0.8)",
+        },
+      }}
+    >
+      <DialogContent sx={{ p: 4, textAlign: "center" }}>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            mb: 3,
+          }}
+        >
+          {/* Icono circular */}
+          <Box
+            sx={{
+              width: 80,
+              height: 80,
+              backgroundColor: "primary.main",
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              mb: 3,
+            }}
+          >
+            {isUpdating ? (
+              <Refresh sx={{ fontSize: 40, color: "white" }} />
+            ) : (
+              <SystemUpdateAlt sx={{ fontSize: 40, color: "white" }} />
+            )}
+          </Box>
 
-          <h3 className="uppercase text-2xl font-semibold text-blue_b dark:text-white mb-3">
+          {/* Título */}
+          <Typography
+            variant="h5"
+            component="h3"
+            sx={{
+              fontWeight: 600,
+              color: "primary.main",
+              mb: 2,
+              textTransform: "uppercase",
+            }}
+          >
             {isUpdating ? "Actualizando..." : "Actualización Disponible"}
-          </h3>
+          </Typography>
 
-          <p className="text-gray_m dark:text-gray_l mb-2 text-lg">
+          {/* Descripción */}
+          <Typography
+            variant="body1"
+            sx={{
+              color: "text.secondary",
+              mb: 2,
+            }}
+          >
             {isUpdating
               ? "La aplicación se está actualizando..."
               : "Hay una nueva versión de la aplicación."}
-          </p>
-        </div>
+          </Typography>
+        </Box>
 
+        {/* Contenido condicional */}
         {!isUpdating && (
-          <div className="flex flex-col space-y-3">
-            <Button
+          <DialogActions sx={{ justifyContent: "center", px: 0 }}>
+            <MuiButton
+              variant="contained"
               onClick={onUpdate}
               disabled={isUpdating}
-              text="Actualizar Ahora"
-              colorText="text-white hover:text-white"
-              colorBg="bg-blue_b hover:bg-blue_m"
-              colorBgHover="hover:bg-blue_m"
-              width="w-full"
-              height="h-12"
-              py="py-3"
-            />
-          </div>
+              size="large"
+              fullWidth={isMobile}
+              sx={{
+                py: 1.5,
+                px: 4,
+                borderRadius: 2,
+                textTransform: "none",
+                fontSize: "1rem",
+                fontWeight: 600,
+              }}
+            >
+              Actualizar Ahora
+            </MuiButton>
+          </DialogActions>
         )}
 
         {isUpdating && (
-          <div className="mt-6 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue_b mb-2"></div>
+          <Box sx={{ textAlign: "center", mt: 3 }}>
+            {/* Spinner */}
+            <CircularProgress size={32} sx={{ mb: 2, color: "primary.main" }} />
 
-            <p className="text-xs text-gray_m dark:text-gray_xl mt-1">
+            {/* Texto informativo */}
+            <Typography
+              variant="caption"
+              sx={{
+                color: "text.secondary",
+                display: "block",
+                mt: 1,
+              }}
+            >
               Esto tomará unos segundos...
-            </p>
+            </Typography>
 
-            {/* Indicador de progreso */}
-            <div className="mt-4 w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
-              <div
-                className="bg-blue_b h-2 rounded-full transition-all duration-300 ease-out"
-                style={{
-                  width: `${progress}%`,
+            {/* Barra de progreso */}
+            <Box sx={{ mt: 3, width: "100%" }}>
+              <LinearProgress
+                variant="determinate"
+                value={progress}
+                sx={{
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: theme.palette.grey[200],
+                  "& .MuiLinearProgress-bar": {
+                    borderRadius: 4,
+                    backgroundColor: "primary.main",
+                  },
                 }}
-              ></div>
-            </div>
-            <div className="text-xs text-gray_m dark:text-gray_xl mt-1">
-              {Math.round(progress)}% completado
-            </div>
-          </div>
+              />
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "text.secondary",
+                  display: "block",
+                  mt: 1,
+                }}
+              >
+                {Math.round(progress)}% completado
+              </Typography>
+            </Box>
+          </Box>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

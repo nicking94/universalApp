@@ -1,4 +1,4 @@
-import { db } from "../database/db";
+import { db } from "@/app/database/db";
 import { liveQuery } from "dexie";
 import { NotificationType } from "../lib/types/types";
 

@@ -1,29 +1,42 @@
 "use client";
-import Button from "@/app/components/Button";
-import Modal from "@/app/components/Modal";
-import Notification from "@/app/components/Notification";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Card,
+  CardContent,
+  Typography,
+  Box,
+  FormControl,
+  IconButton,
+} from "@mui/material";
+import { Add, Close, Info, PointOfSale } from "@mui/icons-material";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { format, parseISO, isSameMonth } from "date-fns";
+import { es } from "date-fns/locale";
+import { useRubro } from "@/app/context/RubroContext";
 import {
   DailyCash,
   DailyCashMovement,
   MonthOption,
-  Option,
-  PaymentMethod,
 } from "@/app/lib/types/types";
-import { Plus, X, Info } from "lucide-react";
-import { useEffect, useState } from "react";
-import { db } from "@/app/database/db";
-import { format, parseISO, isSameMonth } from "date-fns";
-import { es } from "date-fns/locale";
-import ProtectedRoute from "@/app/components/ProtectedRoute";
-import Pagination from "@/app/components/Pagination";
-import Select from "react-select";
-import { formatCurrency } from "@/app/lib/utils/currency";
-import InputCash from "@/app/components/InputCash";
-import { useRubro } from "@/app/context/RubroContext";
-import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
-import { getLocalDateString } from "@/app/lib/utils/getLocalDate";
+import { useNotification } from "@/app/hooks/useNotification";
 import { usePagination } from "@/app/context/PaginationContext";
-import { TbCashRegister } from "react-icons/tb";
+import { getLocalDateString } from "@/app/lib/utils/getLocalDate";
+import { db } from "@/app/database/db";
+import { formatCurrency } from "@/app/lib/utils/currency";
+import Button from "@/app/components/Button";
+import Select from "@/app/components/Select";
+import ProtectedRoute from "@/app/components/ProtectedRoute";
+import Notification from "@/app/components/Notification";
+import Pagination from "@/app/components/Pagination";
+import CustomChip from "@/app/components/CustomChip";
+import DailyCashDetailModal from "@/app/components/DailyCashDetailModal";
+import CustomGlobalTooltip from "@/app/components/CustomTooltipGlobal";
 
 const CajaDiariaPage = () => {
   const { rubro } = useRubro();
@@ -32,31 +45,18 @@ const CajaDiariaPage = () => {
     null
   );
 
-  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const [notificationMessage, setNotificationMessage] = useState("");
-  const [type, setType] = useState<"success" | "error" | "info">("success");
+  const {
+    isNotificationOpen,
+    notificationMessage,
+    notificationType,
+    showNotification,
+    closeNotification,
+  } = useNotification();
+
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedDayMovements, setSelectedDayMovements] = useState<
     DailyCashMovement[]
   >([]);
-
-  const [isCloseCashModal, setIsCloseCashModal] = useState(false);
-
-  const [actualCashCount, setActualCashCount] = useState("");
-  const [filterType, setFilterType] = useState<"TODOS" | "INGRESO" | "EGRESO">(
-    "TODOS"
-  );
-
-  const [filterPaymentMethod, setFilterPaymentMethod] = useState<
-    PaymentMethod | "TODOS"
-  >("TODOS");
-
-  const paymentOptions: Option[] = [
-    { value: "EFECTIVO", label: "Efectivo" },
-    { value: "TRANSFERENCIA", label: "Transferencia" },
-    { value: "TARJETA", label: "Tarjeta" },
-    { value: "CHEQUE", label: "Cheque" },
-  ];
 
   const { currentPage, itemsPerPage } = usePagination();
   const [selectedMonth, setSelectedMonth] = useState<number>(
@@ -66,82 +66,34 @@ const CajaDiariaPage = () => {
     new Date().getFullYear()
   );
 
-  const getFilteredMovements = () => {
-    return selectedDayMovements.filter((movement) => {
-      // Filtro por tipo de movimiento
-      const typeMatch =
-        filterType === "TODOS" ||
-        movement.type === filterType ||
-        (movement.paymentMethod === "CHEQUE" &&
-          movement.isCreditPayment &&
-          filterType === "INGRESO");
-
-      // Filtro por método de pago
-      let paymentMatch = false;
-      if (filterPaymentMethod === "TODOS") {
-        paymentMatch = true;
-      } else {
-        // Verificar método de pago principal
-        if (movement.paymentMethod === filterPaymentMethod) {
-          paymentMatch = true;
-        }
-        // Verificar métodos de pago combinados
-        if (movement.combinedPaymentMethods) {
-          paymentMatch = movement.combinedPaymentMethods.some(
-            (m) => m.method === filterPaymentMethod
-          );
-        }
-      }
-
-      return typeMatch && paymentMatch;
-    });
-  };
-
-  const calculateFilteredTotals = () => {
-    const filtered = getFilteredMovements();
-
-    return {
-      totalIngresos: filtered
-        .filter(
-          (m) =>
-            m.type === "INGRESO" ||
-            (m.paymentMethod === "CHEQUE" && m.isCreditPayment)
-        )
-        .reduce((sum, m) => sum + (Number(m.amount) || 0), 0),
-      totalEgresos: filtered
-        .filter((m) => m.type === "EGRESO")
-        .reduce((sum, m) => sum + (Number(m.amount) || 0), 0),
-    };
-  };
-
-  const openDetailModal = (movements: DailyCashMovement[]) => {
+  const openDetailModal = useCallback((movements: DailyCashMovement[]) => {
     setSelectedDayMovements(movements);
     setIsDetailModalOpen(true);
-  };
+  }, []);
 
-  const monthOptions: MonthOption[] = [...Array(12)].map((_, i) => ({
-    value: i + 1,
-    label: format(new Date(2022, i), "MMMM", { locale: es }),
-  }));
+  const closeDetailModal = useCallback(() => {
+    setIsDetailModalOpen(false);
+  }, []);
 
-  const yearOptions = Array.from({ length: 10 }, (_, i) => ({
-    value: new Date().getFullYear() - i,
-    label: String(new Date().getFullYear() - i),
-  }));
+  const monthOptions: MonthOption[] = useMemo(
+    () =>
+      [...Array(12)].map((_, i) => ({
+        value: i + 1,
+        label: format(new Date(2022, i), "MMMM", { locale: es }),
+      })),
+    []
+  );
 
-  const showNotification = (
-    message: string,
-    type: "success" | "error" | "info"
-  ) => {
-    setType(type);
-    setNotificationMessage(message);
-    setIsNotificationOpen(true);
-    setTimeout(() => {
-      setIsNotificationOpen(false);
-    }, 2500);
-  };
+  const yearOptions = useMemo(
+    () =>
+      Array.from({ length: 10 }, (_, i) => ({
+        value: new Date().getFullYear() - i,
+        label: String(new Date().getFullYear() - i),
+      })),
+    []
+  );
 
-  const checkAndCloseOldCashes = async () => {
+  const checkAndCloseOldCashes = useCallback(async () => {
     const today = getLocalDateString();
     try {
       const allCashes = await db.dailyCashes.toArray();
@@ -163,7 +115,6 @@ const CajaDiariaPage = () => {
         const updatedCash = {
           ...cash,
           closed: true,
-
           cashIncome,
           cashExpense,
           otherIncome: cash.movements
@@ -176,7 +127,6 @@ const CajaDiariaPage = () => {
         };
 
         await db.dailyCashes.update(cash.id, updatedCash);
-
         setDailyCashes((prev) =>
           prev.map((dc) => (dc.id === cash.id ? updatedCash : dc))
         );
@@ -194,35 +144,9 @@ const CajaDiariaPage = () => {
       console.error("Error al cerrar cajas antiguas:", error);
       showNotification("Error al cerrar cajas de días anteriores", "error");
     }
-  };
-  useEffect(() => {
-    const today = new Date();
-    const currentMonth = today.getMonth() + 1;
-    const currentYear = today.getFullYear();
-    if (selectedMonth !== currentMonth || selectedYear !== currentYear) {
-      setSelectedMonth(currentMonth);
-      setSelectedYear(currentYear);
-    }
-  }, [new Date().getMonth()]);
+  }, [currentDailyCash, showNotification]);
 
-  useEffect(() => {
-    const checkMidnightAndClose = () => {
-      const now = new Date();
-      if (now.getHours() === 0 && now.getMinutes() < 5) {
-        checkAndCloseOldCashes();
-      }
-    };
-
-    const interval = setInterval(checkMidnightAndClose, 5 * 60 * 1000);
-    checkMidnightAndClose();
-
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    checkAndCloseOldCashes();
-  }, []);
-  const openCash = async () => {
+  const openCash = useCallback(async () => {
     const today = getLocalDateString();
     const allCashes = await db.dailyCashes.toArray();
     const openPreviousCashes = allCashes.filter(
@@ -260,7 +184,6 @@ const CajaDiariaPage = () => {
       const dailyCash: DailyCash = {
         id: Date.now(),
         date: today,
-
         movements: [],
         closed: false,
         totalIncome: 0,
@@ -275,9 +198,9 @@ const CajaDiariaPage = () => {
       console.error("Error al abrir/reabrir caja:", error);
       showNotification("Error al abrir/reabrir caja", "error");
     }
-  };
+  }, [currentDailyCash, checkAndCloseOldCashes, showNotification]);
 
-  const closeCash = async () => {
+  const closeCash = useCallback(async () => {
     try {
       const today = getLocalDateString();
       const dailyCash = await db.dailyCashes.get({ date: today });
@@ -294,7 +217,6 @@ const CajaDiariaPage = () => {
         const updatedCash = {
           ...dailyCash,
           closed: true,
-
           cashIncome,
           cashExpense,
           otherIncome: dailyCash.movements
@@ -302,7 +224,6 @@ const CajaDiariaPage = () => {
               (m) => m.type === "INGRESO" && m.paymentMethod !== "EFECTIVO"
             )
             .reduce((sum, m) => sum + (m.amount || 0), 0),
-
           closingDate: new Date().toISOString(),
         };
 
@@ -311,17 +232,15 @@ const CajaDiariaPage = () => {
           prev.map((dc) => (dc.id === dailyCash.id ? updatedCash : dc))
         );
         setCurrentDailyCash(updatedCash);
-        setIsCloseCashModal(false);
-        setActualCashCount("");
         showNotification("Caja cerrada correctamente", "success");
       }
     } catch (error) {
       console.error("Error al cerrar caja:", error);
       showNotification("Error al cerrar caja", "error");
     }
-  };
+  }, [showNotification]);
 
-  const getDailySummary = () => {
+  const getDailySummary = useCallback(() => {
     const summary: Record<
       string,
       {
@@ -346,12 +265,11 @@ const CajaDiariaPage = () => {
           egresos: 0,
           ganancia: 0,
           gananciaNeta: 0,
-          movements: [...movements], // Mantener todos los movimientos
+          movements: [...movements],
           closed: dailyCash.closed || false,
         };
       }
 
-      // Calcular totales sin filtrar
       movements.forEach((movement) => {
         const amount = Number(movement.amount) || 0;
 
@@ -373,8 +291,9 @@ const CajaDiariaPage = () => {
         return isSameMonth(date, new Date(selectedYear, selectedMonth - 1));
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  };
-  const dailySummaries = getDailySummary();
+  }, [dailyCashes, selectedMonth, selectedYear]);
+
+  const dailySummaries = useMemo(() => getDailySummary(), [getDailySummary]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -385,6 +304,7 @@ const CajaDiariaPage = () => {
           movements: cash.movements.map((m) => ({
             ...m,
             amount: Number(m.amount) || 0,
+            createdAt: m.createdAt || new Date().toISOString(),
           })),
         }));
 
@@ -396,287 +316,25 @@ const CajaDiariaPage = () => {
     };
 
     fetchData();
-  }, []);
+  }, [showNotification]);
 
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = dailySummaries.slice(indexOfFirstItem, indexOfLastItem);
-
-  const DetailModal = () => {
-    const filteredMovements = getFilteredMovements();
-    const { totalIngresos, totalEgresos } = calculateFilteredTotals();
-
-    const groupedMovements = filteredMovements.reduce((acc, movement) => {
-      if (movement.budgetId) {
-        if (!acc[movement.budgetId]) {
-          acc[movement.budgetId] = {
-            ...movement,
-            subMovements: [],
-            isBudgetGroup: true,
-            originalAmount: movement.amount,
-            amount: 0,
-          };
-        }
-
-        acc[movement.budgetId].subMovements!.push(movement);
-        acc[movement.budgetId].amount += movement.amount;
-        if (!movement.isDeposit && movement.items) {
-          acc[movement.budgetId].items = movement.items;
-        }
-
-        return acc;
+  useEffect(() => {
+    const checkMidnightAndClose = () => {
+      const now = new Date();
+      if (now.getHours() === 0 && now.getMinutes() < 5) {
+        checkAndCloseOldCashes();
       }
+    };
 
-      if (movement.originalSaleId) {
-        if (!acc[movement.originalSaleId]) {
-          acc[movement.originalSaleId] = {
-            ...movement,
-            subMovements:
-              movement.combinedPaymentMethods?.map((m) => ({
-                ...m,
-                id: Math.random(),
-                description: movement.description,
-                type: movement.type,
-                date: movement.date,
-              })) || [],
-          };
-        }
-        return acc;
-      }
+    const interval = setInterval(checkMidnightAndClose, 5 * 60 * 1000);
+    checkMidnightAndClose();
 
-      acc[movement.id] = movement;
-      return acc;
-    }, {} as Record<string | number, DailyCashMovement>);
+    return () => clearInterval(interval);
+  }, [checkAndCloseOldCashes]);
 
-    return (
-      <Modal
-        isOpen={isDetailModalOpen}
-        onClose={() => setIsDetailModalOpen(false)}
-        title="Detalles del día"
-        buttons={
-          <div className="flex justify-end mt-4">
-            <Button
-              text="Cerrar"
-              colorText="text-gray_b dark:text-white"
-              colorTextHover="hover:dark:text-white"
-              colorBg="bg-transparent dark:bg-gray_m"
-              colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
-              onClick={() => {
-                setIsDetailModalOpen(false);
-                setFilterType("TODOS");
-                setFilterPaymentMethod("TODOS");
-              }}
-            />
-          </div>
-        }
-      >
-        <div className="mb-4 grid grid-cols-2 gap-2">
-          <div className="bg-green_xl p-3 rounded-lg">
-            <h3 className="font-semibold text-green_b">Total Ingresos</h3>
-            <p className="text-xl font-bold text-green_b">
-              {formatCurrency(totalIngresos)}
-            </p>
-          </div>
-          <div className="bg-red_l p-3 rounded-lg">
-            <h3 className="font-semibold text-red_b">Total Egresos</h3>
-            <p className="text-xl font-bold text-red_b">
-              {formatCurrency(totalEgresos)}
-            </p>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-gray_b dark:text-white">
-              Tipo
-            </label>
-            <Select
-              options={[
-                { value: "TODOS", label: "Todos" },
-                { value: "INGRESO", label: "Ingreso" },
-                { value: "EGRESO", label: "Egreso" },
-              ]}
-              noOptionsMessage={() => "No se encontraron opciones"}
-              value={
-                filterType === "TODOS"
-                  ? { value: "TODOS", label: "Todos" }
-                  : {
-                      value: filterType,
-                      label: filterType === "INGRESO" ? "Ingreso" : "Egreso",
-                    }
-              }
-              onChange={(option) =>
-                option &&
-                setFilterType(option.value as "TODOS" | "INGRESO" | "EGRESO")
-              }
-              className="text-gray_m min-w-40"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray_b dark:text-white">
-              Método de Pago
-            </label>
-            <Select
-              options={[{ value: "TODOS", label: "Todos" }, ...paymentOptions]}
-              noOptionsMessage={() => "No se encontraron opciones"}
-              value={
-                filterPaymentMethod === "TODOS"
-                  ? { value: "TODOS", label: "Todos" }
-                  : paymentOptions.find((m) => m.value === filterPaymentMethod)
-              }
-              onChange={(option) =>
-                option &&
-                setFilterPaymentMethod(option.value as PaymentMethod | "TODOS")
-              }
-              className="text-gray_m min-w-40"
-            />
-          </div>
-        </div>
-
-        <div className="max-h-[35vh] overflow-y-auto">
-          <table className="min-w-full divide-y divide-gray_l ">
-            <thead className="bg-gradient-to-bl from-blue_m to-blue_b text-white">
-              <tr>
-                <th className="p-2 text-left text-xs font-medium tracking-wider">
-                  Tipo
-                </th>
-
-                <th className="p-2 text-center text-xs font-medium tracking-wider">
-                  Producto
-                </th>
-                <th className="p-2 text-center text-xs font-medium  tracking-wider">
-                  Descripción
-                </th>
-                <th className="p-2 text-center text-xs font-medium  tracking-wider">
-                  Métodos de Pago
-                </th>
-                <th className="p-2 text-center text-xs font-medium tracking-wider">
-                  Total
-                </th>
-              </tr>
-            </thead>
-            <tbody className={`bg-white divide-y divide-gray_xl`}>
-              {Object.values(groupedMovements).length > 0 ? (
-                Object.values(groupedMovements).map((movement, index) => (
-                  <tr
-                    key={index}
-                    className={`text-xs ${
-                      movement.type === "EGRESO" ? "bg-red_xl" : ""
-                    } hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300`}
-                  >
-                    <td className="whitespace-nowrap text-xs">
-                      <span
-                        className={`px-2 py-1 rounded-full ${
-                          movement.type === "INGRESO"
-                            ? "bg-green_xl text-green_b"
-                            : "bg-red_l text-red_b"
-                        }`}
-                      >
-                        {movement.type}
-                      </span>
-                    </td>
-                    <td className="p-2 text-gray_b min-w-[23rem]">
-                      {movement.items && movement.items.length > 0 ? (
-                        <div className="flex flex-col">
-                          {movement.items.map((item, i) => (
-                            <div key={i} className="flex justify-between">
-                              <span>
-                                {getDisplayProductName(
-                                  {
-                                    name: item.productName,
-                                    size: item.size,
-                                    color: item.color,
-                                    rubro: rubro,
-                                  },
-                                  rubro,
-                                  true
-                                )}
-                              </span>
-                              <div className="min-w-[5rem]">
-                                ×{item.quantity} {""}
-                                {item.unit}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : movement.productName ? (
-                        <div className="flex justify-between">
-                          <span className="font-semibold">
-                            {getDisplayProductName(
-                              {
-                                name: movement.productName,
-                                size: movement.size,
-                                color: movement.color,
-                                rubro: rubro,
-                              },
-                              rubro,
-                              true
-                            )}
-                          </span>
-                          ×{movement.quantity} {""}
-                          {movement.unit}
-                        </div>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                    <td className="p-2 text-gray_m">{movement.description}</td>
-                    <td className="p-2 text-gray_m">
-                      {movement.isBudgetGroup ? (
-                        <div>
-                          {movement.subMovements?.map((sub, i) => (
-                            <div key={i} className="flex flex-col">
-                              <div className="flex flex-row justify-between">
-                                <span className="uppercase">
-                                  {sub.isDeposit ? "SEÑA" : "VENTA"}
-                                </span>
-                                <span>
-                                  {sub.paymentMethod}:{" "}
-                                  {formatCurrency(sub.amount)}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : movement.combinedPaymentMethods ? (
-                        <div className="flex flex-col ">
-                          {movement.combinedPaymentMethods.map((method, i) => (
-                            <div key={i} className="flex justify-between">
-                              {method.method}: {formatCurrency(method.amount)}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="flex justify-between">
-                          <span> {movement.paymentMethod}</span>
-
-                          {formatCurrency(movement.amount)}
-                        </div>
-                      )}
-                    </td>
-                    <td
-                      className={`p-2 text-center font-medium ${
-                        movement.type === "INGRESO"
-                          ? "text-green_b"
-                          : "text-red_b"
-                      }`}
-                    >
-                      {formatCurrency(movement.amount)}
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={6} className="py-4 text-center text-gray_l">
-                    No hay movimientos que coincidan con los filtros
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Modal>
-    );
-  };
+  useEffect(() => {
+    checkAndCloseOldCashes();
+  }, [checkAndCloseOldCashes]);
 
   useEffect(() => {
     const checkInitialCashStatus = async () => {
@@ -684,196 +342,301 @@ const CajaDiariaPage = () => {
       const today = getLocalDateString();
       const dailyCash = await db.dailyCashes.get({ date: today });
 
-      if (!dailyCash) {
-      } else {
+      if (dailyCash) {
         setCurrentDailyCash(dailyCash);
       }
     };
 
     checkInitialCashStatus();
-  }, []);
+  }, [checkAndCloseOldCashes]);
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = dailySummaries.slice(indexOfFirstItem, indexOfLastItem);
+
   return (
     <ProtectedRoute>
-      <div className="px-10 2xl:px-10 py-4 text-gray_l dark:text-white h-[calc(100vh-80px)] flex flex-col justify-between ">
-        <div className="flex flex-col justify-between h-[calc(100vh-80px)]">
-          <div>
-            <h1 className="text-lg 2xl:text-xl font-semibold mb-2">
-              Caja Diaria
-            </h1>
-            {currentDailyCash ? (
-              <div
-                className={` p-3 rounded-sm mb-4 ${
-                  currentDailyCash.closed
-                    ? "bg-gradient-to-bl from-red_m to-red_b"
-                    : "bg-gradient-to-bl from-green_m to-green_b"
-                }`}
-              >
-                <div className="items-center">
-                  <div className="flex justify-center items-center gap-2">
-                    <div className="flex items-center gap-2 text-white">
-                      <h3 className={`text-sm 2xl:text-lg font-bold`}>
-                        {currentDailyCash.closed
-                          ? "Caja Cerrada"
-                          : "Caja Abierta"}
-                      </h3>
-                      <p className="text-lg font-medium">
-                        {format(parseISO(currentDailyCash.date), "dd/MM/yyyy")}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className=" py-3 pl-3 rounded-lg mb-4 flex justify-between items-center space-x-10">
-                <p className="text-md text-gray_l dark:text-white">
-                  No hay caja abierta para hoy
-                </p>
-              </div>
-            )}
+      <Box
+        sx={{
+          px: 4,
+          py: 2,
+          height: "100vh",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <Typography variant="h5" fontWeight="semibold" mb={2}>
+          Caja Diaria
+        </Typography>
 
-            <div className="flex justify-between mb-2">
-              <div className="flex gap-2">
-                <Select
-                  options={monthOptions}
-                  noOptionsMessage={() => "Sin opciones"}
-                  value={monthOptions.find((m) => m.value === selectedMonth)}
-                  onChange={(option) =>
-                    option && setSelectedMonth(option.value)
-                  }
-                  className="text-gray_m min-w-40"
-                />
-                <Select
-                  options={yearOptions}
-                  noOptionsMessage={() => "Sin opciones"}
-                  value={yearOptions.find((y) => y.value === selectedYear)}
-                  onChange={(option) => option && setSelectedYear(option.value)}
-                  className="text-gray_m min-w-40"
-                />
-              </div>
-              {rubro !== "Todos los rubros" && (
-                <div className="flex gap-2 mt-2">
-                  {currentDailyCash ? (
-                    <div>
-                      {currentDailyCash.closed ? (
-                        <Button
-                          icon={<Plus size={18} />}
-                          text="Reabrir Caja"
-                          colorText="text-white"
-                          colorTextHover="text-white"
-                          onClick={openCash}
-                        />
-                      ) : (
-                        <Button
-                          icon={<X size={18} />}
-                          text="Cerrar Caja"
-                          colorText="text-white"
-                          colorTextHover="text-white"
-                          colorBg="bg-red_m"
-                          colorBgHover="hover:bg-red_m"
-                          onClick={closeCash}
-                        />
-                      )}
-                    </div>
-                  ) : (
-                    <Button
-                      text="Abrir Caja"
-                      colorText="text-white"
-                      colorTextHover="text-white"
-                      onClick={openCash}
-                    />
-                  )}
-                </div>
-              )}
-            </div>
-            <div
-              className={` flex flex-col justify-between ${
-                currentItems.length > 0 ? "h-[calc(51vh-80px)]" : ""
-              } `}
-            >
-              <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
-                <table className=" table-auto w-full text-center border-collapse overflow-y-auto shadow-sm shadow-gray_l">
-                  <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b">
-                    <tr>
-                      <th className="text-sm 2xl:text-lg p-2 text-start">
-                        Fecha
-                      </th>
-                      <th className="p-2">Ingresos</th>
-                      <th className="p-2">Egresos</th>
-                      <th className="p-2">Ganancia</th>
-                      <th className="p-2">Estado de caja</th>{" "}
-                      <th className="w-40 max-w-[10rem] text-sm 2xl:text-lg p-2">
-                        Acciones
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody
-                    className={`bg-white text-gray_b divide-y divide-gray_xl  `}
+        {/* Estado actual de caja */}
+        {currentDailyCash ? (
+          <Card
+            sx={{
+              mb: 2,
+              background: (theme) =>
+                theme.palette.mode === "dark"
+                  ? currentDailyCash.closed
+                    ? "linear-gradient(135deg, #7f1d1d, #450a0a)"
+                    : "linear-gradient(135deg, #065f46, #064e3b)"
+                  : currentDailyCash.closed
+                  ? "linear-gradient(135deg, #f56565, #c53030)"
+                  : "linear-gradient(135deg, #48bb78, #2f855a)",
+              color: "white",
+            }}
+          >
+            <CardContent>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  gap: 2,
+                }}
+              >
+                <Typography variant="h6" fontWeight="bold">
+                  {currentDailyCash.closed ? "Caja Cerrada" : "Caja Abierta"}
+                </Typography>
+                <Typography variant="body1" sx={{ marginTop: "3px" }}>
+                  {format(parseISO(currentDailyCash.date), "dd/MM/yyyy")}
+                </Typography>
+              </Box>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card sx={{ mb: 2, p: 2 }}>
+            <Typography variant="body1" color="text.secondary">
+              No hay caja abierta para hoy
+            </Typography>
+          </Card>
+        )}
+
+        {/* Header con filtros y acciones */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 2,
+          }}
+        >
+          <Box sx={{ display: "flex", gap: 2 }}>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <Select
+                label="Mes"
+                value={selectedMonth}
+                options={monthOptions}
+                onChange={(value) => setSelectedMonth(value as number)}
+              />
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <Select
+                label="Año"
+                value={selectedYear}
+                options={yearOptions}
+                onChange={(value) => setSelectedYear(value as number)}
+              />
+            </FormControl>
+          </Box>
+
+          {rubro !== "Todos los rubros" && (
+            <Box>
+              {currentDailyCash ? (
+                currentDailyCash.closed ? (
+                  <Button
+                    variant="contained"
+                    startIcon={<Add />}
+                    onClick={openCash}
+                    sx={{
+                      bgcolor: "primary.main",
+                      "&:hover": { bgcolor: "primary.dark" },
+                    }}
                   >
-                    {currentItems.length > 0 ? (
-                      currentItems.map((day, index) => (
-                        <tr
-                          key={index}
-                          className="text-xs bg-white text-gray_b border border-gray_xl hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
-                        >
-                          <td className="font-semibold p-2  border-x border-gray_xltext-start">
+                    Reabrir Caja
+                  </Button>
+                ) : (
+                  <Button
+                    variant="contained"
+                    startIcon={<Close />}
+                    onClick={closeCash}
+                    sx={{
+                      bgcolor: "error.main",
+                      "&:hover": { bgcolor: "error.dark" },
+                    }}
+                  >
+                    Cerrar Caja
+                  </Button>
+                )
+              ) : (
+                <Button
+                  variant="contained"
+                  onClick={openCash}
+                  sx={{
+                    bgcolor: "primary.main",
+                    "&:hover": { bgcolor: "primary.dark" },
+                  }}
+                >
+                  Abrir Caja
+                </Button>
+              )}
+            </Box>
+          )}
+        </Box>
+
+        {/* Tabla de caja diaria */}
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            justifyContent: "space-between",
+          }}
+        >
+          <Box sx={{ flex: 1, minHeight: "auto" }}>
+            <TableContainer
+              component={Paper}
+              sx={{ maxHeight: "47vh", mb: 2, flex: 1 }}
+            >
+              <Table stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell
+                      sx={{
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                      }}
+                    >
+                      Fecha
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                      }}
+                      align="center"
+                    >
+                      Ingresos
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                      }}
+                      align="center"
+                    >
+                      Egresos
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                      }}
+                      align="center"
+                    >
+                      Ganancia
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                      }}
+                      align="center"
+                    >
+                      Estado de caja
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                      }}
+                      align="center"
+                    >
+                      Acciones
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {currentItems.length > 0 ? (
+                    currentItems.map((day, index) => (
+                      <TableRow key={index} hover>
+                        <TableCell>
+                          <Typography fontWeight="bold">
                             {format(parseISO(day.date), "dd/MM/yyyy")}
-                          </td>
-                          <td className="font-semibold text-green_b p-2  border-x border-gray_xl">
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Typography fontWeight="bold" color="success.main">
                             {formatCurrency(day.ingresos)}
-                          </td>
-                          <td className="font-semibold text-red_b p-2  border-x border-gray_xl">
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Typography fontWeight="bold" color="error.main">
                             {formatCurrency(day.egresos)}
-                          </td>
-                          <td className="font-semibold text-purple-600 p-2">
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Typography fontWeight="bold" color="profit.main">
                             {formatCurrency(day.gananciaNeta || 0)}
-                          </td>
-                          <td className="p-2 border-x border-gray_xl ">
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs ${
-                                day.closed
-                                  ? "bg-red_m text-white"
-                                  : "bg-green_m text-white"
-                              }`}
-                            >
-                              {day.closed ? "Cerrada" : "Abierta"}
-                            </span>
-                          </td>
-                          <td className="p-2 flex justify-center items-center gap-2 border-x border-gray_xl">
-                            <Button
-                              icon={<Info size={18} />}
-                              colorText="text-gray_b"
-                              colorTextHover="hover:text-white"
-                              colorBg="bg-transparent"
-                              px="px-1"
-                              py="py-1"
-                              minwidth="min-w-0"
-                              onClick={() => {
-                                openDetailModal(day.movements);
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <CustomChip
+                            label={day.closed ? "Cerrada" : "Abierta"}
+                            color={day.closed ? "error" : "success"}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <CustomGlobalTooltip title="Ver detalles">
+                            <IconButton
+                              onClick={() => openDetailModal(day.movements)}
+                              size="small"
+                              sx={{
+                                borderRadius: "4px",
+                                color: "text.secondary",
+                                "&:hover": {
+                                  backgroundColor: "primary.main",
+                                  color: "white",
+                                },
                               }}
-                            />
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr className="h-[41vh] 2xl:h-[calc(65vh-80px)]">
-                        <td colSpan={6} className="py-4 text-center">
-                          <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
-                            <TbCashRegister
-                              size={64}
-                              className="mb-4 text-gray_m"
-                            />
-                            <p className="text-gray_m">
-                              No hay registros para el período seleccionado.
-                            </p>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
+                            >
+                              <Info fontSize="small" />
+                            </IconButton>
+                          </CustomGlobalTooltip>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} align="center">
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            color: "text.secondary",
+                            py: 4,
+                          }}
+                        >
+                          <PointOfSale
+                            sx={{
+                              marginBottom: 2,
+                              color: "#9CA3AF",
+                              fontSize: 64,
+                            }}
+                          />
+                          <Typography>
+                            No hay registros para el período seleccionado.
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+
           {dailySummaries.length > 0 && (
             <Pagination
               text="Días por página"
@@ -881,31 +644,23 @@ const CajaDiariaPage = () => {
               totalItems={dailySummaries.length}
             />
           )}
-        </div>
+        </Box>
 
-        <DetailModal />
-        <Modal
-          isOpen={isCloseCashModal}
-          onClose={() => setIsCloseCashModal(false)}
-          title="Cierre de Caja"
-          onConfirm={closeCash}
-        >
-          <div className="flex flex-col gap-2">
-            <InputCash
-              label="Ingrese el monto contado en efectivo"
-              value={Number(actualCashCount) || 0}
-              onChange={(value) => setActualCashCount(value.toString())}
-              placeholder="Ingrese el monto contado"
-            />
-          </div>
-        </Modal>
+        {/* Modal Reutilizable */}
+        <DailyCashDetailModal
+          isOpen={isDetailModalOpen}
+          onClose={closeDetailModal}
+          movements={selectedDayMovements}
+          rubro={rubro}
+        />
 
         <Notification
           isOpen={isNotificationOpen}
           message={notificationMessage}
-          type={type}
+          type={notificationType}
+          onClose={closeNotification}
         />
-      </div>
+      </Box>
     </ProtectedRoute>
   );
 };

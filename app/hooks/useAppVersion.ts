@@ -1,102 +1,60 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { APP_VERSION } from "@/app/lib/constants/constants";
-import { db } from "../database/db";
+import { db } from "@/app/database/db";
 
 export const useAppVersion = () => {
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [setShowUpdateModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [currentStoredVersion, setCurrentStoredVersion] = useState<
     string | undefined
   >();
   const [minLoadTimePassed, setMinLoadTimePassed] = useState(false);
 
-  // Usar useRef para evitar dependencias en useCallback
+  const [isAutoUpdate, setIsAutoUpdate] = useState(false);
+
   const minLoadTimePassedRef = useRef(false);
 
-  // Actualizar la versión almacenada
   const updateStoredVersion = useCallback(async () => {
     try {
-      console.log("💾 Guardando nueva versión en DB:", APP_VERSION);
-
       const existingPrefs = await db.userPreferences.get(1);
       if (existingPrefs) {
         await db.userPreferences.update(existingPrefs.id!, {
           appVersion: APP_VERSION,
         });
       } else {
-        // Agregar valores por defecto para consistencia
         await db.userPreferences.add({
           appVersion: APP_VERSION,
           acceptedTerms: false,
           itemsPerPage: 10,
         });
       }
-
-      console.log("✅ Versión guardada exitosamente");
     } catch (error) {
-      console.error("❌ Error guardando versión:", error);
-      throw error; // Propagar el error
+      console.error("âŒ Error guardando versión:", error);
+      throw error;
     }
   }, []);
 
-  // Verificar si hay una nueva versión
-  const checkForUpdates = useCallback(async () => {
-    try {
-      console.log("🔍 Verificando actualizaciones...");
-      console.log("📦 Versión actual:", APP_VERSION);
-
-      const preferences = await db.userPreferences.get(1);
-      const storedVersion = preferences?.appVersion;
-
-      console.log("💾 Versión almacenada en DB:", storedVersion);
-
-      setCurrentStoredVersion(storedVersion);
-
-      // Si no hay versión almacenada, es la primera vez - guardar y no mostrar modal
-      if (!storedVersion) {
-        console.log("📝 Primera ejecución, guardando versión inicial");
-        await updateStoredVersion();
-        return false;
-      }
-
-      if (storedVersion !== APP_VERSION) {
-        console.log("🆕 Nueva versión detectada! Mostrando modal...");
-        setShowUpdateModal(true);
-        return true;
-      }
-
-      console.log("✅ Versión actualizada");
-      return false;
-    } catch (error) {
-      console.error("❌ Error checking app version:", error);
-      return false;
-    }
-  }, [updateStoredVersion]);
-
-  // Forzar actualización con tiempo mínimo
-  const forceUpdate = useCallback(async () => {
+  // Actualización automática (sin modal)
+  const autoUpdate = useCallback(async () => {
     setIsUpdating(true);
+    setIsAutoUpdate(true); // Marcar como actualización automática
     setMinLoadTimePassed(false);
     minLoadTimePassedRef.current = false;
 
-    console.log("🔄 Iniciando actualización forzada...");
-
-    // Inicializar con undefined y usar tipo específico
     let minLoadTimer: NodeJS.Timeout | undefined = undefined;
 
     try {
-      // Iniciar temporizador de 4 segundos
+      // Temporizador más corto para actualización automática (2 segundos)
       minLoadTimer = setTimeout(() => {
         setMinLoadTimePassed(true);
         minLoadTimePassedRef.current = true;
-        console.log("⏰ Tiempo mínimo completado, procediendo con recarga...");
-      }, 4000);
+      }, 2000);
 
-      // Actualizar la versión almacenada primero
+      // Actualizar la versión almacenada
       await updateStoredVersion();
 
-      // Esperar a que pase el tiempo mínimo antes de recargar
+      // Esperar a que pase el tiempo mínimo
       await new Promise<void>((resolve) => {
         const checkInterval = setInterval(() => {
           if (minLoadTimePassedRef.current) {
@@ -106,50 +64,68 @@ export const useAppVersion = () => {
         }, 100);
       });
 
-      // Limpiar el timer y recargar
       if (minLoadTimer) clearTimeout(minLoadTimer);
-      console.log("🔄 Recargando aplicación...");
 
-      // Pequeño delay adicional para asegurar que la UI se actualice
+      // Recargar sin mostrar interfaz
       setTimeout(() => {
         window.location.reload();
-      }, 500);
+      }, 300);
     } catch (error) {
-      console.error("❌ Error durante la actualización:", error);
+      console.error("âŒ Error durante la actualización automática:", error);
       if (minLoadTimer) clearTimeout(minLoadTimer);
       setIsUpdating(false);
+      setIsAutoUpdate(false);
       setMinLoadTimePassed(false);
       minLoadTimePassedRef.current = false;
     }
   }, [updateStoredVersion]);
 
-  // Cerrar sesión y actualizar con tiempo mínimo
+  // Verificar si hay una nueva versión
+  const checkForUpdates = useCallback(async () => {
+    try {
+      const preferences = await db.userPreferences.get(1);
+      const storedVersion = preferences?.appVersion;
+
+      setCurrentStoredVersion(storedVersion);
+
+      // Si no hay versión almacenada, es la primera vez - guardar y no mostrar modal
+      if (!storedVersion) {
+        await updateStoredVersion();
+        return false;
+      }
+
+      if (storedVersion !== APP_VERSION) {
+        await autoUpdate();
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error("âŒ Error checking app version:", error);
+      return false;
+    }
+  }, [updateStoredVersion, autoUpdate]);
+
+  const forceUpdate = useCallback(async () => {
+    await autoUpdate();
+  }, [autoUpdate]);
+
   const logoutAndUpdate = useCallback(async () => {
-    console.log("🚪 Cerrando sesión y actualizando...");
     setIsUpdating(true);
     setMinLoadTimePassed(false);
     minLoadTimePassedRef.current = false;
 
-    // Inicializar con undefined y usar tipo específico
     let minLoadTimer: NodeJS.Timeout | undefined = undefined;
 
     try {
-      // Iniciar temporizador de 4 segundos
       minLoadTimer = setTimeout(() => {
         setMinLoadTimePassed(true);
         minLoadTimePassedRef.current = true;
-        console.log(
-          "⏰ Tiempo mínimo completado, procediendo con redirección..."
-        );
-      }, 4000);
+      }, 2000);
 
-      // Cerrar sesión
       await db.auth.put({ id: 1, isAuthenticated: false, userId: undefined });
-
-      // Actualizar versión
       await updateStoredVersion();
 
-      // Esperar a que pase el tiempo mínimo antes de redirigir
       await new Promise<void>((resolve) => {
         const checkInterval = setInterval(() => {
           if (minLoadTimePassedRef.current) {
@@ -159,15 +135,13 @@ export const useAppVersion = () => {
         }, 100);
       });
 
-      // Limpiar el timer y redirigir
       if (minLoadTimer) clearTimeout(minLoadTimer);
 
-      // Pequeño delay adicional para asegurar que la UI se actualice
       setTimeout(() => {
         window.location.href = "/login";
-      }, 500);
+      }, 300);
     } catch (error) {
-      console.error("❌ Error durante logout y update:", error);
+      console.error("âŒ Error durante logout y update:", error);
       if (minLoadTimer) clearTimeout(minLoadTimer);
       setIsUpdating(false);
       setMinLoadTimePassed(false);
@@ -181,16 +155,22 @@ export const useAppVersion = () => {
       await checkForUpdates();
     };
 
-    initializeVersion();
+    // Pequeño delay para no interferir con la carga inicial
+    const timer = setTimeout(() => {
+      initializeVersion();
+    }, 1000);
 
     // Verificar periódicamente (cada 5 minutos)
     const interval = setInterval(checkForUpdates, 5 * 60 * 1000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
   }, [checkForUpdates]);
 
   return {
-    showUpdateModal,
+    showUpdateModal: false, // Siempre false para no mostrar modal
     setShowUpdateModal,
     isUpdating,
     minLoadTimePassed,
@@ -199,5 +179,6 @@ export const useAppVersion = () => {
     currentVersion: APP_VERSION,
     storedVersion: currentStoredVersion,
     checkForUpdates,
+    isAutoUpdate, // Nuevo valor para saber si es automático
   };
 };

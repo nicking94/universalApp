@@ -1,189 +1,222 @@
 "use client";
-import { Sun, Moon, LogOut, Settings, HelpCircle, Ticket } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
-import { BusinessData, UserMenuProps } from "../lib/types/types";
-import Input from "./Input";
-import Button from "./Button";
-import Modal from "./Modal";
-import { useBusinessData } from "../context/BusinessDataContext";
+import { useState } from "react";
+import { UserMenuProps } from "../lib/types/types";
+
+import {
+  IconButton,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Typography,
+  Box,
+  useTheme,
+  Divider,
+} from "@mui/material";
+import { styled } from "@mui/material/styles";
+import {
+  Brightness7, // Sun
+  Brightness4, // Moon
+  Logout, // LogOut
+  Settings, // Settings
+  Help, // HelpCircle
+  Receipt, // Ticket
+} from "@mui/icons-material";
+import BusinessDataModal from "./BusinessDataModal";
+
+const StyledIconButton = styled(IconButton)(({ theme }) => ({
+  backgroundColor: theme.palette.background.paper,
+  boxShadow: theme.shadows[1],
+  width: 32,
+  height: 32,
+  "&:hover": {
+    backgroundColor: theme.palette.action.hover,
+  },
+}));
+
+const StyledMenuItem = styled(MenuItem)(({ theme }) => ({
+  padding: theme.spacing(1, 2),
+  "&:hover": {
+    backgroundColor: theme.palette.action.hover,
+  },
+  "&:first-of-type": {
+    borderTopLeftRadius: theme.shape.borderRadius,
+    borderTopRightRadius: theme.shape.borderRadius,
+  },
+  "&:last-of-type": {
+    borderBottomLeftRadius: theme.shape.borderRadius,
+    borderBottomRightRadius: theme.shape.borderRadius,
+  },
+}));
+
+const StyledMenu = styled(Menu)(({ theme }) => ({
+  "& .MuiPaper-root": {
+    backgroundColor: theme.palette.background.paper,
+    boxShadow: theme.shadows[4],
+    borderRadius: theme.shape.borderRadius,
+    minWidth: 192,
+    border: `1px solid ${theme.palette.divider}`,
+  },
+}));
 
 const UserMenu: React.FC<UserMenuProps> = ({
-  theme,
+  theme: currentTheme,
   handleTheme,
   handleCloseSession,
 }) => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const userIconRef = useRef<HTMLDivElement>(null);
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [isTicketDataModalOpen, setIsTicketDataModalOpen] = useState(false);
-  const { businessData, setBusinessData } = useBusinessData();
-  const [localBusinessData, setLocalBusinessData] = useState<BusinessData>({
-    name: "",
-    address: "",
-    phone: "",
-    cuit: "",
-  });
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(event.target as Node) &&
-        userIconRef.current &&
-        !userIconRef.current.contains(event.target as Node)
-      ) {
-        setIsMenuOpen(false);
-      }
-    };
+  const theme = useTheme();
+  const isMenuOpen = Boolean(menuAnchor);
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (isTicketDataModalOpen && businessData) {
-      setLocalBusinessData(businessData);
-    }
-  }, [isTicketDataModalOpen, businessData]);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setLocalBusinessData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setMenuAnchor(event.currentTarget);
   };
 
-  const saveBusinessData = async () => {
-    try {
-      await setBusinessData(localBusinessData);
-      setIsTicketDataModalOpen(false);
-      setIsMenuOpen(false);
-    } catch (error) {
-      console.error("Error al guardar los datos del negocio:", error);
-    }
+  const handleMenuClose = () => {
+    setMenuAnchor(null);
+  };
+
+  const handleThemeToggle = () => {
+    handleTheme();
+    handleMenuClose();
+  };
+
+  const handleTutorialClick = () => {
+    window.open(
+      "https://www.youtube.com/playlist?list=PLULlGP-Fw51Z5Xl-DEGMEK2Qeuzl7ceup",
+      "_blank"
+    );
+    handleMenuClose();
+  };
+
+  const handleLogout = () => {
+    handleCloseSession();
+    handleMenuClose();
+  };
+
+  const handleOpenBusinessDataModal = () => {
+    setIsTicketDataModalOpen(true);
+    handleMenuClose();
+  };
+
+  const handleCloseBusinessDataModal = () => {
+    setIsTicketDataModalOpen(false);
+  };
+
+  const handleBusinessDataSaveSuccess = () => {
+    console.log("Datos del negocio guardados exitosamente");
   };
 
   return (
-    <div className="relative">
-      <div
-        ref={userIconRef}
-        onClick={() => setIsMenuOpen(!isMenuOpen)}
-        className="cursor-pointer flex bg-white shadow dark:bg-gray_b rounded-full p-1 text-gray_b w-8 h-8 hover:dark:bg-gray_m transition-all duration-300"
+    <Box sx={{ position: "relative" }}>
+      {/* Botón de usuario */}
+      <StyledIconButton
+        onClick={handleMenuOpen}
         title="Configuraciones"
+        size="small"
       >
-        <Settings className="flex items-center justify-center w-full h-full text-gray_b dark:text-white" />
-      </div>
-      {isMenuOpen && (
-        <div
-          ref={menuRef}
-          className="absolute right-0 w-48 bg-white dark:bg-black shadow-lg rounded-sm shadow-gray_m mt-2 z-50"
-        >
-          <button
-            onClick={() => {
-              handleTheme();
-              setIsMenuOpen(false);
-            }}
-            className="cursor-pointer flex items-center w-full p-2 text-sm text-gray_b dark:text-white hover:bg-blue_xl dark:hover:bg-gray_b transition-all duration-300 rounded-t-md"
-          >
-            {theme === "dark" ? (
-              <Sun className="mr-2" />
-            ) : (
-              <Moon className="mr-2" />
-            )}
-            {theme === "dark" ? "Modo Claro" : "Modo Oscuro"}
-          </button>
-          <button
-            onClick={() => {
-              setIsTicketDataModalOpen(true);
-            }}
-            className="cursor-pointer flex items-center w-full p-2 text-sm text-gray_b dark:text-white hover:bg-blue_xl dark:hover:bg-gray_b transition-all duration-300"
-          >
-            <Ticket className="mr-2" />
-            Datos del negocio
-          </button>
-          <a
-            className="cursor-pointer flex items-center w-full p-2 text-sm text-gray_b dark:text-white hover:bg-blue_xl dark:hover:bg-gray_b transition-all duration-300"
-            href="https://www.youtube.com/playlist?list=PLULlGP-Fw51Z5Xl-DEGMEK2Qeuzl7ceup"
-            target="_blank"
-          >
-            <HelpCircle className="mr-2" />
-            Tutoriales
-          </a>
-          <button
-            onClick={() => {
-              handleCloseSession();
-              setIsMenuOpen(false);
-            }}
-            className="cursor-pointer flex items-center w-full p-2 text-sm text-gray_b dark:text-white hover:bg-blue_xl dark:hover:bg-gray_b transition-all duration-300 rounded-b-md"
-          >
-            <LogOut className="mr-2" />
-            Cerrar sesión
-          </button>
-        </div>
-      )}
+        <Settings
+          sx={{
+            width: 18,
+            height: 18,
+            color: theme.palette.text.primary,
+          }}
+        />
+      </StyledIconButton>
 
-      <Modal
-        isOpen={isTicketDataModalOpen}
-        onClose={() => setIsTicketDataModalOpen(false)}
-        title="Datos del negocio"
-        bgColor="bg-white dark:bg-gray_b"
-        buttons={
-          <>
-            <Button
-              text="Guardar"
-              colorText="text-white"
-              colorTextHover="text-white"
-              onClick={saveBusinessData}
-              type="button"
-              hotkey="Enter"
-            />
-            <Button
-              text="Cancelar"
-              colorText="text-gray_b dark:text-white"
-              colorTextHover="hover:dark:text-white"
-              colorBg="bg-transparent dark:bg-gray_m"
-              colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
-              onClick={() => setIsTicketDataModalOpen(false)}
-              type="button"
-            />
-          </>
-        }
+      <StyledMenu
+        anchorEl={menuAnchor}
+        open={isMenuOpen}
+        onClose={handleMenuClose}
+        anchorOrigin={{
+          vertical: "bottom",
+          horizontal: "right",
+        }}
+        transformOrigin={{
+          vertical: "top",
+          horizontal: "right",
+        }}
+        sx={{ mt: 1 }}
       >
-        <div className="space-y-4">
-          <Input
-            label="Nombre del Negocio"
-            name="name"
-            value={localBusinessData.name}
-            onChange={handleInputChange}
-            placeholder="Ingrese el nombre del negocio"
-          />
-          <Input
-            label="Dirección"
-            name="address"
-            value={localBusinessData.address}
-            onChange={handleInputChange}
-            placeholder="Ingrese la dirección"
-          />
-          <Input
-            label="Teléfono"
-            name="phone"
-            value={localBusinessData.phone}
-            onChange={handleInputChange}
-            placeholder="Ingrese el teléfono"
-          />
-          <Input
-            label="CUIT"
-            name="cuit"
-            value={localBusinessData.cuit}
-            onChange={handleInputChange}
-            placeholder="Ingrese el CUIT"
-          />
-        </div>
-      </Modal>
-    </div>
+        {/* Tema */}
+        <StyledMenuItem onClick={handleThemeToggle}>
+          <ListItemIcon sx={{ minWidth: 36 }}>
+            {currentTheme === "dark" ? (
+              <Brightness7
+                fontSize="small"
+                sx={{ color: theme.palette.text.primary }}
+              />
+            ) : (
+              <Brightness4
+                fontSize="small"
+                sx={{ color: theme.palette.text.primary }}
+              />
+            )}
+          </ListItemIcon>
+          <ListItemText>
+            <Typography variant="body2" color="text.primary">
+              {currentTheme === "dark" ? "Modo Claro" : "Modo Oscuro"}
+            </Typography>
+          </ListItemText>
+        </StyledMenuItem>
+
+        {/* Datos del negocio */}
+        <StyledMenuItem onClick={handleOpenBusinessDataModal}>
+          <ListItemIcon sx={{ minWidth: 36 }}>
+            <Receipt
+              fontSize="small"
+              sx={{ color: theme.palette.text.primary }}
+            />
+          </ListItemIcon>
+          <ListItemText>
+            <Typography variant="body2" color="text.primary">
+              Datos del negocio
+            </Typography>
+          </ListItemText>
+        </StyledMenuItem>
+
+        {/* Tutoriales */}
+        <StyledMenuItem onClick={handleTutorialClick}>
+          <ListItemIcon sx={{ minWidth: 36 }}>
+            <Help fontSize="small" sx={{ color: theme.palette.text.primary }} />
+          </ListItemIcon>
+          <ListItemText>
+            <Typography variant="body2" color="text.primary">
+              Tutoriales
+            </Typography>
+          </ListItemText>
+        </StyledMenuItem>
+
+        <Divider />
+
+        {/* Cerrar sesión */}
+        <StyledMenuItem onClick={handleLogout}>
+          <ListItemIcon sx={{ minWidth: 36 }}>
+            <Logout
+              fontSize="small"
+              sx={{ color: theme.palette.text.primary }}
+            />
+          </ListItemIcon>
+          <ListItemText>
+            <Typography variant="body2" color="text.primary">
+              Cerrar sesión
+            </Typography>
+          </ListItemText>
+        </StyledMenuItem>
+      </StyledMenu>
+
+      {/* Modal de datos del negocio */}
+      <BusinessDataModal
+        isOpen={isTicketDataModalOpen}
+        onClose={handleCloseBusinessDataModal}
+        title="Datos del negocio"
+        onSaveSuccess={handleBusinessDataSaveSuccess}
+        showNotificationOnSave={true}
+        autoFocus={true}
+      />
+    </Box>
   );
 };
 

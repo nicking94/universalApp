@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useEffect } from "react";
 import { db } from "@/app/database/db";
 import { systemActualizations } from "@/app/data/actualizations";

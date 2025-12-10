@@ -1,14 +1,30 @@
-// components/PaymentNotification.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { PAYMENT_REMINDERS_CONFIG } from "../lib/constants/constants";
+import {
+  Snackbar,
+  Alert,
+  Box,
+  Typography,
+  IconButton,
+  useTheme,
+  alpha,
+  Slide,
+  SlideProps,
+} from "@mui/material";
+import { Close, Payment } from "@mui/icons-material";
+
+function SlideTransition(props: SlideProps) {
+  return <Slide {...props} direction="left" />;
+}
 
 export default function PaymentNotification() {
   const [showNotification, setShowNotification] = useState(false);
   const [periodo, setPeriodo] = useState("");
   const { user } = useAuth();
+  const theme = useTheme();
 
   useEffect(() => {
     if (!user?.username) return;
@@ -16,12 +32,10 @@ export default function PaymentNotification() {
     const today = new Date();
     const currentDay = today.getDate();
 
-    // Buscar configuración de recordatorio para el usuario actual
     const userReminderConfig = PAYMENT_REMINDERS_CONFIG.find(
       (config) => config.username === user.username
     );
 
-    // Si no hay configuración para este usuario, no mostrar notificación
     if (!userReminderConfig) {
       setShowNotification(false);
       return;
@@ -29,7 +43,6 @@ export default function PaymentNotification() {
 
     const isReminderDay = currentDay === userReminderConfig.reminderDay;
 
-    // Obtener el nombre del mes en español
     const meses = [
       "Enero",
       "Febrero",
@@ -52,25 +65,88 @@ export default function PaymentNotification() {
     setShowNotification(isReminderDay);
   }, [user]);
 
+  const handleClose = (
+    event?: React.SyntheticEvent | Event,
+    reason?: string
+  ) => {
+    if (reason === "clickaway") {
+      return;
+    }
+    setShowNotification(false);
+  };
+
   if (!showNotification) return null;
 
   return (
-    <div className="fixed top-20 right-4 bg-white border-l-4 border-blue_m text-blue_b p-4 rounded shadow-md z-50 max-w-sm">
-      <div className="flex justify-between items-start">
-        <div>
-          <p className="font-bold">Recordatorio de pago</p>
-          <p>
-            La factura del período <strong>{periodo}</strong> está lista para
-            ser abonada
-          </p>
-        </div>
-        <button
-          onClick={() => setShowNotification(false)}
-          className="text-2xl cursor-pointer text-blue_m hover:text-blue_b ml-4"
-        >
-          ×
-        </button>
-      </div>
-    </div>
+    <Snackbar
+      open={showNotification}
+      anchorOrigin={{ vertical: "top", horizontal: "right" }}
+      TransitionComponent={SlideTransition}
+      sx={{
+        position: "fixed",
+        zIndex: theme.zIndex.modal + 1,
+        top: "80px !important",
+        right: "16px !important",
+      }}
+    >
+      <Alert
+        icon={<Payment />}
+        severity="info"
+        variant="filled"
+        action={
+          <IconButton
+            size="small"
+            aria-label="close"
+            color="inherit"
+            onClick={handleClose}
+          >
+            <Close fontSize="small" />
+          </IconButton>
+        }
+        sx={{
+          width: "100%",
+          minWidth: 300,
+          maxWidth: 400,
+          boxShadow: theme.shadows[8],
+          borderRadius: 2,
+          borderLeft: `4px solid ${theme.palette.primary.light}`,
+          backgroundColor: theme.palette.primary.main,
+          "& .MuiAlert-icon": {
+            alignItems: "center",
+            color: "white",
+          },
+          "& .MuiAlert-message": {
+            padding: theme.spacing(0.5, 0),
+            width: "100%",
+            color: "white",
+          },
+        }}
+      >
+        <Box>
+          <Typography
+            variant="subtitle2"
+            fontWeight="bold"
+            sx={{ color: "white", mb: 0.5 }}
+          >
+            Recordatorio de pago
+          </Typography>
+          <Typography
+            variant="body2"
+            sx={{ color: alpha(theme.palette.common.white, 0.9) }}
+          >
+            La factura del período{" "}
+            <Typography
+              component="span"
+              variant="body2"
+              fontWeight="bold"
+              sx={{ color: "white" }}
+            >
+              {periodo}
+            </Typography>{" "}
+            está lista para ser abonada
+          </Typography>
+        </Box>
+      </Alert>
+    </Snackbar>
   );
 }

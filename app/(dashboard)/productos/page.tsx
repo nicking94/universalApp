@@ -1,6 +1,4 @@
 "use client";
-import Button from "@/app/components/Button";
-import Input from "@/app/components/Input";
 import Modal from "@/app/components/Modal";
 import Notification from "@/app/components/Notification";
 import {
@@ -13,14 +11,16 @@ import {
   UnitOption,
 } from "@/app/lib/types/types";
 import {
+  Info,
   Edit,
-  Trash,
-  PackageX,
-  AlertTriangle,
-  Barcode,
-  Plus,
-} from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+  Delete,
+  Inventory2,
+  Warning,
+  QrCode,
+  Add,
+} from "@mui/icons-material";
+
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { db } from "@/app/database/db";
 import SearchBar from "@/app/components/SearchBar";
 import { parseISO, format, differenceInDays, startOfDay } from "date-fns";
@@ -28,7 +28,6 @@ import { es } from "date-fns/locale";
 import CustomDatePicker from "@/app/components/CustomDatePicker";
 import ProtectedRoute from "@/app/components/ProtectedRoute";
 import Pagination from "@/app/components/Pagination";
-import Select from "react-select";
 import BarcodeScanner from "@/app/components/BarcodeScanner";
 import { isValid } from "date-fns";
 import { formatCurrency } from "@/app/lib/utils/currency";
@@ -38,434 +37,268 @@ import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
 import { usePagination } from "@/app/context/PaginationContext";
 import BarcodeGenerator from "@/app/components/BarcodeGenerator";
 import AdvancedFilterPanel from "@/app/components/AdvancedFilterPanel";
+import Select from "@/app/components/Select";
 import {
   convertFromBaseUnit,
   convertToBaseUnit,
 } from "@/app/lib/utils/calculations";
 import { getLocalDateString } from "@/app/lib/utils/getLocalDate";
+import Checkbox from "@/app/components/Checkbox";
+import { toCapitalize } from "@/app/lib/utils/capitalizeText";
+import {
+  Autocomplete,
+  IconButton,
+  Box,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+} from "@mui/material";
+import Input from "@/app/components/Input";
+import Button from "@/app/components/Button";
+import { useNotification } from "@/app/hooks/useNotification";
+import CustomGlobalTooltip from "@/app/components/CustomTooltipGlobal";
 
-const ProductsPage = () => {
-  const { rubro } = useRubro();
+const PRODUCT_CONFIG = {
+  MAX_PRODUCTS_PER_CATEGORY: 30,
+  IVA_PERCENTAGE: 21,
+  DEFAULT_UNIT: "Unid.",
+  NOTIFICATION_DURATION: 2500,
+} as const;
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [isOpenModal, setIsOpenModal] = useState(false);
-  const [newProduct, setNewProduct] = useState<Product>({
-    id: Date.now(),
-    name: "",
-    stock: 0,
-    costPrice: 0,
-    price: 0,
-    hasIvaIncluded: true,
-    expiration: "",
-    quantity: 0,
-    unit: "Unid.",
-    barcode: "",
-    category: "",
-    brand: "",
-    color: "",
-    size: "",
-    rubro: rubro,
-    lot: "",
-    location: "",
-    customCategory: "",
-    customCategories: [],
-    setMinStock: false,
-    minStock: 0,
-  });
-  const [sortConfig, setSortConfig] = useState<{
-    field: keyof Product;
-    direction: "asc" | "desc";
-  }>({
-    field: "name",
-    direction: "asc",
-  });
+const CONVERSION_FACTORS = {
+  Gr: { base: "Kg", factor: 0.001 },
+  Kg: { base: "Kg", factor: 1 },
+  Ton: { base: "Kg", factor: 1000 },
+  Ml: { base: "L", factor: 0.001 },
+  L: { base: "L", factor: 1 },
+  Mm: { base: "M", factor: 0.001 },
+  Cm: { base: "M", factor: 0.01 },
+  Pulg: { base: "M", factor: 0.0254 },
+  M: { base: "M", factor: 1 },
+  "Unid.": { base: "Unid.", factor: 1 },
+  Docena: { base: "Unid.", factor: 12 },
+  Ciento: { base: "Unid.", factor: 100 },
+  Bulto: { base: "Bulto", factor: 1 },
+  Caja: { base: "Caja", factor: 1 },
+  Cajón: { base: "Cajón", factor: 1 },
+  "M²": { base: "M²", factor: 1 },
+  "M³": { base: "M³", factor: 1 },
+  V: { base: "V", factor: 1 },
+  A: { base: "A", factor: 1 },
+  W: { base: "W", factor: 1 },
+} as const;
 
-  const [filters, setFilters] = useState<UnifiedFilter[]>([]);
-  const [globalCustomCategories, setGlobalCustomCategories] = useState<
-    Array<{ name: string; rubro: Rubro }>
-  >([]);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
-  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const [notificationMessage, setNotificationMessage] = useState("");
-  const [type, setType] = useState<"success" | "error" | "info">("success");
-  const [isSaveDisabled, setIsSaveDisabled] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isPriceModalOpen, setIsPriceModalOpen] = useState(false);
-  const [scannedProduct, setScannedProduct] = useState<Product | null>(null);
-  const [barcodeInput, setBarcodeInput] = useState("");
-  const { currentPage, itemsPerPage } = usePagination();
-  const [productSuppliers, setProductSuppliers] = useState<
-    Record<number, string>
-  >({});
-  const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
-  const [selectedProductForBarcode, setSelectedProductForBarcode] =
-    useState<Product | null>(null);
-  const [categoryToDelete, setCategoryToDelete] = useState<{
-    name: string;
-    rubro: Rubro;
-  } | null>(null);
-  const [isCategoryDeleteModalOpen, setIsCategoryDeleteModalOpen] =
-    useState(false);
-  const [newBrand, setNewBrand] = useState("");
-  const [newColor, setNewColor] = useState("");
-  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
-  const [returnReason, setReturnReason] = useState("");
-  const [selectedReturnProduct, setSelectedReturnProduct] =
-    useState<Product | null>(null);
-  const [returns, setReturns] = useState<ProductReturn[]>([]);
-  const [showReturnsHistory, setShowReturnsHistory] = useState(false);
-  const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
-  const [returnQuantity, setReturnQuantity] = useState<number>(0);
-  const [returnUnit, setReturnUnit] = useState<string>("");
+const unitOptions: UnitOption[] = [
+  { value: "Unid.", label: "Unidad", convertible: false },
+  { value: "Kg", label: "Kilogramo", convertible: true },
+  { value: "Gr", label: "Gramo", convertible: true },
+  { value: "L", label: "Litro", convertible: true },
+  { value: "Ml", label: "Mililitro", convertible: true },
+  { value: "Mm", label: "Milímetro", convertible: true },
+  { value: "Cm", label: "Centímetro", convertible: true },
+  { value: "M", label: "Metro", convertible: true },
+  { value: "M²", label: "Metro cuadrado", convertible: true },
+  { value: "M³", label: "Metro cúbico", convertible: true },
+  { value: "Pulg", label: "Pulgada", convertible: true },
+  { value: "Docena", label: "Docena", convertible: false },
+  { value: "Ciento", label: "Ciento", convertible: false },
+  { value: "Ton", label: "Tonelada", convertible: true },
+  { value: "V", label: "Voltio", convertible: false },
+  { value: "A", label: "Amperio", convertible: false },
+  { value: "W", label: "Watt", convertible: false },
+  { value: "Bulto", label: "Bulto", convertible: false },
+  { value: "Caja", label: "Caja", convertible: false },
+  { value: "Cajón", label: "Cajón", convertible: false },
+];
 
-  const [clothingSizes, setClothingSizes] = useState<ClothingSizeOption[]>([]);
-  const [newSize, setNewSize] = useState("");
-  const [sizeToDelete, setSizeToDelete] = useState<string | null>(null);
-  const [isSizeDeleteModalOpen, setIsSizeDeleteModalOpen] = useState(false);
+const seasonOptions = [
+  { value: "todo el año", label: "Todo el año" },
+  { value: "invierno", label: "Invierno" },
+  { value: "otoño", label: "Otoño" },
+  { value: "primavera", label: "Primavera" },
+  { value: "verano", label: "Verano" },
+];
 
-  const IVA_PERCENTAGE = 21;
-
-  const calculatePriceWithIva = (price: number): number => {
-    return price * (1 + IVA_PERCENTAGE / 100);
-  };
-
-  const calculatePriceWithoutIva = (priceWithIva: number): number => {
-    return priceWithIva / (1 + IVA_PERCENTAGE / 100);
-  };
-  const loadClothingSizes = async () => {
-    try {
-      // Obtener todos los productos de indumentaria
-      const clothingProducts = await db.products
-        .where("rubro")
-        .equals("indumentaria")
-        .toArray();
-
-      // Extraer talles únicos de los productos
-      const uniqueSizes = Array.from(
-        new Set(
-          clothingProducts
-            .filter((product) => product.size && product.size.trim() !== "")
-            .map((product) => product.size as string)
-        )
-      );
-
-      // Crear opciones para los talles encontrados
-      const sizeOptions = uniqueSizes
-        .map((size) => ({ value: size, label: size }))
-        .sort((a, b) => a.label.localeCompare(b.label));
-
-      setClothingSizes(sizeOptions);
-    } catch (error) {
-      console.error("Error al cargar talles:", error);
-    }
-  };
-
-  const handleIvaCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const hasIvaIncluded = e.target.checked;
-
-    setNewProduct((prev) => {
-      let newCostPrice = prev.costPrice;
-      let newPrice = prev.price;
-
-      if (hasIvaIncluded && !prev.hasIvaIncluded) {
-        // Si se activa el IVA, calcular precios con IVA
-        newCostPrice = calculatePriceWithIva(prev.costPrice);
-        newPrice = calculatePriceWithIva(prev.price);
-      } else if (!hasIvaIncluded && prev.hasIvaIncluded) {
-        // Si se desactiva el IVA, calcular precios sin IVA
-        newCostPrice = calculatePriceWithoutIva(prev.costPrice);
-        newPrice = calculatePriceWithoutIva(prev.price);
-      }
-
-      return {
-        ...prev,
-        hasIvaIncluded,
-        costPrice: newCostPrice,
-        price: newPrice,
-        costPriceWithIva: hasIvaIncluded ? newCostPrice : prev.costPrice,
-        priceWithIva: hasIvaIncluded ? newPrice : prev.price,
-      };
-    });
-  };
-
-  // Función para eliminar un talle
-  const handleDeleteSize = async (sizeValue: string) => {
-    setSizeToDelete(sizeValue);
-    setIsSizeDeleteModalOpen(true);
-  };
-  const handleConfirmDeleteSize = async () => {
-    if (!sizeToDelete) return;
-
-    try {
-      // Verificar si hay productos usando este talle
-      const productsWithSize = await db.products
-        .where("size")
-        .equals(sizeToDelete)
-        .and((product) => product.rubro === "indumentaria")
-        .count();
-
-      if (productsWithSize > 0) {
-        showNotification(
-          `No se puede eliminar el talle porque ${productsWithSize} producto(s) lo están usando`,
-          "error"
-        );
-        return;
-      }
-
-      // Eliminar el talle de la lista
-      setClothingSizes((prev) =>
-        prev.filter((size) => size.value !== sizeToDelete)
-      );
-
-      showNotification("Talle eliminado correctamente", "success");
-    } catch (error) {
-      console.error("Error al eliminar talle:", error);
-      showNotification("Error al eliminar el talle", "error");
-    } finally {
-      setIsSizeDeleteModalOpen(false);
-      setSizeToDelete(null);
-    }
-  };
+const useDebounce = <T,>(value: T, delay: number): T => {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
   useEffect(() => {
-    if (rubro === "indumentaria") {
-      loadClothingSizes();
-    } else {
-      setClothingSizes([]);
-    }
-  }, [rubro, products]);
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
 
-  const handleReturnProduct = async () => {
-    if (!selectedReturnProduct) {
-      showNotification("Por favor seleccione un producto", "error");
-      return;
-    }
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
 
+  return debouncedValue;
+};
+
+const getDefaultProduct = (rubro: Rubro): Product => ({
+  id: Date.now(),
+  name: "",
+  stock: 0,
+  costPrice: 0,
+  price: 0,
+  hasIvaIncluded: true,
+  expiration: "",
+  quantity: 0,
+  unit: PRODUCT_CONFIG.DEFAULT_UNIT,
+  barcode: "",
+  category: "",
+  brand: "",
+  color: "",
+  size: "",
+  rubro: rubro,
+  lot: "",
+  location: "",
+  customCategory: "",
+  customCategories: [],
+  setMinStock: false,
+  minStock: 0,
+});
+
+const useProductForm = (rubro: Rubro, initialProduct?: Product) => {
+  const [formData, setFormData] = useState<Product>(
+    () => initialProduct || getDefaultProduct(rubro)
+  );
+
+  const updateField = useCallback(
+    (
+      field: keyof Product,
+      value:
+        | string
+        | number
+        | boolean
+        | { name: string; rubro: Rubro }[]
+        | Product["unit"]
+    ) => {
+      if (field === "customCategory" && typeof value === "string") {
+        setFormData((prev) => ({ ...prev, [field]: toCapitalize(value) }));
+      } else {
+        setFormData((prev) => ({ ...prev, [field]: value }));
+      }
+    },
+    []
+  );
+
+  const resetForm = useCallback(() => {
+    setFormData(getDefaultProduct(rubro));
+  }, [rubro]);
+
+  const setForm = useCallback((product: Product) => {
+    setFormData(product);
+  }, []);
+
+  return { formData, updateField, resetForm, setForm };
+};
+
+const useProducts = () => {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
     try {
-      // Obtener la cantidad actual del stock
-      const currentStock = selectedReturnProduct.stock;
+      const storedProducts = await db.products.toArray();
+      const formattedProducts = storedProducts
+        .map((p: Product) => ({
+          ...p,
+          id: Number(p.id),
+          customCategories: (p.customCategories || []).filter(
+            (cat) => cat.name && cat.name.trim()
+          ),
+        }))
+        .sort((a, b) => b.id - a.id);
 
-      // Validar que la cantidad a devolver sea válida
-      if (returnQuantity <= 0) {
-        showNotification("La cantidad debe ser mayor a 0", "error");
-        return;
-      }
-
-      // Convertir la cantidad a devolver a la unidad base del producto
-      const baseQuantity = convertToBaseUnit(returnQuantity, returnUnit);
-      const currentStockInBase = convertToBaseUnit(
-        currentStock,
-        selectedReturnProduct.unit
-      );
-
-      // Obtener la caja diaria actual
-      const today = getLocalDateString();
-      const dailyCash = await db.dailyCashes.get({ date: today });
-
-      if (!dailyCash) {
-        showNotification("No hay caja abierta para hoy", "error");
-        return;
-      }
-
-      // Calcular el monto a restar (precio de venta * cantidad)
-      const amountToSubtract = selectedReturnProduct.price * returnQuantity;
-
-      // Calcular la ganancia a restar (precio de venta - precio de costo) * cantidad
-      const profitToSubtract =
-        (selectedReturnProduct.price - selectedReturnProduct.costPrice) *
-        returnQuantity;
-
-      // Crear movimiento de egreso para la devolución
-      const returnMovement: DailyCashMovement = {
-        id: Date.now(),
-        amount: amountToSubtract,
-        description: `Devolución: ${getDisplayProductName(
-          selectedReturnProduct,
-          rubro,
-          false
-        )} - ${returnReason.trim() || "Sin motivo"}`,
-        type: "EGRESO",
-        paymentMethod: "EFECTIVO", // O el método de pago original si lo tienes
-        date: new Date().toISOString(),
-        productId: selectedReturnProduct.id,
-        productName: getDisplayProductName(selectedReturnProduct, rubro, false),
-        costPrice: selectedReturnProduct.costPrice,
-        sellPrice: selectedReturnProduct.price,
-        quantity: returnQuantity,
-        profit: -profitToSubtract, // Ganancia negativa
-        rubro: selectedReturnProduct.rubro || rubro,
-        unit: selectedReturnProduct.unit,
-      };
-
-      // Actualizar la caja diaria
-      const updatedCash = {
-        ...dailyCash,
-        movements: [...dailyCash.movements, returnMovement],
-        totalExpense: (dailyCash.totalExpense || 0) + amountToSubtract,
-        totalProfit: (dailyCash.totalProfit || 0) - profitToSubtract,
-      };
-
-      await db.dailyCashes.update(dailyCash.id, updatedCash);
-
-      // Actualizar el stock del producto (SUMAR la cantidad devuelta)
-      const updatedStock = convertFromBaseUnit(
-        currentStockInBase + baseQuantity, // Cambiado de - a +
-        selectedReturnProduct.unit
-      );
-      await db.products.update(selectedReturnProduct.id, {
-        stock: parseFloat(updatedStock.toFixed(3)),
-      });
-
-      // Registrar la devolución
-      const newReturn: ProductReturn = {
-        id: Date.now(),
-        productId: selectedReturnProduct.id,
-        productName: getDisplayProductName(selectedReturnProduct, rubro, false),
-        reason: returnReason.trim() || "Sin motivo",
-        date: new Date().toISOString(),
-        stockAdded: parseFloat(
-          convertFromBaseUnit(baseQuantity, selectedReturnProduct.unit).toFixed(
-            3
-          )
-        ),
-        amount: amountToSubtract,
-        profit: profitToSubtract,
-        rubro: selectedReturnProduct.rubro || rubro,
-      };
-
-      await db.returns.add(newReturn);
-      setReturns((prev) => [...prev, newReturn]);
-
-      // Actualizar la lista de productos
-      setProducts(
-        products.map((p) =>
-          p.id === selectedReturnProduct.id ? { ...p, stock: updatedStock } : p
-        )
-      );
-
-      showNotification(
-        `Producto ${getDisplayProductName(
-          selectedReturnProduct
-        )} devuelto correctamente. Stock actualizado: ${updatedStock} ${
-          selectedReturnProduct.unit
-        }. Monto restado: ${formatCurrency(amountToSubtract)}`,
-        "success"
-      );
-
-      // Resetear el formulario
-      resetReturnData();
-      setIsReturnModalOpen(false);
+      setProducts(formattedProducts);
+      return formattedProducts;
     } catch (error) {
-      console.error("Error al devolver producto:", error);
-      showNotification("Error al devolver el producto", "error");
+      console.error("Error fetching products:", error);
+      throw error;
+    } finally {
+      setLoading(false);
     }
-  };
-  const resetReturnData = () => {
-    setSelectedReturnProduct(null);
-    setReturnReason("");
-    setReturnQuantity(0);
-    setReturnUnit("");
-  };
-  const handleSort = (sort: {
-    field: keyof Product;
-    direction: "asc" | "desc";
-  }) => {
-    setSortConfig(sort);
-  };
-  const handleSizeInputBlur = () => {
-    if (newSize.trim() && newSize !== newProduct.size) {
-      // Actualizar el producto con el nuevo talle
-      setNewProduct({
-        ...newProduct,
-        size: newSize.trim(),
-      });
+  }, []);
 
-      // Si el talle no existe en la lista, agregarlo
-      if (
-        !clothingSizes.some(
-          (size) => size.value.toLowerCase() === newSize.toLowerCase().trim()
-        )
-      ) {
-        const newSizeOption = {
-          value: newSize.trim(),
-          label: newSize.trim(),
-        };
-        setClothingSizes((prev) =>
-          [...prev, newSizeOption].sort((a, b) =>
-            a.label.localeCompare(b.label)
-          )
-        );
-      }
+  const addProduct = useCallback(async (product: Product) => {
+    const { ...productWithoutId } = product;
+    const newId = await db.products.add(productWithoutId);
+    const newProduct = { ...product, id: Number(newId) };
+    setProducts((prev) => [...prev, newProduct]);
+    return newProduct;
+  }, []);
+
+  const updateProduct = useCallback(
+    async (id: number, updates: Partial<Product>) => {
+      await db.products.update(id, updates);
+      setProducts((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, ...updates } : p))
+      );
+    },
+    []
+  );
+
+  const deleteProduct = useCallback(async (id: number) => {
+    await db.products.delete(id);
+    setProducts((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
+  return {
+    products,
+    loading,
+    fetchProducts,
+    addProduct,
+    updateProduct,
+    deleteProduct,
+    setProducts,
+  };
+};
+
+const useProductValidation = () => {
+  const validateProduct = useCallback((product: Product): string[] => {
+    const errors: string[] = [];
+
+    if (!product.name?.trim()) errors.push("El nombre es requerido");
+    if (product.stock < 0) errors.push("El stock no puede ser negativo");
+    if (product.costPrice <= 0)
+      errors.push("El precio de costo debe ser mayor a 0");
+    if (product.price <= 0)
+      errors.push("El precio de venta debe ser mayor a 0");
+    if (product.price < product.costPrice) {
+      errors.push("El precio de venta no puede ser menor al costo");
     }
-  };
-  const unitOptions: UnitOption[] = [
-    { value: "Unid.", label: "Unidad", convertible: false },
-    { value: "Kg", label: "Kilogramo", convertible: true },
-    { value: "Gr", label: "Gramo", convertible: true },
-    { value: "L", label: "Litro", convertible: true },
-    { value: "Ml", label: "Mililitro", convertible: true },
-    { value: "Mm", label: "Milímetro", convertible: true },
-    { value: "Cm", label: "Centímetro", convertible: true },
-    { value: "M", label: "Metro", convertible: true },
-    { value: "M²", label: "Metro cuadrado", convertible: true },
-    { value: "M³", label: "Metro cúbico", convertible: true },
-    { value: "Pulg", label: "Pulgada", convertible: true },
-    { value: "Docena", label: "Docena", convertible: false },
-    { value: "Ciento", label: "Ciento", convertible: false },
-    { value: "Ton", label: "Tonelada", convertible: true },
-    { value: "V", label: "Voltio", convertible: false },
-    { value: "A", label: "Amperio", convertible: false },
-    { value: "W", label: "Watt", convertible: false },
-    { value: "Bulto", label: "Bulto", convertible: false },
-    { value: "Caja", label: "Caja", convertible: false },
-    { value: "Cajón", label: "Cajón", convertible: false },
-  ];
+    if (!product.unit) errors.push("La unidad de medida es requerida");
+    if (!product.customCategories?.length) {
+      errors.push("La categoría es requerida");
+    }
 
-  const selectedUnit =
-    unitOptions.find((opt) => opt.value === newProduct.unit) ?? null;
+    return errors;
+  }, []);
 
-  const seasonOptions = [
-    { value: "todo el año", label: "Todo el año" },
-    { value: "invierno", label: "Invierno" },
-    { value: "otoño", label: "Otoño" },
-    { value: "primavera", label: "Primavera" },
-    { value: "verano", label: "Verano" },
-  ];
+  return { validateProduct };
+};
 
-  const checkProductLimit = async (rubro: Rubro) => {
-    const products = await db.products.where("rubro").equals(rubro).count();
-    return products >= 30;
-  };
-  const CONVERSION_FACTORS = {
-    Gr: { base: "Kg", factor: 0.001 },
-    Kg: { base: "Kg", factor: 1 },
-    Ton: { base: "Kg", factor: 1000 },
-    Ml: { base: "L", factor: 0.001 },
-    L: { base: "L", factor: 1 },
-    Mm: { base: "M", factor: 0.001 },
-    Cm: { base: "M", factor: 0.01 },
-    Pulg: { base: "M", factor: 0.0254 },
-    M: { base: "M", factor: 1 },
-    "Unid.": { base: "Unid.", factor: 1 },
-    Docena: { base: "Unid.", factor: 12 },
-    Ciento: { base: "Unid.", factor: 100 },
-    Bulto: { base: "Bulto", factor: 1 },
-    Caja: { base: "Caja", factor: 1 },
-    Cajón: { base: "Cajón", factor: 1 },
-    "M²": { base: "M²", factor: 1 },
-    "M³": { base: "M³", factor: 1 },
-    V: { base: "V", factor: 1 },
-    A: { base: "A", factor: 1 },
-    W: { base: "W", factor: 1 },
-  } as const;
-  const sortedProducts = useMemo(() => {
+const useSortedProducts = (
+  products: Product[],
+  filters: UnifiedFilter[],
+  sortConfig: { field: keyof Product; direction: "asc" | "desc" },
+  rubro: Rubro,
+  searchQuery: string
+) => {
+  return useMemo(() => {
     let filtered = [...products];
 
     if (rubro !== "Todos los rubros") {
       filtered = filtered.filter((product) => product.rubro === rubro);
     }
+
     if (searchQuery) {
       filtered = filtered.filter((product) => {
         const productName = getDisplayProductName(
@@ -495,28 +328,26 @@ const ProductsPage = () => {
     }
 
     filtered.sort((a, b) => {
-      const today = startOfDay(new Date());
-
-      // Función para determinar el estado de expiración
       const getExpirationStatus = (product: Product) => {
-        if (!product.expiration) return 3; // Sin vencimiento
+        if (!product.expiration) return 3;
 
+        const today = startOfDay(new Date());
         const expDate = startOfDay(parseISO(product.expiration));
         const diffDays = differenceInDays(expDate, today);
 
-        if (diffDays < 0) return 0; // Expirado
-        if (diffDays === 0) return 1; // Vence hoy
-        if (diffDays <= 7) return 2; // Por vencer (en los próximos 7 días)
-        return 3; // Sin vencimiento cercano
+        if (diffDays < 0) return 0;
+        if (diffDays === 0) return 1;
+        if (diffDays <= 7) return 2;
+        return 3;
       };
 
       const statusA = getExpirationStatus(a);
       const statusB = getExpirationStatus(b);
 
-      // Primero ordenar por estado de expiración
       if (statusA !== statusB) {
         return statusA - statusB;
       }
+
       let compareResult = 0;
       const field = sortConfig.field;
       const direction = sortConfig.direction;
@@ -551,163 +382,1331 @@ const ProductsPage = () => {
     });
 
     return filtered;
-  }, [products, searchQuery, filters, sortConfig, rubro]);
+  }, [products, rubro, searchQuery, filters, sortConfig]);
+};
 
-  const handleDeleteCategoryClick = async (category: {
-    name: string;
-    rubro: Rubro;
-  }) => {
-    if (!category.name.trim()) return;
-
-    setCategoryToDelete(category);
-    setIsCategoryDeleteModalOpen(true);
+const getRowStyles = (expirationStatus: string, hasLowStock: boolean) => {
+  const baseStyles = {
+    border: "1px solid",
+    borderColor: "divider",
+    "&:hover": {
+      backgroundColor: "action.hover",
+      transform: "translateY(-1px)",
+      boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+    },
+    transition: "all 0.3s ease-in-out",
   };
 
-  const handleConfirmDeleteCategory = async (e?: React.MouseEvent) => {
-    if (e) e.preventDefault();
-    if (!categoryToDelete) return;
+  switch (expirationStatus) {
+    case "expired":
+      return {
+        ...baseStyles,
+        borderLeft: "4px solid",
+        borderLeftColor: "error.dark",
+        backgroundColor: "grey.50",
+        "&:hover": {
+          backgroundColor: "grey.100",
+        },
+        "& .MuiTableCell-root": {
+          color: "inherit",
+        },
+      };
+    case "expiresToday":
+      return {
+        ...baseStyles,
+        borderLeft: "4px solid",
+        borderLeftColor: "error.main",
+        backgroundColor: "error.main",
+        "&:hover": {
+          backgroundColor: "error.main",
+          color: "text.primary",
+        },
+        "& .MuiTableCell-root": {
+          color: "inherit",
+          fontWeight: "bold",
+        },
+      };
+    case "expiringSoon":
+      return {
+        ...baseStyles,
+        borderLeft: "4px solid",
+        borderLeftColor: "error.light",
+        backgroundColor: "grey.50",
+        "&:hover": {
+          backgroundColor: "grey.100",
+        },
+        "& .MuiTableCell-root": {
+          color: "inherit",
+        },
+      };
+    default:
+      return hasLowStock
+        ? {
+            ...baseStyles,
+            borderLeft: "4px solid",
+            borderLeftColor: "info.main",
+            backgroundColor: "info.light",
+            "&:hover": {
+              backgroundColor: "info.main",
+              color: "white",
+            },
+          }
+        : baseStyles;
+  }
+};
 
+interface ProductRowProps {
+  product: Product;
+  rubro: Rubro;
+  onEdit: (product: Product) => void;
+  onDelete: (product: Product) => void;
+  onGenerateBarcode: (product: Product) => void;
+  supplierName?: string;
+}
+
+const ProductRow = React.memo(
+  ({
+    product,
+    rubro,
+    onEdit,
+    onDelete,
+    onGenerateBarcode,
+    supplierName,
+  }: ProductRowProps) => {
+    const displayName = useMemo(
+      () => getDisplayProductName(product, rubro, false),
+      [product, rubro]
+    );
+
+    const { expirationDate, expirationStatus } = useMemo(() => {
+      const expDate = product.expiration
+        ? startOfDay(parseISO(product.expiration))
+        : null;
+      const today = startOfDay(new Date());
+      const daysUntilExp = expDate ? differenceInDays(expDate, today) : null;
+
+      let status = "normal";
+      if (daysUntilExp !== null) {
+        if (daysUntilExp < 0) status = "expired";
+        else if (daysUntilExp === 0) status = "expiresToday";
+        else if (daysUntilExp <= 7) status = "expiringSoon";
+      }
+
+      return { expirationDate: expDate, expirationStatus: status };
+    }, [product.expiration]);
+
+    const hasLowStock = useMemo(
+      () =>
+        Boolean(
+          product.setMinStock &&
+            product.minStock &&
+            product.stock < product.minStock
+        ),
+      [product.setMinStock, product.minStock, product.stock]
+    );
+
+    const rowStyles = useMemo(
+      () => getRowStyles(expirationStatus, hasLowStock),
+      [expirationStatus, hasLowStock]
+    );
+
+    const stockCellStyles = useMemo(
+      () => ({
+        textAlign: "center" as const,
+        ...(!isNaN(Number(product.stock)) && Number(product.stock) > 0
+          ? hasLowStock
+            ? {
+                color: "white",
+                fontWeight: "bold",
+                backgroundColor: "primary.main",
+              }
+            : {}
+          : { color: "error.main" }),
+      }),
+      [product.stock, hasLowStock]
+    );
+
+    const handleEdit = useCallback(() => {
+      onEdit(product);
+    }, [onEdit, product]);
+
+    const handleDelete = useCallback(() => {
+      onDelete(product);
+    }, [onDelete, product]);
+
+    const handleGenerateBarcode = useCallback(() => {
+      onGenerateBarcode(product);
+    }, [onGenerateBarcode, product]);
+
+    return (
+      <TableRow sx={rowStyles}>
+        <TableCell
+          sx={{
+            fontWeight: "bold",
+            textAlign: "left",
+            textTransform: "capitalize",
+          }}
+        >
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+              height: "100%",
+            }}
+          >
+            {(expirationStatus === "expiresToday" ||
+              expirationStatus === "expiringSoon" ||
+              expirationStatus === "expired") && (
+              <Warning
+                sx={{
+                  color:
+                    expirationStatus === "expiresToday"
+                      ? "warning.main"
+                      : expirationStatus === "expiringSoon"
+                      ? "warning.dark"
+                      : "error.main",
+                }}
+                fontSize="small"
+              />
+            )}
+            <Typography variant="body2" sx={{ lineHeight: "tight" }}>
+              {displayName}
+            </Typography>
+          </Box>
+        </TableCell>
+        <TableCell sx={stockCellStyles}>
+          <Box sx={{ display: "flex", flexDirection: "column" }}>
+            <Typography
+              variant="body2"
+              fontWeight="bold"
+              sx={{ textTransform: "uppercase" }}
+            >
+              {!isNaN(Number(product.stock)) && Number(product.stock) > 0
+                ? `${product.stock} ${product.unit}`
+                : "Agotado"}
+            </Typography>
+            {hasLowStock && (
+              <Typography
+                variant="caption"
+                sx={{ color: "primary.light", fontWeight: "medium", mt: 0.5 }}
+              >
+                Stock por debajo del mínimo
+              </Typography>
+            )}
+          </Box>
+        </TableCell>
+        <TableCell sx={{ textAlign: "center", textTransform: "capitalize" }}>
+          {product.customCategories?.[0]?.name || "-"}
+        </TableCell>
+        <TableCell sx={{ textAlign: "center" }}>
+          {product.location || "-"}
+        </TableCell>
+
+        {rubro === "indumentaria" && (
+          <>
+            <TableCell sx={{ textAlign: "center" }}>
+              {product.size || "-"}
+            </TableCell>
+            <TableCell
+              sx={{ textAlign: "center", textTransform: "capitalize" }}
+            >
+              {product.color || "-"}
+            </TableCell>
+            <TableCell
+              sx={{ textAlign: "center", textTransform: "capitalize" }}
+            >
+              {product.brand || "-"}
+            </TableCell>
+          </>
+        )}
+        <TableCell sx={{ textAlign: "center", textTransform: "capitalize" }}>
+          {product.season || "-"}
+        </TableCell>
+
+        <TableCell sx={{ textAlign: "center" }}>
+          {formatCurrency(product.costPrice)}
+        </TableCell>
+        <TableCell sx={{ textAlign: "center" }}>
+          {formatCurrency(product.price)}
+        </TableCell>
+        {rubro !== "indumentaria" && (
+          <TableCell sx={{ textAlign: "center", fontWeight: "bold" }}>
+            {product.expiration && isValid(parseISO(product.expiration))
+              ? format(parseISO(product.expiration), "dd/MM/yyyy", {
+                  locale: es,
+                })
+              : "-"}
+            {expirationStatus === "expiringSoon" && (
+              <Typography
+                component="span"
+                sx={{ ml: 0.5, color: "text.primary" }}
+              >
+                (Por vencer)
+              </Typography>
+            )}
+            {expirationDate && expirationStatus === "expiresToday" && (
+              <Typography
+                component="span"
+                sx={{
+                  ml: 0.5,
+                  color: "text.primary",
+                  animation: "pulse 1s infinite",
+                }}
+              >
+                (Vence Hoy)
+              </Typography>
+            )}
+            {expirationDate && expirationStatus === "expired" && (
+              <Typography
+                component="span"
+                sx={{ ml: 0.5, color: "error.main" }}
+              >
+                (Vencido)
+              </Typography>
+            )}
+          </TableCell>
+        )}
+        <TableCell sx={{ textAlign: "center" }}>
+          {supplierName || "-"}
+        </TableCell>
+        {rubro !== "Todos los rubros" && (
+          <TableCell sx={{ textAlign: "center" }}>
+            <Box sx={{ display: "flex", justifyContent: "center", gap: 0.5 }}>
+              <CustomGlobalTooltip title="Código de Barras">
+                <IconButton
+                  onClick={handleGenerateBarcode}
+                  size="small"
+                  sx={{
+                    borderRadius: "4px",
+                    color: "text.secondary",
+                    "&:hover": {
+                      backgroundColor: "primary.main",
+                      color: "white",
+                    },
+                  }}
+                >
+                  <QrCode fontSize="small" />
+                </IconButton>
+              </CustomGlobalTooltip>
+              <CustomGlobalTooltip title="Editar Producto">
+                <IconButton
+                  onClick={handleEdit}
+                  size="small"
+                  sx={{
+                    borderRadius: "4px",
+                    color: "text.secondary",
+                    "&:hover": {
+                      backgroundColor: "primary.main",
+                      color: "white",
+                    },
+                  }}
+                >
+                  <Edit fontSize="small" />
+                </IconButton>
+              </CustomGlobalTooltip>
+              <CustomGlobalTooltip title="Eliminar Producto">
+                <IconButton
+                  onClick={handleDelete}
+                  size="small"
+                  sx={{
+                    borderRadius: "4px",
+                    color: "text.secondary",
+                    "&:hover": {
+                      backgroundColor: "error.main",
+                      color: "white",
+                    },
+                  }}
+                >
+                  <Delete fontSize="small" />
+                </IconButton>
+              </CustomGlobalTooltip>
+            </Box>
+          </TableCell>
+        )}
+      </TableRow>
+    );
+  }
+);
+
+ProductRow.displayName = "ProductRow";
+
+interface ProductFormProps {
+  formData: Product;
+  onFieldChange: (
+    field: keyof Product,
+    value:
+      | string
+      | number
+      | boolean
+      | { name: string; rubro: Rubro }[]
+      | Product["unit"]
+  ) => void;
+  rubro: Rubro;
+  editingProduct: Product | null;
+  globalCustomCategories: Array<{ name: string; rubro: Rubro }>;
+  onAddCategory: () => void;
+  onIvaChange: (hasIvaIncluded: boolean) => void;
+  onGenerateAutoBarcode: () => void;
+  unitOptions: UnitOption[];
+  seasonOptions: typeof seasonOptions;
+  clothingSizes: ClothingSizeOption[];
+  newBrand: string;
+  newColor: string;
+  newSize: string;
+  onBrandChange: (value: string | number) => void;
+  onColorChange: (value: string | number) => void;
+  onSizeChange: (value: string | number) => void;
+  onSizeBlur: () => void;
+  onCategoryDelete: (category: { name: string; rubro: Rubro }) => void;
+}
+
+const ProductForm = React.memo(
+  ({
+    formData,
+    onFieldChange,
+    rubro,
+    editingProduct,
+    globalCustomCategories,
+    onAddCategory,
+    onIvaChange,
+    onGenerateAutoBarcode,
+    unitOptions,
+    seasonOptions,
+
+    newBrand,
+    newColor,
+    newSize,
+    onBrandChange,
+    onColorChange,
+    onSizeChange,
+    onSizeBlur,
+    onCategoryDelete,
+  }: ProductFormProps) => {
+    const selectedUnit = useMemo(
+      () => unitOptions.find((opt) => opt.value === formData.unit) ?? null,
+      [formData.unit, unitOptions]
+    );
+
+    return (
+      <form
+        className="flex flex-col gap-4 overflow-y-auto"
+        onSubmit={(e) => e.preventDefault()}
+      >
+        {/* Sección 1: Información Básica */}
+        <div className=" space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-1 h-6 bg-blue_m rounded-full"></div>
+            <h3 className="text-base font-semibold text-gray_m dark:text-white border-b border-blue_l">
+              Información Básica
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Nombre del Producto */}
+            <div className="space-y-2 lg:col-span-2">
+              <Input
+                label="Nombre del Producto"
+                value={formData.name}
+                onChange={(value) => onFieldChange("name", value.toString())}
+                placeholder="Ingrese el nombre del producto"
+                required
+              />
+            </div>
+
+            {/* Código de Barras */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray_m dark:text-gray_xl">
+                Código de Barras
+              </label>
+              <BarcodeScanner
+                value={formData.barcode || ""}
+                onChange={(value) => onFieldChange("barcode", value)}
+                onScanComplete={(code) => onFieldChange("barcode", code)}
+                placeholder="Escanear código"
+                onButtonClick={onGenerateAutoBarcode}
+                buttonTitle="Generar código de barras"
+              />
+            </div>
+
+            {/* Lote */}
+            <div className="flex items-end space-y-2">
+              <Input
+                label="Lote/Número de Serie"
+                value={formData.lot || ""}
+                onChange={(value) => onFieldChange("lot", value.toString())}
+                placeholder="Número de lote"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Sección 2: Categorización */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-1 h-6 bg-blue_m rounded-full"></div>
+            <h3 className="text-base font-semibold text-gray_m dark:text-white border-b border-blue_l">
+              Categorización
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Categoría */}
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray_m dark:text-gray_xl">
+                Categoría <span className="text-red-500">*</span>
+              </label>
+              <Select
+                options={[
+                  {
+                    value: "",
+                    label: "Seleccionar categoría",
+                    deletable: false,
+                  },
+                  ...globalCustomCategories
+                    .filter(
+                      (cat) =>
+                        cat.rubro === rubro || cat.rubro === "Todos los rubros"
+                    )
+                    .map((cat) => ({
+                      value: cat.name,
+                      label: cat.name,
+                      deletable: true,
+                      metadata: cat,
+                    })),
+                ]}
+                value={formData.customCategories?.[0]?.name || ""}
+                onChange={(value) => {
+                  const selectedCategory = globalCustomCategories.find(
+                    (cat) => cat.name === value
+                  );
+                  onFieldChange(
+                    "customCategories",
+                    selectedCategory ? [selectedCategory] : []
+                  );
+                }}
+                onDeleteOption={(option) => {
+                  onCategoryDelete(
+                    option.metadata as { name: string; rubro: Rubro }
+                  );
+                }}
+                showDeleteButton={true}
+                label="Categoría"
+                size="small"
+              />
+            </div>
+
+            {/* Nueva Categoría */}
+            {editingProduct ? (
+              <div className=" flex items-end space-y-2">
+                <div className="w-full bg-white dark:bg-gray_b p-2.5 rounded-lg border border-blue_l">
+                  <p className="text-sm text-blue_b dark:text-blue-200">
+                    <Info className="inline mr-2" fontSize="small" />
+                    Para cambiar la categoría, seleccione una existente de la
+                    lista.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-end space-y-2">
+                <Input
+                  label="Crear Nueva Categoría"
+                  value={formData.customCategory || ""}
+                  onChange={(value) =>
+                    onFieldChange("customCategory", value.toString())
+                  }
+                  placeholder="Nombre de nueva categoría"
+                  buttonIcon={<Add fontSize="small" />}
+                  onButtonClick={onAddCategory}
+                  buttonTitle="Crear categoría"
+                  buttonDisabled={!formData.customCategory?.trim()}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Sección 3: Precios y Stock */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-1 h-6 bg-blue_m rounded-full"></div>
+            <h3 className="text-base font-semibold text-gray_m dark:text-white border-b border-blue_l">
+              Precios y Stock
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Precio de Costo */}
+            <div className="space-y-2">
+              <InputCash
+                label="Precio de Costo"
+                value={formData.costPrice}
+                onChange={(value) => onFieldChange("costPrice", value)}
+              />
+            </div>
+
+            {/* Precio de Venta */}
+            <div className="space-y-2">
+              <InputCash
+                label="Precio de Venta"
+                value={formData.price}
+                onChange={(value) => onFieldChange("price", value)}
+              />
+            </div>
+
+            {/* Stock Actual */}
+            <div className="flex items-end space-y-2">
+              <Input
+                label="Stock Actual"
+                value={formData.stock !== 0 ? formData.stock : ""}
+                onChange={(value) => onFieldChange("stock", Number(value))}
+                type="number"
+              />
+            </div>
+          </div>
+
+          {/* Configuración de IVA y Stock Mínimo */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Configuración de IVA */}
+            <div className="space-y-2">
+              <div className="bg-gray-50 dark:bg-gray_b p-4 rounded-lg border border-gray-200">
+                <Checkbox
+                  label="Incluir IVA 21%"
+                  checked={formData.hasIvaIncluded || false}
+                  onChange={onIvaChange}
+                />
+              </div>
+            </div>
+
+            {/* Stock Mínimo */}
+            <div className="space-y-2">
+              <div className="bg-gray_xxl dark:bg-gray_b p-4 rounded-lg border border-gray_xxl">
+                <div className="flex items-center justify-between">
+                  <Checkbox
+                    label="Establecer stock mínimo"
+                    checked={formData.setMinStock || false}
+                    onChange={(checked) => {
+                      onFieldChange("setMinStock", checked);
+                      onFieldChange(
+                        "minStock",
+                        checked ? formData.minStock || 1 : 0
+                      );
+                    }}
+                  />
+                </div>
+                {formData.setMinStock && (
+                  <div className="flex items-center gap-3">
+                    <InputCash
+                      label="Stock mínimo"
+                      value={formData.minStock || 0}
+                      onChange={(value) => onFieldChange("minStock", value)}
+                      placeholder="1"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Sección 4: Configuración Adicional */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-1 h-6 bg-blue_m rounded-full"></div>
+            <h3 className="text-base font-semibold text-gray_m dark:text-white border-b border-blue_l">
+              Configuración Adicional
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Unidad de Medida */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray_m dark:text-gray_xl">
+                Unidad de Medida <span className="text-red-500">*</span>
+              </label>
+              <Autocomplete
+                options={unitOptions}
+                value={selectedUnit}
+                onChange={(event, selectedOption) => {
+                  onFieldChange(
+                    "unit",
+                    selectedOption?.value as Product["unit"]
+                  );
+                }}
+                renderInput={(params) => (
+                  <Input
+                    {...params}
+                    placeholder="Seleccionar unidad"
+                    size="small"
+                  />
+                )}
+              />
+            </div>
+
+            {/* Ubicación */}
+            <div className=" flex items-end space-y-2">
+              <Input
+                label="Ubicación en Almacén"
+                value={formData.location || ""}
+                onChange={(value) =>
+                  onFieldChange("location", value.toString())
+                }
+                placeholder="Ej: Estante A-2"
+              />
+            </div>
+
+            {/* Temporada */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray_m dark:text-gray_xl">
+                Temporada
+              </label>
+              <Autocomplete
+                options={seasonOptions}
+                value={
+                  formData.season
+                    ? seasonOptions.find((opt) => opt.value === formData.season)
+                    : null
+                }
+                onChange={(event, selectedOption) => {
+                  onFieldChange("season", selectedOption?.value || "");
+                }}
+                renderInput={(params) => (
+                  <Input
+                    {...params}
+                    placeholder="Seleccionar temporada"
+                    size="small"
+                  />
+                )}
+              />
+            </div>
+          </div>
+
+          {/* Fecha de Vencimiento */}
+          {rubro !== "indumentaria" && (
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray_m dark:text-gray_xl">
+                Fecha de Vencimiento
+              </label>
+              <CustomDatePicker
+                value={formData.expiration || ""}
+                onChange={(newDate) => {
+                  onFieldChange("expiration", newDate);
+                }}
+                isClearable={true}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Sección 5: Especificaciones de Indumentaria */}
+        {rubro === "indumentaria" && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-1 h-6 bg-pink-500 rounded-full"></div>
+              <h3 className="text-base font-semibold text-gray_m dark:text-white">
+                Especificaciones de Indumentaria
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* Talle */}
+              <div className="space-y-2">
+                <Input
+                  label="Talle/Medida"
+                  value={newSize}
+                  onChange={onSizeChange}
+                  onBlur={onSizeBlur}
+                  placeholder="Crear nuevo talle"
+                />
+              </div>
+
+              {/* Color */}
+              <div className="space-y-2">
+                <Input
+                  label="Color"
+                  value={newColor}
+                  onChange={onColorChange}
+                  placeholder="Crear nuevo color"
+                />
+              </div>
+
+              {/* Marca */}
+              <div className="space-y-2">
+                <Input
+                  label="Marca"
+                  value={newBrand}
+                  onChange={onBrandChange}
+                  placeholder="Crear nueva marca"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </form>
+    );
+  }
+);
+
+ProductForm.displayName = "ProductForm";
+
+const ProductsPage = () => {
+  const { rubro } = useRubro();
+  const { currentPage, itemsPerPage } = usePagination();
+
+  const {
+    products,
+    loading,
+    fetchProducts,
+    addProduct,
+    updateProduct,
+    deleteProduct,
+    setProducts,
+  } = useProducts();
+  const { validateProduct } = useProductValidation();
+  const {
+    isNotificationOpen,
+    notificationMessage,
+    notificationType,
+    showNotification,
+    closeNotification,
+  } = useNotification();
+
+  const [isOpenModal, setIsOpenModal] = useState(false);
+  const {
+    formData: newProduct,
+    updateField,
+    resetForm,
+    setForm,
+  } = useProductForm(rubro);
+  const [sortConfig, setSortConfig] = useState<{
+    field: keyof Product;
+    direction: "asc" | "desc";
+  }>({
+    field: "name",
+    direction: "asc",
+  });
+
+  const [filters, setFilters] = useState<UnifiedFilter[]>([]);
+  const [globalCustomCategories, setGlobalCustomCategories] = useState<
+    Array<{ name: string; rubro: Rubro }>
+  >([]);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [isSaveDisabled, setIsSaveDisabled] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const [isPriceModalOpen, setIsPriceModalOpen] = useState(false);
+  const [scannedProduct, setScannedProduct] = useState<Product | null>(null);
+  const [barcodeInput, setBarcodeInput] = useState("");
+  const [productSuppliers, setProductSuppliers] = useState<
+    Record<number, string>
+  >({});
+  const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
+  const [selectedProductForBarcode, setSelectedProductForBarcode] =
+    useState<Product | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<{
+    name: string;
+    rubro: Rubro;
+  } | null>(null);
+  const [isCategoryDeleteModalOpen, setIsCategoryDeleteModalOpen] =
+    useState(false);
+  const [newBrand, setNewBrand] = useState("");
+  const [newColor, setNewColor] = useState("");
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+  const [returnReason, setReturnReason] = useState("");
+  const [selectedReturnProduct, setSelectedReturnProduct] =
+    useState<Product | null>(null);
+  const [returns, setReturns] = useState<ProductReturn[]>([]);
+  const [showReturnsHistory, setShowReturnsHistory] = useState(false);
+  const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
+  const [returnQuantity, setReturnQuantity] = useState<number>(0);
+  const [returnUnit, setReturnUnit] = useState<string>("");
+  const [clothingSizes, setClothingSizes] = useState<ClothingSizeOption[]>([]);
+  const [newSize, setNewSize] = useState("");
+  const [sizeToDelete, setSizeToDelete] = useState<string | null>(null);
+  const [isSizeDeleteModalOpen, setIsSizeDeleteModalOpen] = useState(false);
+
+  const calculatePriceWithIva = useCallback((price: number): number => {
+    return price * (1 + PRODUCT_CONFIG.IVA_PERCENTAGE / 100);
+  }, []);
+
+  const calculatePriceWithoutIva = useCallback(
+    (priceWithIva: number): number => {
+      return priceWithIva / (1 + PRODUCT_CONFIG.IVA_PERCENTAGE / 100);
+    },
+    []
+  );
+
+  const loadClothingSizes = useCallback(async () => {
     try {
-      await db.customCategories
-        .where("name")
-        .equalsIgnoreCase(categoryToDelete.name)
-        .and((cat) => cat.rubro === categoryToDelete.rubro)
-        .delete();
+      const clothingProducts = await db.products
+        .where("rubro")
+        .equals("indumentaria")
+        .toArray();
 
-      const allProducts = await db.products.toArray();
-
-      const updatePromises = allProducts.map(async (product) => {
-        const updatedCategories = (product.customCategories || []).filter(
-          (cat) =>
-            cat.name.toLowerCase() !== categoryToDelete.name.toLowerCase() ||
-            cat.rubro !== categoryToDelete.rubro
-        );
-
-        if (
-          updatedCategories.length !== (product.customCategories?.length || 0)
-        ) {
-          await db.products.update(product.id, {
-            customCategories: updatedCategories,
-          });
-          return {
-            ...product,
-            customCategories: updatedCategories,
-          };
-        }
-        return product;
-      });
-
-      const updatedProducts = await Promise.all(updatePromises);
-
-      setProducts(updatedProducts);
-
-      setGlobalCustomCategories((prev) =>
-        prev.filter(
-          (cat) =>
-            cat.name.toLowerCase() !== categoryToDelete.name.toLowerCase() ||
-            cat.rubro !== categoryToDelete.rubro
+      const uniqueSizes = Array.from(
+        new Set(
+          clothingProducts
+            .filter((product) => product.size && product.size.trim() !== "")
+            .map((product) => product.size as string)
         )
       );
 
-      setNewProduct((prev) => ({
-        ...prev,
-        customCategories: (prev.customCategories || []).filter(
-          (cat) =>
-            cat.name.toLowerCase() !== categoryToDelete.name.toLowerCase() ||
-            cat.rubro !== categoryToDelete.rubro
-        ),
-      }));
+      const sizeOptions = uniqueSizes
+        .map((size) => ({ value: size, label: size }))
+        .sort((a, b) => a.label.localeCompare(b.label));
 
-      showNotification(
-        `Categoría "${categoryToDelete.name}" eliminada correctamente`,
-        "success"
+      setClothingSizes(sizeOptions);
+    } catch (error) {
+      console.error("Error al cargar talles:", error);
+      showNotification("Error al cargar los talles", "error");
+    }
+  }, [showNotification]);
+
+  const handleIvaCheckboxChange = useCallback(
+    (hasIvaIncluded: boolean) => {
+      let newCostPrice = newProduct.costPrice;
+      let newPrice = newProduct.price;
+
+      const currentHasIvaIncluded = newProduct.hasIvaIncluded ?? true;
+
+      if (hasIvaIncluded && !currentHasIvaIncluded) {
+        newCostPrice = calculatePriceWithIva(newProduct.costPrice);
+        newPrice = calculatePriceWithIva(newProduct.price);
+      } else if (!hasIvaIncluded && currentHasIvaIncluded) {
+        newCostPrice = calculatePriceWithoutIva(newProduct.costPrice);
+        newPrice = calculatePriceWithoutIva(newProduct.price);
+      }
+
+      updateField("hasIvaIncluded", hasIvaIncluded);
+      updateField("costPrice", newCostPrice);
+      updateField("price", newPrice);
+    },
+    [
+      newProduct.costPrice,
+      newProduct.price,
+      newProduct.hasIvaIncluded,
+      calculatePriceWithIva,
+      calculatePriceWithoutIva,
+      updateField,
+    ]
+  );
+
+  const loadCustomCategories = useCallback(async () => {
+    try {
+      const storedCategories = await db.customCategories.toArray();
+      const allProducts = await db.products.toArray();
+      const allCategories = new Map<string, { name: string; rubro: Rubro }>();
+
+      storedCategories.forEach((cat) => {
+        if (cat.name?.trim()) {
+          const key = `${cat.name.toLowerCase().trim()}_${cat.rubro}`;
+          allCategories.set(key, {
+            name: toCapitalize(cat.name.trim()),
+            rubro: cat.rubro || "comercio",
+          });
+        }
+      });
+
+      allProducts.forEach((product: Product) => {
+        if (product.customCategories?.length) {
+          product.customCategories.forEach((cat) => {
+            if (cat.name?.trim()) {
+              const key = `${cat.name.toLowerCase().trim()}_${
+                cat.rubro || product.rubro || "comercio"
+              }`;
+              if (!allCategories.has(key)) {
+                allCategories.set(key, {
+                  name: toCapitalize(cat.name.trim()),
+                  rubro: cat.rubro || product.rubro || "comercio",
+                });
+              }
+            }
+          });
+        }
+
+        if (product.category?.trim()) {
+          const key = `${product.category.toLowerCase().trim()}_${
+            product.rubro || "comercio"
+          }`;
+          if (!allCategories.has(key)) {
+            allCategories.set(key, {
+              name: toCapitalize(product.category.trim()),
+              rubro: product.rubro || "comercio",
+            });
+          }
+        }
+      });
+
+      return Array.from(allCategories.values()).sort((a, b) =>
+        a.name.localeCompare(b.name)
       );
     } catch (error) {
-      console.error("Error al eliminar categoría:", error);
-      showNotification("Error al eliminar categoría", "error");
-    } finally {
-      setIsCategoryDeleteModalOpen(false);
-      setCategoryToDelete(null);
+      console.error("Error loading categories:", error);
+      return [];
     }
-  };
+  }, []);
 
-  const formatOptionLabel = ({
-    value,
-    label,
-  }: {
-    value: { name: string; rubro: Rubro };
-    label: string;
-  }) => {
-    return (
-      <div className="flex justify-between items-center w-full">
-        <div>
-          <span>{label}</span>
-        </div>
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            handleDeleteCategoryClick(value);
-          }}
-          className="text-red_b hover:text-red_m ml-2 cursor-pointer p-1 rounded-full hover:bg-red_l"
-          title="Eliminar categoría"
-        >
-          <Trash size={18} />
-        </button>
-      </div>
-    );
-  };
-  const getCompatibleUnits = (productUnit: string): UnitOption[] => {
-    const productUnitInfo =
-      CONVERSION_FACTORS[productUnit as keyof typeof CONVERSION_FACTORS];
-    if (!productUnitInfo) return unitOptions.filter((u) => !u.convertible);
+  const checkProductLimit = useCallback(async (rubro: Rubro) => {
+    const products = await db.products.where("rubro").equals(rubro).count();
+    return products >= PRODUCT_CONFIG.MAX_PRODUCTS_PER_CATEGORY;
+  }, []);
 
-    return unitOptions.filter((option) => {
-      if (!option.convertible) return false;
-      const optionInfo =
-        CONVERSION_FACTORS[option.value as keyof typeof CONVERSION_FACTORS];
-      return optionInfo?.base === productUnitInfo.base;
-    });
-  };
+  const getCompatibleUnits = useCallback(
+    (productUnit: string): UnitOption[] => {
+      const productUnitInfo =
+        CONVERSION_FACTORS[productUnit as keyof typeof CONVERSION_FACTORS];
+      if (!productUnitInfo) return unitOptions.filter((u) => !u.convertible);
 
-  const getUniqueOptions = (field: keyof Product) => {
-    return Array.from(
-      new Set(
-        products
-          .filter((p) => p.rubro === "indumentaria" && p[field])
-          .map((p) => String(p[field]))
-      )
-    )
-      .sort()
-      .map((value) => ({ value, label: value }));
-  };
+      return unitOptions.filter((option) => {
+        if (!option.convertible) return false;
+        const optionInfo =
+          CONVERSION_FACTORS[option.value as keyof typeof CONVERSION_FACTORS];
+        return optionInfo?.base === productUnitInfo.base;
+      });
+    },
+    []
+  );
 
-  const colorOptions = getUniqueOptions("color");
-  const brandOptions = getUniqueOptions("brand");
+  const calculateEAN13CheckDigit = useCallback((code: string): number => {
+    let sum = 0;
 
-  const handleSearch = (query: string) => {
+    for (let i = 0; i < 12; i++) {
+      const digit = parseInt(code[i]);
+      sum += i % 2 === 0 ? digit : digit * 3;
+    }
+
+    const remainder = sum % 10;
+    return remainder === 0 ? 0 : 10 - remainder;
+  }, []);
+
+  const generateValidEAN13 = useCallback((): string => {
+    let baseCode = "";
+    for (let i = 0; i < 12; i++) {
+      baseCode += Math.floor(Math.random() * 10).toString();
+    }
+
+    const checkDigit = calculateEAN13CheckDigit(baseCode);
+    return baseCode + checkDigit.toString();
+  }, [calculateEAN13CheckDigit]);
+
+  const hasChanges = useCallback(
+    (originalProduct: Product, updatedProduct: Product) => {
+      return (
+        originalProduct.name !== updatedProduct.name ||
+        originalProduct.stock !== updatedProduct.stock ||
+        originalProduct.costPrice !== updatedProduct.costPrice ||
+        originalProduct.price !== updatedProduct.price ||
+        originalProduct.hasIvaIncluded !== updatedProduct.hasIvaIncluded ||
+        originalProduct.expiration !== updatedProduct.expiration ||
+        originalProduct.unit !== updatedProduct.unit ||
+        originalProduct.barcode !== updatedProduct.barcode ||
+        originalProduct.category !== updatedProduct.category ||
+        originalProduct.lot !== updatedProduct.lot ||
+        originalProduct.location !== updatedProduct.location ||
+        JSON.stringify(originalProduct.customCategories) !==
+          JSON.stringify(updatedProduct.customCategories) ||
+        originalProduct.setMinStock !== updatedProduct.setMinStock ||
+        originalProduct.minStock !== updatedProduct.minStock ||
+        (rubro === "indumentaria" &&
+          (originalProduct.category !== updatedProduct.category ||
+            originalProduct.color !== updatedProduct.color ||
+            originalProduct.size !== updatedProduct.size ||
+            originalProduct.brand !== updatedProduct.brand)) ||
+        originalProduct.season !== updatedProduct.season
+      );
+    },
+    [rubro]
+  );
+
+  const handleReturnProduct = useCallback(async () => {
+    if (!selectedReturnProduct) {
+      showNotification("Por favor seleccione un producto", "error");
+      return;
+    }
+
+    try {
+      const currentStock = selectedReturnProduct.stock;
+
+      if (returnQuantity <= 0) {
+        showNotification("La cantidad debe ser mayor a 0", "error");
+        return;
+      }
+
+      const baseQuantity = convertToBaseUnit(returnQuantity, returnUnit);
+      const currentStockInBase = convertToBaseUnit(
+        currentStock,
+        selectedReturnProduct.unit
+      );
+
+      const today = getLocalDateString();
+      const dailyCash = await db.dailyCashes.get({ date: today });
+
+      if (!dailyCash) {
+        showNotification("No hay caja abierta para hoy", "error");
+        return;
+      }
+
+      const amountToSubtract = selectedReturnProduct.price * returnQuantity;
+      const profitToSubtract =
+        (selectedReturnProduct.price - selectedReturnProduct.costPrice) *
+        returnQuantity;
+
+      const returnMovement: DailyCashMovement = {
+        id: Date.now(),
+        amount: amountToSubtract,
+        description: `Devolución: ${getDisplayProductName(
+          selectedReturnProduct,
+          rubro,
+          false
+        )} - ${returnReason.trim() || "Sin motivo"}`,
+        type: "EGRESO",
+        paymentMethod: "EFECTIVO",
+        date: new Date().toISOString(),
+        productId: selectedReturnProduct.id,
+        productName: getDisplayProductName(selectedReturnProduct, rubro, false),
+        costPrice: selectedReturnProduct.costPrice,
+        sellPrice: selectedReturnProduct.price,
+        quantity: returnQuantity,
+        profit: -profitToSubtract,
+        rubro: selectedReturnProduct.rubro || rubro,
+        unit: selectedReturnProduct.unit,
+        createdAt: new Date().toISOString(),
+      };
+
+      const updatedCash = {
+        ...dailyCash,
+        movements: [...dailyCash.movements, returnMovement],
+        totalExpense: (dailyCash.totalExpense || 0) + amountToSubtract,
+        totalProfit: (dailyCash.totalProfit || 0) - profitToSubtract,
+      };
+
+      await db.dailyCashes.update(dailyCash.id, updatedCash);
+
+      const updatedStock = convertFromBaseUnit(
+        currentStockInBase + baseQuantity,
+        selectedReturnProduct.unit
+      );
+      await updateProduct(selectedReturnProduct.id, {
+        stock: parseFloat(updatedStock.toFixed(3)),
+      });
+
+      const newReturn: ProductReturn = {
+        id: Date.now(),
+        productId: selectedReturnProduct.id,
+        productName: getDisplayProductName(selectedReturnProduct, rubro, false),
+        reason: returnReason.trim() || "Sin motivo",
+        date: new Date().toISOString(),
+        stockAdded: parseFloat(
+          convertFromBaseUnit(baseQuantity, selectedReturnProduct.unit).toFixed(
+            3
+          )
+        ),
+        amount: amountToSubtract,
+        profit: profitToSubtract,
+        rubro: selectedReturnProduct.rubro || rubro,
+      };
+
+      await db.returns.add(newReturn);
+      setReturns((prev) => [...prev, newReturn]);
+
+      showNotification(
+        `Producto ${getDisplayProductName(
+          selectedReturnProduct
+        )} devuelto correctamente. Stock actualizado: ${updatedStock} ${
+          selectedReturnProduct.unit
+        }. Monto restado: ${formatCurrency(amountToSubtract)}`,
+        "success"
+      );
+
+      resetReturnData();
+      setIsReturnModalOpen(false);
+    } catch (error) {
+      console.error("Error al devolver producto:", error);
+      showNotification("Error al devolver el producto", "error");
+    }
+  }, [
+    selectedReturnProduct,
+    returnQuantity,
+    returnReason,
+    returnUnit,
+    rubro,
+    updateProduct,
+    showNotification,
+  ]);
+
+  const resetReturnData = useCallback(() => {
+    setSelectedReturnProduct(null);
+    setReturnReason("");
+    setReturnQuantity(0);
+    setReturnUnit("");
+  }, []);
+
+  const handleSort = useCallback(
+    (sort: { field: keyof Product; direction: "asc" | "desc" }) => {
+      setSortConfig(sort);
+    },
+    []
+  );
+
+  const handleSizeInputBlur = useCallback(() => {
+    if (newSize.trim() && newSize !== newProduct.size) {
+      updateField("size", newSize.trim());
+
+      if (
+        !clothingSizes.some(
+          (size) => size.value.toLowerCase() === newSize.toLowerCase().trim()
+        )
+      ) {
+        const newSizeOption = {
+          value: newSize.trim(),
+          label: newSize.trim(),
+        };
+        setClothingSizes((prev) =>
+          [...prev, newSizeOption].sort((a, b) =>
+            a.label.localeCompare(b.label)
+          )
+        );
+      }
+    }
+  }, [newSize, newProduct.size, clothingSizes, updateField]);
+
+  const handleDeleteCategoryClick = useCallback(
+    async (category: { name: string; rubro: Rubro }) => {
+      if (!category.name.trim()) return;
+
+      setCategoryToDelete(category);
+      setIsCategoryDeleteModalOpen(true);
+    },
+    []
+  );
+
+  const handleConfirmDeleteSize = useCallback(async () => {
+    if (!sizeToDelete) return;
+
+    try {
+      const productsWithSize = await db.products
+        .where("size")
+        .equals(sizeToDelete)
+        .and((product) => product.rubro === "indumentaria")
+        .count();
+
+      if (productsWithSize > 0) {
+        showNotification(
+          `No se puede eliminar el talle porque ${productsWithSize} producto(s) lo están usando`,
+          "error"
+        );
+        return;
+      }
+
+      setClothingSizes((prev) =>
+        prev.filter((size) => size.value !== sizeToDelete)
+      );
+
+      showNotification("Talle eliminado correctamente", "success");
+    } catch (error) {
+      console.error("Error al eliminar talle:", error);
+      showNotification("Error al eliminar el talle", "error");
+    } finally {
+      setIsSizeDeleteModalOpen(false);
+      setSizeToDelete(null);
+    }
+  }, [sizeToDelete, showNotification]);
+
+  const handleConfirmDeleteCategory = useCallback(
+    async (e?: React.MouseEvent) => {
+      if (e) e.preventDefault();
+      if (!categoryToDelete) return;
+
+      try {
+        await db.customCategories
+          .where("name")
+          .equalsIgnoreCase(categoryToDelete.name)
+          .and((cat) => cat.rubro === categoryToDelete.rubro)
+          .delete();
+
+        const allProducts = await db.products.toArray();
+
+        const updatePromises = allProducts.map(async (product: Product) => {
+          const updatedCategories = (product.customCategories || []).filter(
+            (cat) =>
+              cat.name.toLowerCase() !== categoryToDelete.name.toLowerCase() ||
+              cat.rubro !== categoryToDelete.rubro
+          );
+
+          if (
+            updatedCategories.length !== (product.customCategories?.length || 0)
+          ) {
+            await db.products.update(product.id, {
+              customCategories: updatedCategories,
+            });
+            return {
+              ...product,
+              customCategories: updatedCategories,
+            };
+          }
+          return product;
+        });
+
+        const updatedProducts = await Promise.all(updatePromises);
+
+        setProducts(updatedProducts);
+
+        setGlobalCustomCategories((prev) =>
+          prev.filter(
+            (cat) =>
+              cat.name.toLowerCase() !== categoryToDelete.name.toLowerCase() ||
+              cat.rubro !== categoryToDelete.rubro
+          )
+        );
+
+        updateField(
+          "customCategories",
+          (newProduct.customCategories || []).filter(
+            (cat) =>
+              cat.name.toLowerCase() !== categoryToDelete.name.toLowerCase() ||
+              cat.rubro !== categoryToDelete.rubro
+          )
+        );
+
+        showNotification(
+          `Categoría "${categoryToDelete.name}" eliminada correctamente`,
+          "success"
+        );
+      } catch (error) {
+        console.error("Error al eliminar categoría:", error);
+        showNotification("Error al eliminar categoría", "error");
+      } finally {
+        setIsCategoryDeleteModalOpen(false);
+        setCategoryToDelete(null);
+      }
+    },
+    [
+      categoryToDelete,
+      showNotification,
+      setProducts,
+      newProduct.customCategories,
+      updateField,
+    ]
+  );
+
+  const handleSearch = useCallback((query: string) => {
     setSearchQuery(query.toLowerCase());
-  };
-  const generateRandom13DigitCode = (): string => {
-    const min = 1000000000000;
-    const max = 9999999999999;
-    const randomNum = Math.floor(Math.random() * (max - min + 1)) + min;
-    return randomNum.toString();
-  };
+  }, []);
 
-  const generateAutoBarcode = () => {
-    const randomBarcode = generateRandom13DigitCode();
-    setNewProduct({
-      ...newProduct,
-      barcode: randomBarcode,
-    });
-  };
-  const handleGenerateBarcode = (product: Product) => {
+  const generateAutoBarcode = useCallback(() => {
+    const ean13Code = generateValidEAN13();
+    updateField("barcode", ean13Code);
+  }, [generateValidEAN13, updateField]);
+
+  const handleGenerateBarcode = useCallback((product: Product) => {
     setSelectedProductForBarcode(product);
     setIsBarcodeModalOpen(true);
-  };
+  }, []);
 
-  const handleOpenPriceModal = () => {
+  const handleOpenPriceModal = useCallback(() => {
     setIsPriceModalOpen(true);
     setScannedProduct(null);
     setBarcodeInput("");
@@ -715,75 +1714,41 @@ const ProductsPage = () => {
       const input = document.getElementById("price-check-barcode");
       if (input) input.focus();
     }, 100);
-  };
+  }, []);
 
-  const handleBarcodeScan = (code: string) => {
-    const product = products.find((p) => p.barcode === code);
-    if (product) {
-      setScannedProduct(product);
-      const productName =
-        rubro === "indumentaria"
-          ? `${product.name}${
-              product.color ? ` - ${product.color.toUpperCase()}` : ""
-            }${product.size ? ` (${product.size})` : ""}`
-          : product.name;
-      showNotification(
-        `Precio de ${productName}: ${formatCurrency(product.price)}`,
-        "success"
-      );
-    } else {
-      showNotification("Producto no encontrado", "error");
-    }
-    setBarcodeInput("");
-  };
+  const handleBarcodeScan = useCallback(
+    (code: string) => {
+      const product = products.find((p) => p.barcode === code);
+      if (product) {
+        setScannedProduct(product);
+        const productName =
+          rubro === "indumentaria"
+            ? `${product.name}${
+                product.color ? ` - ${product.color.toUpperCase()}` : ""
+              }${product.size ? ` (${product.size})` : ""}`
+            : product.name;
+        showNotification(
+          `Precio de ${productName}: ${formatCurrency(product.price)}`,
+          "success"
+        );
+      } else {
+        showNotification("Producto no encontrado", "error");
+      }
+      setBarcodeInput("");
+    },
+    [products, rubro, showNotification]
+  );
 
-  const hasChanges = (originalProduct: Product, updatedProduct: Product) => {
-    return (
-      originalProduct.name !== updatedProduct.name ||
-      originalProduct.stock !== updatedProduct.stock ||
-      originalProduct.costPrice !== updatedProduct.costPrice ||
-      originalProduct.price !== updatedProduct.price ||
-      originalProduct.hasIvaIncluded !== updatedProduct.hasIvaIncluded ||
-      originalProduct.expiration !== updatedProduct.expiration ||
-      originalProduct.unit !== updatedProduct.unit ||
-      originalProduct.barcode !== updatedProduct.barcode ||
-      originalProduct.category !== updatedProduct.category ||
-      originalProduct.lot !== updatedProduct.lot ||
-      originalProduct.location !== updatedProduct.location ||
-      originalProduct.customCategories !== updatedProduct.customCategories ||
-      originalProduct.setMinStock !== updatedProduct.setMinStock ||
-      originalProduct.minStock !== updatedProduct.minStock ||
-      (rubro === "indumentaria" &&
-        (originalProduct.category !== updatedProduct.category ||
-          originalProduct.color !== updatedProduct.color ||
-          originalProduct.size !== updatedProduct.size ||
-          originalProduct.brand !== updatedProduct.brand)) ||
-      originalProduct.season !== updatedProduct.season
-    );
-  };
-
-  const showNotification = (
-    message: string,
-    type: "success" | "error" | "info"
-  ) => {
-    setType(type);
-    setNotificationMessage(message);
-
-    setIsNotificationOpen(true);
-    setTimeout(() => {
-      setIsNotificationOpen(false);
-    }, 2500);
-  };
-
-  const handleAddProduct = async () => {
+  const handleAddProduct = useCallback(async () => {
     const categories = await loadCustomCategories();
     setGlobalCustomCategories(categories);
     setIsOpenModal(true);
-  };
-  const handleAddCategory = async () => {
+  }, [loadCustomCategories]);
+
+  const handleAddCategory = useCallback(async () => {
     if (!newProduct.customCategory?.trim()) return;
 
-    const trimmedCategory = newProduct.customCategory.trim();
+    const trimmedCategory = toCapitalize(newProduct.customCategory.trim());
     const lowerName = trimmedCategory.toLowerCase();
     const alreadyExists = globalCustomCategories.some(
       (cat) => cat.name.toLowerCase() === lowerName && cat.rubro === rubro
@@ -804,31 +1769,29 @@ const ProductsPage = () => {
 
       setGlobalCustomCategories((prev) => [...prev, newCategory]);
 
-      setNewProduct((prev) => ({
-        ...prev,
-        customCategories: [newCategory],
-        customCategory: "",
-      }));
+      updateField("customCategories", [newCategory]);
+      updateField("customCategory", "");
 
       showNotification("Categoría agregada correctamente", "success");
     } catch (error) {
       console.error("Error al guardar categoría:", error);
       showNotification("Error al guardar la categoría", "error");
     }
-  };
+  }, [
+    newProduct.customCategory,
+    globalCustomCategories,
+    rubro,
+    showNotification,
+    updateField,
+  ]);
 
-  const handleConfirmAddProduct = async () => {
-    const authData = await db.auth.get(1);
-    if (authData?.userId === 1) {
-      const isLimitReached = await checkProductLimit(rubro);
-      if (isLimitReached) {
-        showNotification(
-          `Límite alcanzado: máximo 30 productos por rubro para el administrador`,
-          "error"
-        );
-        return;
-      }
+  const handleConfirmAddProduct = useCallback(async () => {
+    const validationErrors = validateProduct(newProduct);
+    if (validationErrors.length > 0) {
+      showNotification(validationErrors.join(", "), "error");
+      return;
     }
+
     if (!newProduct.customCategories?.length && !newProduct.customCategory) {
       showNotification("Por favor, complete todos los campos", "error");
       return;
@@ -864,30 +1827,11 @@ const ProductsPage = () => {
           }),
     };
 
-    if (
-      !newProduct.name ||
-      !newProduct.stock ||
-      !newProduct.costPrice ||
-      !newProduct.price ||
-      !newProduct.unit ||
-      !newProduct.customCategories?.length
-    ) {
-      showNotification(
-        "Por favor, complete todos los campos obligatorios",
-        "error"
-      );
-      return;
-    }
-
     try {
       if (editingProduct) {
-        await db.products.update(editingProduct.id, productToSave);
-        setProducts((prev) =>
-          prev.map((p) => (p.id === editingProduct.id ? productToSave : p))
-        );
+        await updateProduct(editingProduct.id, productToSave);
       } else {
-        const id = await db.products.add(productToSave);
-        setProducts((prev) => [...prev, { ...productToSave, id: Number(id) }]);
+        await addProduct(productToSave);
       }
 
       const updatedCategories = await loadCustomCategories();
@@ -905,209 +1849,182 @@ const ProductsPage = () => {
     } finally {
       handleCloseModal();
     }
-  };
+  }, [
+    newProduct,
+    rubro,
+    editingProduct,
+    validateProduct,
+    checkProductLimit,
+    updateProduct,
+    addProduct,
+    loadCustomCategories,
+    showNotification,
+  ]);
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = useCallback(async () => {
     if (productToDelete) {
-      await db.products.delete(productToDelete.id);
-      setProducts(products.filter((p) => p.id !== productToDelete.id));
-      showNotification(`Producto ${productToDelete.name} eliminado`, "success");
-      setProductToDelete(null);
+      try {
+        await deleteProduct(productToDelete.id);
+        showNotification(
+          `Producto ${productToDelete.name} eliminado`,
+          "success"
+        );
+        setProductToDelete(null);
+      } catch {
+        showNotification("Error al eliminar el producto", "error");
+      }
     }
     setIsConfirmModalOpen(false);
-  };
+  }, [productToDelete, deleteProduct, showNotification]);
 
-  const handleCloseModal = () => {
+  const handleCloseModal = useCallback(() => {
     setIsOpenModal(false);
     setNewBrand("");
     setNewSize("");
     setNewColor("");
-    setNewProduct({
-      id: Date.now(),
-      name: "",
-      stock: 0,
-      costPrice: 0,
-      price: 0,
-      expiration: "",
-      quantity: 0,
-      unit: "Unid.",
-      barcode: "",
-      category: "",
-      brand: "",
-      color: "",
-      size: "",
-      rubro: rubro,
-      lot: "",
-      location: "",
-      customCategory: "",
-      customCategories: [],
-    });
+    resetForm();
     setEditingProduct(null);
-  };
+  }, [resetForm]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+  const handleEditProduct = useCallback(
+    async (product: Product) => {
+      const categories = await loadCustomCategories();
+      setGlobalCustomCategories(categories);
 
-    setNewProduct({
-      ...newProduct,
-      [name]:
-        name === "costPrice" || name === "price" || name === "stock"
-          ? Number(value) || 0
-          : value,
-    });
-  };
+      setEditingProduct(product);
+      setNewBrand(product.brand || "");
+      setNewColor(product.color || "");
 
-  const handleEditProduct = async (product: Product) => {
-    const categories = await loadCustomCategories();
-    setGlobalCustomCategories(categories);
+      let categoriesToSet = (product.customCategories || []).map((cat) => ({
+        name: toCapitalize(cat.name),
+        rubro: cat.rubro || product.rubro || rubro || "comercio",
+      }));
 
-    setEditingProduct(product);
-    setNewBrand(product.brand || "");
-    setNewColor(product.color || "");
+      if (categoriesToSet.length === 0 && product.category) {
+        categoriesToSet = [
+          {
+            name: toCapitalize(product.category),
+            rubro: product.rubro || rubro || "comercio",
+          },
+        ];
+      }
 
-    let categoriesToSet = (product.customCategories || []).map((cat) => ({
-      name: cat.name,
-      rubro: cat.rubro || product.rubro || rubro || "comercio",
-    }));
+      const hasIvaIncluded =
+        product.hasIvaIncluded !== undefined ? product.hasIvaIncluded : true;
 
-    if (categoriesToSet.length === 0 && product.category) {
-      categoriesToSet = [
-        {
-          name: product.category,
-          rubro: product.rubro || rubro || "comercio",
-        },
-      ];
-    }
+      setForm({
+        ...product,
+        hasIvaIncluded,
+        customCategories: categoriesToSet,
+        category: "",
+        customCategory: "",
+        size: product.size || "",
+        color: product.color || "",
+        setMinStock: product.setMinStock || false,
+        minStock: product.minStock || 0,
+      });
 
-    const hasIvaIncluded =
-      product.hasIvaIncluded !== undefined ? product.hasIvaIncluded : true;
+      setIsOpenModal(true);
+    },
+    [rubro, loadCustomCategories, setForm]
+  );
 
-    setNewProduct({
-      ...product,
-      hasIvaIncluded,
-      customCategories: categoriesToSet,
-      category: "",
-      customCategory: "",
-      size: product.size || "",
-      color: product.color || "",
-      setMinStock: product.setMinStock || false,
-      minStock: product.minStock || 0,
-    });
-
-    setIsOpenModal(true);
-  };
-  const handleDeleteProduct = (product: Product) => {
+  const handleDeleteProduct = useCallback((product: Product) => {
     setProductToDelete(product);
     setIsConfirmModalOpen(true);
-  };
-  const loadCustomCategories = async () => {
-    try {
-      const storedCategories = await db.customCategories.toArray();
-      const allProducts = await db.products.toArray();
-      const allCategories = new Map<string, { name: string; rubro: Rubro }>();
+  }, []);
 
-      // Agregar categorías almacenadas
-      storedCategories.forEach((cat) => {
-        if (cat.name?.trim()) {
-          const key = `${cat.name.toLowerCase().trim()}_${cat.rubro}`;
-          allCategories.set(key, {
-            name: cat.name.trim(),
-            rubro: cat.rubro || "comercio",
-          });
-        }
-      });
+  const sortedProducts = useSortedProducts(
+    products,
+    filters,
+    sortConfig,
+    rubro,
+    debouncedSearchQuery
+  );
 
-      // Agregar categorías de productos (tanto customCategories como category)
-      allProducts.forEach((product) => {
-        // Procesar customCategories
-        if (product.customCategories?.length) {
-          product.customCategories.forEach((cat) => {
-            if (cat.name?.trim()) {
-              const key = `${cat.name.toLowerCase().trim()}_${
-                cat.rubro || product.rubro || "comercio"
-              }`;
-              if (!allCategories.has(key)) {
-                allCategories.set(key, {
-                  name: cat.name.trim(),
-                  rubro: cat.rubro || product.rubro || "comercio",
-                });
-              }
-            }
-          });
-        }
+  const indexOfLastProduct = currentPage * itemsPerPage;
+  const indexOfFirstProduct = indexOfLastProduct - itemsPerPage;
+  const currentProducts = sortedProducts.slice(
+    indexOfFirstProduct,
+    indexOfLastProduct
+  );
 
-        // Procesar category heredada
-        if (product.category?.trim()) {
-          const key = `${product.category.toLowerCase().trim()}_${
-            product.rubro || "comercio"
-          }`;
-          if (!allCategories.has(key)) {
-            allCategories.set(key, {
-              name: product.category.trim(),
-              rubro: product.rubro || "comercio",
-            });
-          }
-        }
-      });
-
-      return Array.from(allCategories.values()).sort((a, b) =>
-        a.name.localeCompare(b.name)
-      );
-    } catch (error) {
-      console.error("Error loading categories:", error);
-      return [];
-    }
-  };
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "F3") {
-        e.preventDefault();
-        setIsSelectionModalOpen(true);
+      const isModalOpen =
+        isOpenModal ||
+        isConfirmModalOpen ||
+        isPriceModalOpen ||
+        isReturnModalOpen ||
+        isSelectionModalOpen ||
+        isBarcodeModalOpen ||
+        showReturnsHistory ||
+        isSizeDeleteModalOpen ||
+        isCategoryDeleteModalOpen;
+
+      if (isModalOpen || rubro === "Todos los rubros") {
+        return;
+      }
+
+      switch (e.key) {
+        case "F2":
+          e.preventDefault();
+          handleAddProduct();
+          break;
+        case "F3":
+          e.preventDefault();
+          setIsSelectionModalOpen(true);
+          break;
+        case "F4":
+          e.preventDefault();
+          handleOpenPriceModal();
+          break;
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [
+    rubro,
+    handleAddProduct,
+    handleOpenPriceModal,
+    isOpenModal,
+    isConfirmModalOpen,
+    isPriceModalOpen,
+    isReturnModalOpen,
+    isSelectionModalOpen,
+    isBarcodeModalOpen,
+    showReturnsHistory,
+    isSizeDeleteModalOpen,
+    isCategoryDeleteModalOpen,
+  ]);
+
   useEffect(() => {
-    if (editingProduct) {
-      setIsSaveDisabled(!hasChanges(editingProduct, newProduct));
-    } else {
-      setIsSaveDisabled(
-        !newProduct.name ||
-          !newProduct.stock ||
-          !newProduct.costPrice ||
-          !newProduct.price ||
-          !newProduct.unit
-      );
-    }
-  }, [newProduct, editingProduct]);
+    const shouldDisableSave = editingProduct
+      ? !hasChanges(editingProduct, newProduct)
+      : !newProduct.name ||
+        !newProduct.stock ||
+        !newProduct.costPrice ||
+        !newProduct.price ||
+        !newProduct.unit;
+
+    setIsSaveDisabled(shouldDisableSave);
+  }, [newProduct, editingProduct, hasChanges]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const storedProducts = await db.products.toArray();
+        await fetchProducts();
         const storedReturns = await db.returns.toArray();
-
-        setProducts(
-          storedProducts
-            .map((p) => ({
-              ...p,
-              id: Number(p.id),
-              customCategories: (p.customCategories || []).filter(
-                (cat) => cat.name && cat.name.trim()
-              ),
-            }))
-            .sort((a, b) => b.id - a.id)
-        );
-
         setReturns(
           storedReturns.map((r) => ({
             ...r,
             id: Number(r.id),
           }))
         );
-
         await loadCustomCategories();
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -1116,7 +2033,8 @@ const ProductsPage = () => {
     };
 
     fetchData();
-  }, []);
+  }, [fetchProducts, loadCustomCategories, showNotification]);
+
   useEffect(() => {
     const fetchCategories = async () => {
       const categories = await loadCustomCategories();
@@ -1125,7 +2043,7 @@ const ProductsPage = () => {
     if (isOpenModal) {
       fetchCategories();
     }
-  }, [rubro, isOpenModal]);
+  }, [rubro, isOpenModal, loadCustomCategories]);
 
   useEffect(() => {
     const loadSuppliers = async () => {
@@ -1155,323 +2073,352 @@ const ProductsPage = () => {
     const initialize = async () => {
       await loadCustomCategories();
       if (!editingProduct) {
-        setNewProduct((prev) => ({
-          ...prev,
-          rubro: rubro,
-          customCategories: (prev.customCategories || [])
-            .filter(
-              (cat) => cat.rubro === rubro || cat.rubro === "Todos los rubros"
-            )
-            .map((cat) => ({
-              name: cat.name,
-              rubro: cat.rubro || rubro,
-            })),
-        }));
+        resetForm();
       }
     };
 
     initialize();
-  }, [rubro, isOpenModal]);
+  }, [rubro, isOpenModal, loadCustomCategories, editingProduct, resetForm]);
 
-  const indexOfLastProduct = currentPage * itemsPerPage;
-  const indexOfFirstProduct = indexOfLastProduct - itemsPerPage;
+  useEffect(() => {
+    if (rubro === "indumentaria") {
+      loadClothingSizes();
+    } else {
+      setClothingSizes([]);
+    }
+  }, [rubro, products, loadClothingSizes]);
 
-  const pageNumbers = [];
-  for (let i = 1; i <= Math.ceil(sortedProducts.length / itemsPerPage); i++) {
-    pageNumbers.push(i);
-  }
+  const handleBrandChange = useCallback(
+    (value: string | number) => {
+      const stringValue = value.toString();
+      setNewBrand(stringValue);
+      if (stringValue) {
+        updateField("brand", toCapitalize(stringValue));
+      }
+    },
+    [updateField]
+  );
+
+  const handleColorChange = useCallback(
+    (value: string | number) => {
+      const stringValue = value.toString();
+      setNewColor(stringValue);
+      if (stringValue) {
+        updateField("color", toCapitalize(stringValue));
+      }
+    },
+    [updateField]
+  );
+
+  const handleSizeChange = useCallback(
+    (value: string | number) => {
+      const stringValue = value.toString();
+      setNewSize(stringValue);
+      updateField("size", toCapitalize(stringValue));
+    },
+    [updateField]
+  );
 
   return (
     <ProtectedRoute>
-      <div className="px-10 2xl:px-10 py-4 text-gray_l dark:text-white h-[calc(100vh-80px)]">
-        <h1 className="text-lg 2xl:text-xl font-semibold mb-2">Productos</h1>
+      <Box
+        sx={{
+          px: 4,
+          py: 2,
+          height: "100vh",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <Typography variant="h5" fontWeight="semibold" mb={2}>
+          Productos
+        </Typography>
 
-        <div className="flex justify-between mb-2 w-full">
-          <div className="w-full flex items-center gap-2">
+        {/* Header con búsqueda y acciones */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            mb: 2,
+            width: "100%",
+          }}
+        >
+          <Box
+            sx={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+            }}
+          >
             <SearchBar onSearch={handleSearch} />
-
             <AdvancedFilterPanel
               data={products}
               onApplyFilters={setFilters}
               onApplySort={handleSort}
               rubro={rubro}
             />
-          </div>
-          <div
-            className={`w-full flex justify-end items-center mt-3 gap-2 ${
-              rubro === "Todos los rubros" ? "hidden" : ""
-            } `}
+          </Box>
+          <Box
+            sx={{
+              width: "100%",
+              display: "flex",
+              justifyContent: "flex-end",
+              alignItems: "center",
+              gap: 2,
+              visibility: rubro === "Todos los rubros" ? "hidden" : "visible",
+            }}
           >
             <Button
-              text="Añadir Producto [F2]"
-              colorText="text-white"
-              colorTextHover="text-white"
+              variant="contained"
               onClick={handleAddProduct}
-              hotkey="F2"
-            />
-            <Button
-              text="Devoluciones [F3]"
-              colorText="text-white"
-              colorTextHover="text-white"
-              onClick={() => setIsSelectionModalOpen(true)}
-              hotkey="F3"
+              sx={{
+                bgcolor: "primary.main",
+                "&:hover": { bgcolor: "primary.dark" },
+              }}
             >
-              <PackageX size={18} />
+              Añadir Producto [F2]
             </Button>
             <Button
-              text="Ver Precio [F4]"
-              colorText="text-white"
-              colorTextHover="text-white"
+              variant="contained"
+              onClick={() => setIsSelectionModalOpen(true)}
+              sx={{
+                bgcolor: "secondary.main",
+                "&:hover": { bgcolor: "secondary.dark" },
+              }}
+              startIcon={<Inventory2 fontSize="small" />}
+            >
+              Devoluciones [F3]
+            </Button>
+            <Button
+              variant="contained"
               onClick={handleOpenPriceModal}
-              hotkey="F4"
-            />
-          </div>
-        </div>
+              sx={{
+                bgcolor: "info.main",
+                "&:hover": { bgcolor: "info.dark" },
+              }}
+            >
+              Ver Precio [F4]
+            </Button>
+          </Box>
+        </Box>
 
-        <div className="flex flex-col justify-between h-[calc(100vh-200px)]  ">
-          <div className="max-h-[calc(100vh-250px)] overflow-y-auto">
-            <table className=" table-auto w-full text-center border-collapse overflow-y-auto shadow-sm shadow-gray_l">
-              <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-xs">
-                <tr>
-                  <th className="p-2 text-start">Producto</th>
-                  <th className="p-2">Stock </th>
-                  <th className="p-2 cursor-pointer">Categoría</th>
-                  <th className="p-2 cursor-pointer">Ubicación</th>
-
-                  {rubro === "indumentaria" && (
-                    <>
-                      <th className="p-2">Talle</th>
-                      <th className="p-2">Color</th>
-                      <th className="p-2">Marca</th>
-                    </>
-                  )}
-                  <th className="p-2">Temporada</th>
-                  <th className="p-2">Precio costo</th>
-                  <th className="p-2">Precio venta</th>
-                  {rubro !== "indumentaria" && (
-                    <th className="p-2">Vencimiento</th>
-                  )}
-                  <th className="p-2">Proveedor</th>
-                  {rubro !== "Todos los rubros" && (
-                    <th className="w-30 max-w-[4rem] 2xl:max-w-[10rem] p-2">
-                      Acciones
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody
-                className={`bg-white text-gray_b divide-y divide-gray_xl `}
-              >
-                {sortedProducts.length > 0 ? (
-                  sortedProducts
-                    .slice(indexOfFirstProduct, indexOfLastProduct)
-                    .map((product, index) => {
-                      const expirationDate = product.expiration
-                        ? startOfDay(parseISO(product.expiration))
-                        : null;
-                      const today = startOfDay(new Date());
-
-                      let daysUntilExpiration = null;
-                      if (expirationDate) {
-                        daysUntilExpiration = differenceInDays(
-                          expirationDate,
-                          today
-                        );
-                      }
-
-                      const expiredToday = daysUntilExpiration === 0;
-                      const isExpired =
-                        daysUntilExpiration !== null && daysUntilExpiration < 0;
-                      const isExpiringSoon =
-                        daysUntilExpiration !== null &&
-                        daysUntilExpiration > 0 &&
-                        daysUntilExpiration <= 7;
-
-                      return (
-                        <tr
-                          key={index}
-                          className={`border border-gray_xl hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300 text-xs 2xl:text-sm ${
-                            isExpired
-                              ? "border-l-2 border-l-red_m text-gray_b bg-white animate-pulse"
-                              : expiredToday
-                              ? "border-l-2 border-l-red_m text-white  bg-red_m hover:bg-red_m dark:hover:bg-red_m "
-                              : isExpiringSoon
-                              ? "border-l-2 border-l-red_m text-gray_b bg-red_l hover:bg-red_l dark:hover:bg-red_l"
-                              : "text-gray_b hover:text-gray_b bg-white "
-                          }`}
-                        >
-                          <td className="font-semibold px-2 text-start capitalize border border-gray_xl">
-                            <div className="flex items-center gap-2 h-full">
-                              {expiredToday && (
-                                <AlertTriangle
-                                  className="text-yellow_m dark:text-yellow_b"
-                                  size={18}
-                                />
-                              )}
-                              {isExpiringSoon && (
-                                <AlertTriangle
-                                  className="text-yellow_b"
-                                  size={18}
-                                />
-                              )}
-                              {isExpired && (
-                                <AlertTriangle
-                                  className="text-red_m dark:text-yellow_m"
-                                  size={18}
-                                />
-                              )}
-                              <span className="leading-tight">
-                                {getDisplayProductName(product, rubro, false)}
-                              </span>
-                            </div>
-                          </td>
-                          <td
-                            className={`${
-                              !isNaN(Number(product.stock)) &&
-                              Number(product.stock) > 0
-                                ? product.setMinStock &&
-                                  product.minStock &&
-                                  product.stock < product.minStock
-                                  ? "text-white font-semibold bg-blue_m"
-                                  : ""
-                                : "text-red_b"
-                            } p-2 border border-gray_xl relative`}
-                          >
-                            <div className="flex flex-col">
-                              <span className="font-semibold">
-                                {!isNaN(Number(product.stock)) &&
-                                Number(product.stock) > 0
-                                  ? `${product.stock} ${product.unit}`
-                                  : "Agotado"}
-                              </span>
-
-                              {product.setMinStock &&
-                                product.minStock &&
-                                product.stock < product.minStock && (
-                                  <span className="text-xs text-blue_xl font-medium mt-1">
-                                    Stock por debajo del mínimo
-                                  </span>
-                                )}
-                            </div>
-                          </td>
-                          <td className="p-2 border border-gray_xl capitalize">
-                            {product.customCategories?.[0]?.name || "-"}
-                          </td>
-                          <td className="p-2 border border-gray_xl">
-                            {product.location || "-"}
-                          </td>
-
-                          {rubro === "indumentaria" && (
-                            <>
-                              <td className="p-2 border border-gray_xl">
-                                {product.size || "-"}
-                              </td>
-                              <td className="p-2 border border-gray_xl capitalize">
-                                {product.color || "-"}
-                              </td>
-
-                              <td className="p-2 border border-gray_xl capitalize">
-                                {product.brand || "-"}
-                              </td>
-                            </>
-                          )}
-                          <td className="p-2 border border-gray_xl capitalize">
-                            {product.season || "-"}
-                          </td>
-
-                          <td className="p-2 border border-gray_xl">
-                            {formatCurrency(product.costPrice)}
-                          </td>
-                          <td className="p-2 border border-gray_xl">
-                            {formatCurrency(product.price)}
-                          </td>
-                          {rubro !== "indumentaria" && (
-                            <td className="p-2 border border-gray_xl font-semibold">
-                              {product.expiration &&
-                              isValid(parseISO(product.expiration))
-                                ? format(
-                                    parseISO(product.expiration),
-                                    "dd/MM/yyyy",
-                                    { locale: es }
-                                  )
-                                : "-"}
-                              {isExpiringSoon && (
-                                <span className=" ml-2 text-red_m">
-                                  (Por vencer)
-                                </span>
-                              )}
-                              {expirationDate && expiredToday && (
-                                <span className="animate-pulse ml-2 text-white">
-                                  (Vence Hoy)
-                                </span>
-                              )}
-                              {expirationDate && isExpired && (
-                                <span className="ml-2 text-red_b">
-                                  (Vencido)
-                                </span>
-                              )}
-                            </td>
-                          )}
-                          <td className="p-2 border border-gray_xl">
-                            {productSuppliers[product.id] || "-"}
-                          </td>
-                          {rubro !== "Todos los rubros" && (
-                            <td className="p-2 flex justify-center gap-2">
-                              <Button
-                                icon={<Barcode size={18} />}
-                                colorText={isExpired ? "text-gray_b" : ""}
-                                colorTextHover="hover:text-white"
-                                colorBg="bg-transparent"
-                                px="px-1"
-                                py="py-1"
-                                minwidth="min-w-0"
-                                onClick={() => handleGenerateBarcode(product)}
-                                title="Código de Barras"
-                              />
-                              <Button
-                                icon={<Edit size={18} />}
-                                colorText={isExpired ? "text-gray_b" : ""}
-                                colorTextHover="hover:text-white"
-                                colorBg="bg-transparent"
-                                px="px-1"
-                                py="py-1"
-                                minwidth="min-w-0"
-                                onClick={() => handleEditProduct(product)}
-                                title="Editar Producto"
-                              />
-                              <Button
-                                icon={<Trash size={18} />}
-                                colorText="text-gray_b"
-                                colorTextHover="hover:text-white"
-                                colorBg="bg-transparent"
-                                colorBgHover="hover:bg-red_m"
-                                px="px-1"
-                                py="py-1"
-                                minwidth="min-w-0"
-                                onClick={() => handleDeleteProduct(product)}
-                                title="Eliminar Producto"
-                              />
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    })
-                ) : (
-                  <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
-                    <td
-                      colSpan={rubro === "indumentaria" ? 12 : 10}
-                      className="py-4 text-center"
+        {/* Tabla de productos */}
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            justifyContent: "space-between",
+          }}
+        >
+          <Box sx={{ flex: 1, minHeight: "auto" }}>
+            <TableContainer
+              component={Paper}
+              sx={{ maxHeight: "63vh", mb: 2, flex: 1 }}
+            >
+              <Table stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell
+                      sx={{
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                      }}
                     >
-                      <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
-                        <PackageX size={64} className="mb-4 text-gray_m" />
-                        <p className="text-gray_m">Todavía no hay productos.</p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                      Producto
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                      }}
+                      align="center"
+                    >
+                      Stock
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                      }}
+                      align="center"
+                    >
+                      Categoría
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                      }}
+                      align="center"
+                    >
+                      Ubicación
+                    </TableCell>
+
+                    {rubro === "indumentaria" && (
+                      <>
+                        <TableCell
+                          sx={{
+                            bgcolor: "primary.main",
+                            color: "primary.contrastText",
+                          }}
+                          align="center"
+                        >
+                          Talle
+                        </TableCell>
+                        <TableCell
+                          sx={{
+                            bgcolor: "primary.main",
+                            color: "primary.contrastText",
+                          }}
+                          align="center"
+                        >
+                          Color
+                        </TableCell>
+                        <TableCell
+                          sx={{
+                            bgcolor: "primary.main",
+                            color: "primary.contrastText",
+                          }}
+                          align="center"
+                        >
+                          Marca
+                        </TableCell>
+                      </>
+                    )}
+                    <TableCell
+                      sx={{
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                      }}
+                      align="center"
+                    >
+                      Temporada
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                      }}
+                      align="center"
+                    >
+                      Precio costo
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                      }}
+                      align="center"
+                    >
+                      Precio venta
+                    </TableCell>
+                    {rubro !== "indumentaria" && (
+                      <TableCell
+                        sx={{
+                          bgcolor: "primary.main",
+                          color: "primary.contrastText",
+                        }}
+                        align="center"
+                      >
+                        Vencimiento
+                      </TableCell>
+                    )}
+                    <TableCell
+                      sx={{
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                      }}
+                      align="center"
+                    >
+                      Proveedor
+                    </TableCell>
+                    {rubro !== "Todos los rubros" && (
+                      <TableCell
+                        sx={{
+                          bgcolor: "primary.main",
+                          color: "primary.contrastText",
+                        }}
+                        align="center"
+                      >
+                        Acciones
+                      </TableCell>
+                    )}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={rubro === "indumentaria" ? 12 : 10}
+                        align="center"
+                      >
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            py: 4,
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              animation: "spin 1s linear infinite",
+                              width: "32px",
+                              height: "32px",
+                              border: "2px solid",
+                              borderColor: "primary.main transparent",
+                              borderRadius: "50%",
+                            }}
+                          />
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ) : currentProducts.length > 0 ? (
+                    currentProducts.map((product) => (
+                      <ProductRow
+                        key={product.id}
+                        product={product}
+                        rubro={rubro}
+                        onEdit={handleEditProduct}
+                        onDelete={handleDeleteProduct}
+                        onGenerateBarcode={handleGenerateBarcode}
+                        supplierName={productSuppliers[product.id]}
+                      />
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={rubro === "indumentaria" ? 12 : 10}
+                        align="center"
+                      >
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            color: "text.secondary",
+                            py: 4,
+                          }}
+                        >
+                          <Inventory2
+                            sx={{
+                              marginBottom: 2,
+                              color: "#9CA3AF",
+                              fontSize: 64,
+                            }}
+                          />
+                          <Typography>Todavía no hay productos.</Typography>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+
           {sortedProducts.length > 0 && (
             <Pagination
               text="Productos por página"
@@ -1479,46 +2426,119 @@ const ProductsPage = () => {
               totalItems={sortedProducts.length}
             />
           )}
-        </div>
+        </Box>
+
+        {/* Modales */}
+        <Modal
+          isOpen={isSizeDeleteModalOpen}
+          onClose={() => setIsSizeDeleteModalOpen(false)}
+          title="Eliminar Talle"
+          bgColor="bg-white dark:bg-gray_b"
+          buttons={
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
+              <Button
+                variant="text"
+                onClick={() => setIsSizeDeleteModalOpen(false)}
+                sx={{
+                  color: "text.secondary",
+                  borderColor: "text.secondary",
+                  "&:hover": {
+                    backgroundColor: "action.hover",
+                    borderColor: "text.primary",
+                  },
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="contained"
+                color="error"
+                onClick={handleConfirmDeleteSize}
+                isPrimaryAction={true}
+                sx={{
+                  bgcolor: "error.main",
+                  "&:hover": { bgcolor: "error.dark" },
+                }}
+              >
+                Sí, Eliminar
+              </Button>
+            </Box>
+          }
+        >
+          <Box sx={{ textAlign: "center", py: 2 }}>
+            <Delete
+              sx={{ fontSize: 48, color: "error.main", mb: 2, mx: "auto" }}
+            />
+            <Typography variant="h6" fontWeight="semibold" sx={{ mb: 1 }}>
+              ¿Está seguro/a que desea eliminar el talle?
+            </Typography>
+            <Typography variant="body2" fontWeight="semibold" sx={{ mb: 1 }}>
+              El talle <strong>{sizeToDelete}</strong> será eliminado
+              permanentemente.
+            </Typography>
+          </Box>
+        </Modal>
+
         <Modal
           isOpen={isSelectionModalOpen}
           onClose={() => setIsSelectionModalOpen(false)}
           title="Devoluciones"
           bgColor="bg-white dark:bg-gray_b"
           buttons={
-            <>
-              <Button
-                text="Cancelar"
-                colorText="text-gray_b dark:text-white"
-                colorTextHover="hover:dark:text-white"
-                colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
-                onClick={() => setIsSelectionModalOpen(false)}
-              />
-            </>
+            <Button
+              variant="text"
+              onClick={() => setIsSelectionModalOpen(false)}
+              isPrimaryAction={true}
+              sx={{
+                color: "text.secondary",
+                borderColor: "text.secondary",
+                "&:hover": {
+                  backgroundColor: "action.hover",
+                  borderColor: "text.primary",
+                },
+              }}
+            >
+              Cancelar
+            </Button>
           }
         >
-          <div className="flex  justify-center items-center gap-4 p-4">
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: 2,
+            }}
+          >
             <Button
-              text="Devolver Producto"
-              colorText="text-white"
-              colorTextHover="text-white"
+              variant="contained"
               onClick={() => {
                 setIsSelectionModalOpen(false);
                 setIsReturnModalOpen(true);
               }}
-            />
+              sx={{
+                bgcolor: "primary.main",
+                "&:hover": { bgcolor: "primary.dark" },
+              }}
+            >
+              Devolver Producto
+            </Button>
             <Button
-              text="Ver Historial"
-              colorText="text-white"
-              colorTextHover="text-white"
+              variant="contained"
               onClick={() => {
                 setIsSelectionModalOpen(false);
                 setShowReturnsHistory(true);
               }}
-            />
-          </div>
+              sx={{
+                bgcolor: "secondary.main",
+                "&:hover": { bgcolor: "secondary.dark" },
+              }}
+            >
+              Ver Historial
+            </Button>
+          </Box>
         </Modal>
+
         <Modal
           isOpen={showReturnsHistory}
           onClose={() => setShowReturnsHistory(false)}
@@ -1526,17 +2546,22 @@ const ProductsPage = () => {
           bgColor="bg-white dark:bg-gray_b"
           buttons={
             <Button
-              text="Volver"
-              colorText="text-gray_b dark:text-white"
-              colorTextHover="hover:dark:text-white"
-              colorBg="bg-transparent dark:bg-gray_m"
-              colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
+              variant="text"
               onClick={() => {
                 setShowReturnsHistory(false);
                 setIsSelectionModalOpen(true);
               }}
-              hotkey="Escape"
-            />
+              sx={{
+                color: "text.secondary",
+                borderColor: "text.secondary",
+                "&:hover": {
+                  backgroundColor: "action.hover",
+                  borderColor: "text.primary",
+                },
+              }}
+            >
+              Volver
+            </Button>
           }
         >
           <div className="max-h-[55vh] overflow-y-auto">
@@ -1547,7 +2572,6 @@ const ProductsPage = () => {
                     <th className="p-2 text-left">Producto</th>
                     <th className="p-2 text-left">Motivo</th>
                     <th className="p-2">Cantidad</th>
-
                     <th className="p-2">Fecha</th>
                   </tr>
                 </thead>
@@ -1565,7 +2589,6 @@ const ProductsPage = () => {
                         <td className="p-2">{ret.productName}</td>
                         <td className="p-2">{ret.reason}</td>
                         <td className="p-2 text-center">{ret.stockAdded}</td>
-
                         <td className="p-2 text-center">
                           {format(parseISO(ret.date), "dd/MM/yyyy HH:mm", {
                             locale: es,
@@ -1577,12 +2600,15 @@ const ProductsPage = () => {
               </table>
             ) : (
               <div className="text-center py-4">
-                <PackageX size={48} className="mx-auto text-gray_m mb-2" />
+                <Inventory2
+                  sx={{ fontSize: 48, color: "gray_m", marginBottom: 2 }}
+                />
                 <p>No hay devoluciones registradas</p>
               </div>
             )}
           </div>
         </Modal>
+
         <Modal
           isOpen={isReturnModalOpen}
           onClose={() => {
@@ -1592,28 +2618,37 @@ const ProductsPage = () => {
           title="Devolver Producto [F3]"
           bgColor="bg-white dark:bg-gray_b"
           buttons={
-            <>
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
               <Button
-                text="Confirmar Devolución"
-                colorText="text-white"
-                colorTextHover="text-white"
-                onClick={handleReturnProduct}
-                hotkey="Enter"
-              />
-              <Button
-                text="Volver"
-                colorText="text-gray_b dark:text-white"
-                colorTextHover="hover:dark:text-white"
-                colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
+                variant="text"
                 onClick={() => {
                   setIsReturnModalOpen(false);
                   resetReturnData();
                   setIsSelectionModalOpen(true);
                 }}
-                hotkey="Escape"
-              />
-            </>
+                sx={{
+                  color: "text.secondary",
+                  borderColor: "text.secondary",
+                  "&:hover": {
+                    backgroundColor: "action.hover",
+                    borderColor: "text.primary",
+                  },
+                }}
+              >
+                Volver
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleReturnProduct}
+                isPrimaryAction={true}
+                sx={{
+                  bgcolor: "primary.main",
+                  "&:hover": { bgcolor: "primary.dark" },
+                }}
+              >
+                Confirmar Devolución
+              </Button>
+            </Box>
           }
         >
           <div className="flex flex-col gap-4">
@@ -1621,7 +2656,7 @@ const ProductsPage = () => {
               <label className="block text-gray_m dark:text-white text-sm font-semibold">
                 Seleccionar Producto
               </label>
-              <Select
+              <Autocomplete
                 options={sortedProducts.map((product) => ({
                   value: product,
                   label: getDisplayProductName(product, rubro, false),
@@ -1638,11 +2673,19 @@ const ProductsPage = () => {
                       }
                     : null
                 }
-                onChange={(selectedOption) => {
+                onChange={(event, selectedOption) => {
                   setSelectedReturnProduct(selectedOption?.value || null);
                 }}
-                placeholder="Buscar producto..."
-                className="text-gray_m"
+                renderInput={(params) => (
+                  <Input
+                    {...params}
+                    placeholder="Buscar producto..."
+                    size="small"
+                  />
+                )}
+                isOptionEqualToValue={(option, value) =>
+                  option.value.id === value.value.id
+                }
               />
             </div>
 
@@ -1661,20 +2704,19 @@ const ProductsPage = () => {
 
             {selectedReturnProduct && (
               <div className="flex flex-col gap-2">
-                <label className="block text-gray_m dark:text-white text-sm font-semibold ">
+                <label className="block text-gray_m dark:text-white text-sm font-semibold">
                   Cantidad a devolver
                 </label>
                 <div className="flex max-w-75">
                   <Input
-                    width="w-40"
                     type="number"
                     value={returnQuantity || ""}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value === "" || !isNaN(Number(value))) {
-                        setReturnQuantity(value === "" ? 1 : Number(value));
-                      }
+                    onChange={(value) => {
+                      const numValue = value === "" ? 1 : Number(value);
+                      setReturnQuantity(numValue);
                     }}
+                    size="small"
+                    customSx={{ width: "160px" }}
                     step={
                       selectedReturnProduct?.unit === "Kg" ||
                       selectedReturnProduct?.unit === "L"
@@ -1683,22 +2725,18 @@ const ProductsPage = () => {
                     }
                   />
                   <Select
+                    label=""
+                    value={returnUnit || selectedReturnProduct?.unit || ""}
                     options={getCompatibleUnits(
                       selectedReturnProduct?.unit || "Unid."
-                    )}
-                    noOptionsMessage={() => "Sin opciones"}
-                    value={unitOptions.find(
-                      (opt) =>
-                        opt.value ===
-                        (returnUnit || selectedReturnProduct?.unit)
-                    )}
-                    onChange={(selectedOption) => {
-                      setReturnUnit(
-                        selectedOption?.value || selectedReturnProduct?.unit
-                      );
-                    }}
-                    className="text-gray_m w-60"
-                    isDisabled
+                    ).map((unit) => ({
+                      value: unit.value,
+                      label: unit.label,
+                    }))}
+                    onChange={(value) => setReturnUnit(value)}
+                    size="small"
+                    disabled
+                    sx={{ width: "240px", marginLeft: "8px" }}
                   />
                 </div>
               </div>
@@ -1710,14 +2748,16 @@ const ProductsPage = () => {
               </label>
               <Input
                 type="text"
-                name="returnReason"
                 placeholder="Ej: Producto defectuoso, cambio de talla, etc."
                 value={returnReason}
-                onChange={(e) => setReturnReason(e.target.value)}
+                onChange={(value) => setReturnReason(value.toString())}
+                fullWidth
+                size="small"
               />
             </div>
           </div>
         </Modal>
+
         <Modal
           isOpen={isOpenModal}
           onConfirm={handleConfirmAddProduct}
@@ -1725,678 +2765,177 @@ const ProductsPage = () => {
           title={editingProduct ? "Editar Producto" : "Añadir Producto"}
           bgColor="bg-white dark:bg-gray_b"
           buttons={
-            <>
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
               <Button
-                text={editingProduct ? "Actualizar" : "Guardar"}
-                colorText="text-white"
-                colorTextHover="text-white"
-                onClick={handleConfirmAddProduct}
-                disabled={editingProduct ? isSaveDisabled : false}
-              />
-              <Button
-                text="Cancelar"
-                colorText="text-gray_b dark:text-white"
-                colorTextHover="hover:dark:text-white"
-                colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
+                variant="text"
                 onClick={handleCloseModal}
-              />
-            </>
+                sx={{
+                  color: "text.secondary",
+                  borderColor: "text.secondary",
+                  "&:hover": {
+                    backgroundColor: "action.hover",
+                    borderColor: "text.primary",
+                  },
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleConfirmAddProduct}
+                disabled={isSaveDisabled}
+                isPrimaryAction={true}
+                sx={{
+                  bgcolor: "primary.main",
+                  "&:hover": { bgcolor: "primary.dark" },
+                  "&:disabled": { bgcolor: "action.disabled" },
+                }}
+              >
+                {editingProduct ? "Actualizar" : "Guardar"}
+              </Button>
+            </Box>
           }
         >
-          <form
-            className="flex flex-col gap-2"
-            onSubmit={(e) => e.preventDefault()}
-          >
-            <div className="w-full flex items-center space-x-4 ">
-              <div className="w-full">
-                <label className="block text-gray_m dark:text-white text-sm font-semibold">
-                  Código de Barras
-                </label>
-                <div className="flex items-center gap-2">
-                  <BarcodeScanner
-                    value={newProduct.barcode || ""}
-                    onChange={(value) => {
-                      setNewProduct({ ...newProduct, barcode: value });
-                    }}
-                    onScanComplete={(code) => {
-                      const existingProduct = products.find(
-                        (p) => p.barcode === code
-                      );
-                      if (existingProduct) {
-                        setNewProduct({
-                          ...existingProduct,
-                          id: editingProduct ? existingProduct.id : Date.now(),
-                          barcode: existingProduct.barcode,
-                        });
-                        setEditingProduct(existingProduct);
-                        showNotification("Producto encontrado", "success");
-                      } else if (editingProduct) {
-                        setNewProduct({
-                          ...newProduct,
-                          barcode: code,
-                        });
-                      }
-                    }}
-                  />
-                  <Button
-                    text="Generar código"
-                    colorText="text-white"
-                    colorTextHover="text-white"
-                    colorBg="bg-blue_b"
-                    colorBgHover="hover:bg-blue_m"
-                    onClick={generateAutoBarcode}
-                  />
-                </div>
-              </div>
-              <div className="w-full flex items-center space-x-2">
-                <div className="w-full">
-                  <Input
-                    label="Lote"
-                    type="text"
-                    name="lot"
-                    placeholder="Nro. de lote"
-                    value={newProduct.lot || ""}
-                    onChange={handleInputChange}
-                  />
-                </div>
-                <Input
-                  label="Nombre del producto*"
-                  type="text"
-                  name="name"
-                  placeholder="Nombre del producto"
-                  value={newProduct.name}
-                  onChange={handleInputChange}
-                />
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 w-full">
-                <Input
-                  label="Ubicación"
-                  type="text"
-                  name="location"
-                  placeholder="Ej: Estante 2, Piso 1"
-                  value={newProduct.location || ""}
-                  onChange={handleInputChange}
-                />
-                <div className="w-full">
-                  <label className="block text-gray_m dark:text-white text-sm font-semibold">
-                    Temporada
-                  </label>
-                  <Select
-                    options={seasonOptions}
-                    noOptionsMessage={() => "Sin opciones"}
-                    value={
-                      newProduct.season
-                        ? seasonOptions.find(
-                            (opt) => opt.value === newProduct.season
-                          )
-                        : null
-                    }
-                    onChange={(selectedOption) => {
-                      setNewProduct({
-                        ...newProduct,
-                        season: selectedOption?.value || "",
-                      });
-                    }}
-                    placeholder="Temporada"
-                    className="text-gray_m"
-                    isClearable
-                  />
-                </div>
-              </div>
-              {!editingProduct && (
-                <div className="w-full">
-                  <label className="block text-gray_m dark:text-white text-sm font-semibold">
-                    Crear categoría
-                  </label>
-                  <div className="flex gap-2">
-                    <Input
-                      type="text"
-                      name="customCategory"
-                      placeholder="Nueva categoría"
-                      value={newProduct.customCategory || ""}
-                      onChange={handleInputChange}
-                    />
-                    <Button
-                      text="Agregar"
-                      icon={<Plus size={18} />}
-                      colorText="text-white"
-                      colorTextHover="text-white"
-                      colorBg="bg-blue_b"
-                      colorBgHover="hover:bg-blue_m"
-                      onClick={handleAddCategory}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="w-full grid grid-cols-2 gap-x-4 gap-y-2  ">
-              <div className="w-full">
-                <label className="block text-gray_m dark:text-white text-sm font-semibold">
-                  Seleccionar categoría*
-                </label>
-                <Select
-                  options={[
-                    ...globalCustomCategories
-                      .filter(
-                        (cat) =>
-                          cat.rubro === rubro ||
-                          cat.rubro === "Todos los rubros"
-                      )
-                      .map((cat) => ({
-                        value: cat,
-                        label: cat.name,
-                      })),
-
-                    ...(editingProduct?.category &&
-                    !globalCustomCategories.some(
-                      (c) =>
-                        c.name.toLowerCase() ===
-                          editingProduct.category?.toLowerCase() &&
-                        c.rubro === (editingProduct.rubro || rubro)
-                    )
-                      ? [
-                          {
-                            value: {
-                              name: editingProduct.category,
-                              rubro: editingProduct.rubro || rubro,
-                            },
-                            label: `${editingProduct.category}`,
-                          },
-                        ]
-                      : []),
-                  ]}
-                  noOptionsMessage={() => "Sin opciones"}
-                  value={
-                    newProduct.customCategories?.[0]
-                      ? {
-                          value: newProduct.customCategories[0],
-                          label: newProduct.customCategories[0].name,
-                        }
-                      : editingProduct?.category
-                      ? {
-                          value: {
-                            name: editingProduct.category,
-                            rubro: editingProduct.rubro || rubro,
-                          },
-                          label: `${editingProduct.category}`,
-                        }
-                      : null
-                  }
-                  onChange={(selectedOption) => {
-                    setNewProduct((prev) => ({
-                      ...prev,
-                      customCategories: selectedOption
-                        ? [selectedOption.value]
-                        : [],
-                      category: "",
-                    }));
-                  }}
-                  placeholder="Seleccionar categoría"
-                  className="w-full text-gray_b"
-                  formatOptionLabel={formatOptionLabel}
-                  isClearable
-                />
-              </div>
-              {rubro === "indumentaria" ? (
-                <>
-                  <div className="w-full">
-                    <label className="block text-gray_m dark:text-white text-sm font-semibold">
-                      Talle
-                    </label>
-                    <div className="flex gap-2">
-                      <Select
-                        options={clothingSizes}
-                        noOptionsMessage={() => "Sin opciones"}
-                        value={
-                          clothingSizes.find(
-                            (opt) => opt.value === newProduct.size
-                          ) || null
-                        }
-                        onChange={(selectedOption) => {
-                          setNewProduct({
-                            ...newProduct,
-                            size: selectedOption?.value || "",
-                          });
-                          setNewSize("");
-                        }}
-                        className="text-gray_m w-full"
-                        placeholder="Seleccionar talle"
-                        formatOptionLabel={({ value, label }) => (
-                          <div className="flex justify-between items-center w-full">
-                            <div>
-                              <span>{label}</span>
-                            </div>
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handleDeleteSize(value);
-                              }}
-                              className="text-red_b hover:text-red_m ml-2 cursor-pointer p-1 rounded-full hover:bg-red_l"
-                              title="Eliminar talle"
-                            >
-                              <Trash size={18} />
-                            </button>
-                          </div>
-                        )}
-                      />
-                      <div className="w-full -mt-5">
-                        <label className="block text-gray_m dark:text-white text-sm font-semibold">
-                          {newProduct.size === ""
-                            ? "Crear talle"
-                            : "Editar talle"}
-                        </label>
-                        <Input
-                          type="text"
-                          name="newSize"
-                          placeholder={
-                            newProduct.size === ""
-                              ? "Nuevo talle"
-                              : "Editar talle"
-                          }
-                          value={newSize}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setNewSize(value);
-                            setNewProduct({
-                              ...newProduct,
-                              size: value,
-                            });
-                          }}
-                          onBlur={handleSizeInputBlur}
-                          className="w-full"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="w-full">
-                    <label className="block text-gray_m dark:text-white text-sm font-semibold">
-                      Color
-                    </label>
-                    <div className="flex gap-2">
-                      <Select
-                        options={colorOptions}
-                        noOptionsMessage={() => "Sin opciones"}
-                        value={
-                          newProduct.color
-                            ? {
-                                value: newProduct.color,
-                                label: newProduct.color,
-                              }
-                            : null
-                        }
-                        onChange={(selectedOption) => {
-                          setNewProduct({
-                            ...newProduct,
-                            color: selectedOption?.value || "",
-                          });
-                          setNewColor("");
-                        }}
-                        placeholder="Color existente"
-                        isClearable
-                        className="w-full text-gray_b"
-                      />
-                      <div className="w-full -mt-5">
-                        <label className="block text-gray_m dark:text-white text-sm font-semibold">
-                          {newProduct.color === ""
-                            ? "Crear color"
-                            : "Editar color"}
-                        </label>
-                        <Input
-                          type="text"
-                          name="newColor"
-                          placeholder={
-                            newProduct.color === ""
-                              ? "Nuevo color"
-                              : "Editar color"
-                          }
-                          value={newColor}
-                          onChange={(e) => {
-                            setNewColor(e.target.value);
-                            if (e.target.value) {
-                              setNewProduct({
-                                ...newProduct,
-                                color: e.target.value,
-                              });
-                            }
-                          }}
-                          className="w-full"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="w-full">
-                    <label className="block text-gray_m dark:text-white text-sm font-semibold">
-                      Marca
-                    </label>
-                    <div className="flex gap-2">
-                      <Select
-                        options={brandOptions}
-                        noOptionsMessage={() => "Sin opciones"}
-                        value={
-                          newProduct.brand
-                            ? {
-                                value: newProduct.brand,
-                                label: newProduct.brand,
-                              }
-                            : null
-                        }
-                        onChange={(selectedOption) => {
-                          setNewProduct({
-                            ...newProduct,
-                            brand: selectedOption?.value || "",
-                          });
-                          setNewBrand("");
-                        }}
-                        placeholder="Marca existente"
-                        isClearable
-                        className="w-full text-gray_b"
-                      />
-                      <div className="w-full -mt-5">
-                        <label className="block text-gray_m dark:text-white text-sm font-semibold">
-                          {newProduct.brand === ""
-                            ? "Crear marca"
-                            : "Editar marca"}
-                        </label>
-                        <Input
-                          type="text"
-                          name="newBrand"
-                          placeholder={
-                            newProduct.brand === ""
-                              ? "Nueva marca"
-                              : "Editar marca"
-                          }
-                          value={newBrand}
-                          onChange={(e) => {
-                            setNewBrand(e.target.value);
-                            if (e.target.value) {
-                              setNewProduct({
-                                ...newProduct,
-                                brand: e.target.value,
-                              });
-                            }
-                          }}
-                          className="w-full"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="w-full">
-                  <label className="block text-gray_m dark:text-white text-sm font-semibold">
-                    Unidad*
-                  </label>
-                  <Select
-                    options={unitOptions}
-                    noOptionsMessage={() => "Sin opciones"}
-                    value={selectedUnit}
-                    onChange={(selectedOption) => {
-                      setNewProduct({
-                        ...newProduct,
-                        unit: selectedOption?.value as Product["unit"],
-                      });
-                    }}
-                    className="text-gray_m"
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <div className="w-full flex items-center space-x-4">
-                <div className="flex items-center w-1/2">
-                  <InputCash
-                    label="Precio de costo*"
-                    value={newProduct.costPrice}
-                    onChange={(value) =>
-                      setNewProduct({ ...newProduct, costPrice: value })
-                    }
-                  />
-                </div>
-                <div className="flex items-center w-1/2 gap-2">
-                  <div className="flex items-center w-1/2">
-                    <InputCash
-                      label="Precio de venta*"
-                      value={newProduct.price}
-                      onChange={(value) =>
-                        setNewProduct({ ...newProduct, price: value })
-                      }
-                    />
-                  </div>
-                  <div className="flex items-center space-x-2 min-w-60 mt-5">
-                    <input
-                      type="checkbox"
-                      id="hasIvaIncluded"
-                      name="hasIvaIncluded"
-                      checked={newProduct.hasIvaIncluded || false}
-                      onChange={handleIvaCheckboxChange}
-                      className="cursor-pointer w-4 h-4 text-blue_b bg-gray_xxl border-gray_l rounded "
-                    />
-                    <label
-                      htmlFor="hasIvaIncluded"
-                      className="text-sm text-gray_m dark:text-white"
-                    >
-                      Incluir IVA
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {rubro !== "indumentaria" ? (
-              <div className="flex items-center space-x-4 ">
-                <CustomDatePicker
-                  value={newProduct.expiration || ""}
-                  onChange={(newDate) => {
-                    setNewProduct({ ...newProduct, expiration: newDate });
-                  }}
-                  isClearable={true}
-                />
-              </div>
-            ) : null}
-            <div className="w-full flex items-center space-x-4">
-              <div className="w-1/2">
-                <Input
-                  label="Stock*"
-                  type="number"
-                  name="stock"
-                  placeholder="Stock"
-                  value={newProduct.stock.toString()}
-                  onChange={handleInputChange}
-                />
-              </div>
-
-              <div className="w-1/2 flex flex-col space-y-2">
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="setMinStock"
-                    name="setMinStock"
-                    checked={newProduct.setMinStock || false}
-                    onChange={(e) => {
-                      setNewProduct({
-                        ...newProduct,
-                        setMinStock: e.target.checked,
-                        minStock: e.target.checked
-                          ? newProduct.minStock || 1
-                          : 0, // Cambiar a 1 por defecto
-                      });
-                    }}
-                    className="cursor-pointer w-4 h-4 text-blue_b bg-gray_xxl border-gray_l rounded"
-                  />
-                  <label
-                    htmlFor="setMinStock"
-                    className="text-sm text-gray_m dark:text-white"
-                  >
-                    Setear stock mínimo
-                  </label>
-                </div>
-
-                {newProduct.setMinStock && (
-                  <div className="w-full">
-                    <Input
-                      label="Stock Mínimo*"
-                      type="number"
-                      name="minStock"
-                      placeholder="Stock mínimo requerido"
-                      value={newProduct.minStock?.toString() || ""}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setNewProduct({
-                          ...newProduct,
-                          minStock: value === "" ? 1 : Number(value),
-                        });
-                      }}
-                      step="1"
-                    />
-                    {newProduct.setMinStock &&
-                      (!newProduct.minStock || newProduct.minStock <= 0) && (
-                        <p className="text-red-500 text-xs mt-1">
-                          El stock mínimo debe ser mayor a 0
-                        </p>
-                      )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </form>
+          <ProductForm
+            formData={newProduct}
+            onFieldChange={updateField}
+            rubro={rubro}
+            editingProduct={editingProduct}
+            globalCustomCategories={globalCustomCategories}
+            onAddCategory={handleAddCategory}
+            onIvaChange={handleIvaCheckboxChange}
+            onGenerateAutoBarcode={generateAutoBarcode}
+            unitOptions={unitOptions}
+            seasonOptions={seasonOptions}
+            clothingSizes={clothingSizes}
+            newBrand={newBrand}
+            newColor={newColor}
+            newSize={newSize}
+            onBrandChange={handleBrandChange}
+            onColorChange={handleColorChange}
+            onSizeChange={handleSizeChange}
+            onSizeBlur={handleSizeInputBlur}
+            onCategoryDelete={handleDeleteCategoryClick}
+          />
         </Modal>
-        <Modal
-          isOpen={isSizeDeleteModalOpen}
-          onClose={() => setIsSizeDeleteModalOpen(false)}
-          title="Eliminar Talle"
-          bgColor="bg-white dark:bg-gray_b"
-          buttons={
-            <>
-              <Button
-                text="Confirmar"
-                colorText="text-white dark:text-white"
-                colorTextHover="hover:dark:text-white"
-                colorBg="bg-red_m border-b-1 dark:bg-blue_b"
-                colorBgHover="hover:bg-red_b hover:dark:bg-blue_m"
-                onClick={handleConfirmDeleteSize}
-              />
-              <Button
-                text="Cancelar"
-                colorText="text-gray_b dark:text-white"
-                colorTextHover="hover:dark:text-white"
-                colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
-                onClick={() => setIsSizeDeleteModalOpen(false)}
-              />
-            </>
-          }
-        >
-          <div className="space-y-4">
-            <p>
-              ¿Está seguro que desea eliminar el talle{" "}
-              <span className="font-bold">{sizeToDelete}</span>?
-            </p>
-            <div className="bg-yellow-50 dark:bg-gray_b p-3 rounded-lg">
-              <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                <AlertTriangle className="inline mr-2" size={18} />
-                Solo se pueden eliminar talles que no estén siendo utilizados
-                por ningún producto.
-              </p>
-            </div>
-          </div>
-        </Modal>
+
         <Modal
           isOpen={isCategoryDeleteModalOpen}
           onClose={() => setIsCategoryDeleteModalOpen(false)}
           title="Eliminar Categoría"
           bgColor="bg-white dark:bg-gray_b"
           buttons={
-            <>
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
               <Button
-                text="Confirmar"
-                colorText="text-white dark:text-white"
-                colorTextHover="hover:dark:text-white"
-                colorBg="bg-red_m border-b-1 dark:bg-blue_b"
-                colorBgHover="hover:bg-red_b hover:dark:bg-blue_m"
-                onClick={(e) => {
-                  e?.preventDefault();
-                  handleConfirmDeleteCategory();
+                variant="text"
+                onClick={() => setIsCategoryDeleteModalOpen(false)}
+                sx={{
+                  color: "text.secondary",
+                  borderColor: "text.secondary",
+                  "&:hover": {
+                    backgroundColor: "action.hover",
+                    borderColor: "text.primary",
+                  },
                 }}
-              />
+              >
+                Cancelar
+              </Button>
               <Button
-                text="Cancelar"
-                colorText="text-gray_b dark:text-white"
-                colorTextHover="hover:dark:text-white"
-                colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
-                onClick={(e) => {
-                  e?.preventDefault();
-                  setIsCategoryDeleteModalOpen(false);
+                variant="contained"
+                onClick={handleConfirmDeleteCategory}
+                sx={{
+                  bgcolor: "error.main",
+                  "&:hover": { bgcolor: "error.dark" },
                 }}
-              />
-            </>
+              >
+                Sí, eliminar
+              </Button>
+            </Box>
           }
         >
-          <div className="space-y-4">
-            <p>
-              ¿Está seguro que desea eliminar la categoría{" "}
-              <span className="font-bold">{categoryToDelete?.name}</span>?
-            </p>
-
-            {categoryToDelete && (
-              <div className="bg-yellow-50 dark:bg-gray_b p-3 rounded-lg">
-                <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                  <AlertTriangle className="inline mr-2" size={18} />
-                  Esta acción afectará a todos los productos con esta categoría.
-                </p>
-              </div>
-            )}
-          </div>
+          <Box sx={{ textAlign: "center", py: 2 }}>
+            <Delete
+              sx={{ fontSize: 48, color: "error.main", mb: 2, mx: "auto" }}
+            />
+            <Typography variant="h6" fontWeight="semibold" sx={{ mb: 1 }}>
+              ¿Está seguro/a que desea eliminar la categoría?
+            </Typography>
+            <Typography variant="body2" fontWeight="semibold" sx={{ mb: 1 }}>
+              La categoría <strong>{categoryToDelete?.name}</strong> será
+              eliminada permanentemente.
+            </Typography>
+          </Box>
         </Modal>
+
         <Modal
           isOpen={isConfirmModalOpen}
           onClose={() => setIsConfirmModalOpen(false)}
           title="Eliminar Producto"
           bgColor="bg-white dark:bg-gray_b"
-          onConfirm={handleConfirmDelete}
           buttons={
-            <>
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
               <Button
-                text="Si"
-                colorText="text-white dark:text-white"
-                colorTextHover="hover:dark:text-white"
-                colorBg="bg-red_m border-b-1 dark:bg-blue_b"
-                colorBgHover="hover:bg-red_b hover:dark:bg-blue_m"
-                onClick={handleConfirmDelete}
-              />
-              <Button
-                text="No"
-                colorText="text-gray_b dark:text-white"
-                colorTextHover="hover:dark:text-white"
-                colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
+                variant="text"
                 onClick={() => setIsConfirmModalOpen(false)}
-              />
-            </>
+                sx={{
+                  color: "text.secondary",
+                  borderColor: "text.secondary",
+                  "&:hover": {
+                    backgroundColor: "action.hover",
+                    borderColor: "text.primary",
+                  },
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleConfirmDelete}
+                isPrimaryAction={true}
+                sx={{
+                  bgcolor: "error.main",
+                  "&:hover": { bgcolor: "error.dark" },
+                }}
+              >
+                Sí, eliminar
+              </Button>
+            </Box>
           }
         >
-          <p>¿Desea eliminar el producto {productToDelete?.name}?</p>
+          <Box sx={{ textAlign: "center", py: 2 }}>
+            <Delete
+              sx={{ fontSize: 48, color: "error.main", mb: 2, mx: "auto" }}
+            />
+            <Typography variant="h6" fontWeight="semibold" sx={{ mb: 1 }}>
+              ¿Está seguro/a que desea eliminar el producto?
+            </Typography>
+            <Typography variant="body2" fontWeight="semibold" sx={{ mb: 1 }}>
+              <strong>{productToDelete?.name}</strong> será eliminado
+              permanentemente.
+            </Typography>
+          </Box>
         </Modal>
+
         <Modal
           isOpen={isPriceModalOpen}
           onClose={() => setIsPriceModalOpen(false)}
-          title="Consultar Precio de Producto"
+          title="Consultar precio"
           bgColor="bg-white dark:bg-gray_b"
           buttons={
             <Button
-              text="Cerrar"
-              colorText="text-gray_b dark:text-white"
-              colorTextHover="hover:dark:text-white"
-              colorBg="bg-transparent dark:bg-gray_m"
-              colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
+              variant="text"
               onClick={() => setIsPriceModalOpen(false)}
-            />
+              sx={{
+                color: "text.secondary",
+                borderColor: "text.secondary",
+                "&:hover": {
+                  backgroundColor: "action.hover",
+                  borderColor: "text.primary",
+                },
+              }}
+            >
+              Cerrar
+            </Button>
           }
         >
           <div className="flex flex-col gap-2">
@@ -2460,7 +2999,7 @@ const ProductsPage = () => {
                       </p>
                     </div>
                   ) : (
-                    <div className="flex items-center ">
+                    <div className="flex items-center">
                       <p className="text-md text-gray_l dark:text-gray_xl">
                         Sin fecha de vencimiento
                       </p>
@@ -2471,6 +3010,7 @@ const ProductsPage = () => {
             )}
           </div>
         </Modal>
+
         {isBarcodeModalOpen && selectedProductForBarcode && (
           <BarcodeGenerator
             product={selectedProductForBarcode}
@@ -2494,9 +3034,10 @@ const ProductsPage = () => {
         <Notification
           isOpen={isNotificationOpen}
           message={notificationMessage}
-          type={type}
+          type={notificationType}
+          onClose={closeNotification}
         />
-      </div>
+      </Box>
     </ProtectedRoute>
   );
 };

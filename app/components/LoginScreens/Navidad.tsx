@@ -2,9 +2,12 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import logo from "../../../public/logo.png";
+import logo from "@/public/logo.png";
 import Image from "next/image";
-import { Globe, MessageCircle } from "lucide-react";
+import {
+  Language as GlobeIcon,
+  Message as MessageCircleIcon,
+} from "@mui/icons-material";
 
 type CommonProps = {
   title?: string;
@@ -38,7 +41,6 @@ const Navidad: React.FC<CommonProps> = ({
       animate={{ opacity: 1 }}
       transition={{ duration: 1 }}
     >
-      {/* Elementos de anticipación navideña con Framer Motion */}
       <motion.div
         className="absolute top-10 left-10 text-4xl"
         animate={{ y: [-10, 10, -10] }}
@@ -281,7 +283,7 @@ const Navidad: React.FC<CommonProps> = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
           >
-            <Globe className="w-6 h-6 text-white" />
+            <GlobeIcon className="w-6 h-6 text-white" />
             <p className={textClassName}>Visita nuestro sitio web</p>
           </motion.a>
 
@@ -294,7 +296,7 @@ const Navidad: React.FC<CommonProps> = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
           >
-            <MessageCircle className="w-6 h-6 text-white" />
+            <MessageCircleIcon className="w-6 h-6 text-white" />
             <p className={textClassName}>Whatsapp: {whatsappNumber}</p>
           </motion.a>
         </motion.div>
@@ -308,7 +310,7 @@ const Navidad: React.FC<CommonProps> = ({
         >
           {["🎄", "🎄", "🎄", "🎄", "🎄", "🎄", "🎄"].map((icon, index) => (
             <motion.span
-              key={icon}
+              key={index}
               className="text-2xl text-[#2d78b9]"
               animate={{
                 scale: [1, 1.2, 1],

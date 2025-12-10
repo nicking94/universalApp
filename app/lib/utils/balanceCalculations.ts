@@ -1,4 +1,4 @@
-import { CreditSale, Payment } from "@/app/lib/types/types";
+﻿import { CreditSale, Payment } from "@/app/lib/types/types";
 
 export const calculateCustomerBalance = (
   customerName: string,

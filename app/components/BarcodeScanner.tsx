@@ -1,7 +1,11 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import Input from "./Input";
-import { Barcode } from "lucide-react";
+import { TextField, InputAdornment, IconButton } from "@mui/material";
+import {
+  QrCodeScanner as BarcodeIcon,
+  Refresh as RefreshIcon,
+} from "@mui/icons-material";
+import CustomGlobalTooltip from "./CustomTooltipGlobal";
 
 interface BarcodeScannerProps {
   value: string;
@@ -9,6 +13,10 @@ interface BarcodeScannerProps {
   onScanComplete?: (code: string) => void;
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
+  onButtonClick?: () => void;
+  buttonTitle?: string;
+  buttonDisabled?: boolean;
 }
 
 export default function BarcodeScanner({
@@ -16,6 +24,11 @@ export default function BarcodeScanner({
   onChange,
   onScanComplete,
   placeholder = "Escanear o ingresar código manualmente",
+  className = "",
+  disabled = false,
+  onButtonClick,
+  buttonTitle = "Generar código EAN-13",
+  buttonDisabled = false,
 }: BarcodeScannerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -23,13 +36,11 @@ export default function BarcodeScanner({
   const [isMac, setIsMac] = useState(false);
 
   useEffect(() => {
-    // Detectar si es macOS
     setIsMac(navigator.platform.includes("Mac"));
 
-    // Enfoque con retraso para macOS
     const timer = setTimeout(
       () => {
-        if (inputRef.current) {
+        if (inputRef.current && !disabled) {
           inputRef.current.focus();
           inputRef.current.select();
         }
@@ -38,7 +49,7 @@ export default function BarcodeScanner({
     );
 
     return () => clearTimeout(timer);
-  }, [isMac]);
+  }, [isMac, disabled]);
 
   const handleBarcodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
@@ -46,7 +57,6 @@ export default function BarcodeScanner({
 
     onChange(newValue);
 
-    // Configuración diferente para macOS
     const minLength = isMac ? 3 : 8;
     const timeThreshold = isMac ? 100 : 30;
 
@@ -62,7 +72,6 @@ export default function BarcodeScanner({
           if (onScanComplete) {
             onScanComplete(newValue);
             if (inputRef.current) {
-              // Limpiar después del escaneo para macOS
               setTimeout(() => {
                 if (inputRef.current) {
                   inputRef.current.value = "";
@@ -79,7 +88,6 @@ export default function BarcodeScanner({
     lastInputTimeRef.current = now;
   };
 
-  // Handler especial para macOS
   const handleMacKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (isMac && e.key === "Enter" && value.length >= 3) {
       e.preventDefault();
@@ -92,16 +100,65 @@ export default function BarcodeScanner({
     }
   };
 
+  const handleFocus = () => {
+    if (inputRef.current) {
+      inputRef.current.select();
+    }
+  };
+
   return (
-    <Input
+    <TextField
       type="text"
-      ref={inputRef}
+      inputRef={inputRef}
       value={value}
       onChange={handleBarcodeChange}
       onKeyDown={handleMacKeyDown}
+      onFocus={handleFocus}
       placeholder={placeholder}
-      autoFocus={true}
-      icon={<Barcode size={18} />}
+      autoFocus={!disabled}
+      disabled={disabled}
+      fullWidth
+      size="small"
+      className={className}
+      InputProps={{
+        startAdornment: (
+          <InputAdornment position="start">
+            <BarcodeIcon fontSize="small" />
+          </InputAdornment>
+        ),
+        endAdornment: onButtonClick ? (
+          <InputAdornment position="end">
+            <CustomGlobalTooltip title={buttonTitle}>
+              <IconButton
+                onClick={onButtonClick}
+                disabled={buttonDisabled || disabled}
+                size="medium"
+                sx={{
+                  marginRight: "8px",
+                  padding: "4px",
+                  borderRadius: "4px",
+                  backgroundColor: "primary.main",
+                  color: "white",
+                  "&:hover": {
+                    backgroundColor: "primary.dark",
+                  },
+                  "&.Mui-disabled": {
+                    backgroundColor: "grey.400",
+                    color: "grey.600",
+                  },
+                }}
+              >
+                <RefreshIcon fontSize="small" />
+              </IconButton>
+            </CustomGlobalTooltip>
+          </InputAdornment>
+        ) : undefined,
+      }}
+      sx={{
+        "& .MuiOutlinedInput-root": {
+          paddingRight: onButtonClick ? "0px" : undefined,
+        },
+      }}
     />
   );
 }

@@ -1,14 +1,16 @@
 "use client";
-import Button from "@/app/components/Button";
-import { FolderDown } from "lucide-react";
-import ProtectedRoute from "@/app/components/ProtectedRoute";
-import { db } from "@/app/database/db";
 import { saveAs } from "file-saver";
 import { useState } from "react";
-import ImportFileButton from "@/app/components/ImportFileButton";
 import { format } from "date-fns";
-import Notification from "@/app/components/Notification";
+
+import { Box, Typography, CircularProgress, useTheme } from "@mui/material";
+import { Download as DownloadIcon } from "@mui/icons-material";
+import { db } from "@/app/database/db";
 import { Payment, Product, Sale } from "@/app/lib/types/types";
+import ProtectedRoute from "@/app/components/ProtectedRoute";
+import ImportFileButton from "@/app/components/ImportFileButton";
+import Notification from "@/app/components/Notification";
+import Button from "@/app/components/Button";
 
 export default function ImportExportPage() {
   const [loading, setLoading] = useState(false);
@@ -17,6 +19,7 @@ export default function ImportExportPage() {
     message: string;
     type: "success" | "error" | "info";
   }>({ isOpen: false, message: "", type: "info" });
+  const theme = useTheme();
 
   const showNotification = (
     message: string,
@@ -97,7 +100,6 @@ export default function ImportExportPage() {
     const text = await file.text();
     const data = JSON.parse(text);
 
-    // CORREGIR: Este código tiene un problema lógico
     if (data.sales && data.payments) {
       const paymentMap = new Map();
       data.payments.forEach((payment: Payment) => {
@@ -120,10 +122,8 @@ export default function ImportExportPage() {
       });
     }
 
-    // CORREGIR: Mejorar la lógica de categorías personalizadas
     if (data.products && Array.isArray(data.products)) {
       data.products = data.products.map((product: Product) => {
-        // Verificar si necesita migración de categorías
         if (
           product.category &&
           (!product.customCategories || product.customCategories.length === 0)
@@ -169,7 +169,6 @@ export default function ImportExportPage() {
           db.promotions,
         ],
         async () => {
-          // Limpiar todas las tablas
           await Promise.all([
             db.theme.clear(),
             db.products.clear(),
@@ -196,7 +195,6 @@ export default function ImportExportPage() {
           ]);
 
           try {
-            // Importar todos los datos
             await Promise.all([
               db.theme.bulkAdd(data.theme || []),
               db.products.bulkAdd(data.products || []),
@@ -249,40 +247,110 @@ export default function ImportExportPage() {
 
   return (
     <ProtectedRoute>
-      <div className="px-10 py-3 2xl:p-10 text-gray_l dark:text-white h-[calc(100vh-80px)] relative">
-        <h1 className="text-lg 2xl:text-xl font-semibold mb-2">
+      <Box
+        sx={{
+          px: 4,
+          py: 2,
+          color: "text.secondary",
+          height: "100vh",
+          position: "relative",
+        }}
+      >
+        <Typography
+          variant="h5"
+          component="h1"
+          sx={{
+            fontWeight: 600,
+            mb: 2,
+            fontSize: { xs: "1.125rem", lg: "1.25rem" },
+          }}
+        >
           Importar o Exportar Datos
-        </h1>
-        <div className="h-[calc(100vh-160px)] 2xl:h-[80vh] flex items-center justify-center gap-10">
-          <ImportFileButton onImport={importData} />
+        </Typography>
+
+        <Box
+          sx={{
+            height: "75vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 2,
+          }}
+        >
           <Button
-            onClick={exportData}
-            icon={<FolderDown className="w-5 h-5" />}
-            iconPosition="left"
-            disabled={loading}
             text="Exportar Datos"
-            colorText="text-gray_b dark:text-white"
-            colorTextHover="dark:hover:text-white "
-            colorBg="bg-white dark:bg-gray_m"
-            colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
+            icon={<DownloadIcon />}
+            iconPosition="left"
+            onClick={exportData}
+            disabled={loading}
+            loading={loading}
+            variant="text"
+            size="large"
+            title="Exportar todos los datos a un archivo JSON"
+            ariaLabel="Exportar datos de respaldo"
+            sx={{
+              // Mantener estilos similares al anterior
+              color: theme.palette.mode === "dark" ? "white" : "text.primary",
+              borderColor:
+                theme.palette.mode === "dark" ? "grey.600" : "grey.300",
+              backgroundColor:
+                theme.palette.mode === "dark" ? "grey.800" : "white",
+              "&:hover": {
+                backgroundColor:
+                  theme.palette.mode === "dark" ? "grey.700" : "grey.100",
+                borderColor:
+                  theme.palette.mode === "dark" ? "grey.500" : "grey.400",
+              },
+              minWidth: "200px",
+              height: "56px",
+              fontSize: "1rem",
+              // Sobrescribir algunos estilos del botón personalizado para mantener consistencia
+              textTransform: "none", // Cambiar de "uppercase" a "none" para mantener el estilo original
+              fontWeight: 400,
+              borderRadius: 1,
+            }}
           />
-        </div>
-        <p className="animate-pulse text-xs text-center font-light text-gray_l dark:text-gray_l italic">
-          Universal App
-          <span className="text-gray_m dark:text-gray_xl">
-            {" "}
+          <ImportFileButton onImport={importData} />
+        </Box>
+
+        <Typography
+          variant="caption"
+          sx={{
+            display: "block",
+            textAlign: "center",
+            fontStyle: "italic",
+            color: "text.disabled",
+            animation: "pulse 2s infinite",
+            mt: 2,
+            "@keyframes pulse": {
+              "0%": { opacity: 0.6 },
+              "50%": { opacity: 1 },
+              "100%": { opacity: 0.6 },
+            },
+          }}
+        >
+          Universal App{" "}
+          <span style={{ color: theme.palette.text.secondary }}>
             le recomienda
           </span>{" "}
           realizar una copia de seguridad todos los días...
-        </p>
-        {loading && <p className="mt-2">Procesando...</p>}
+        </Typography>
+
+        {loading && (
+          <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+            <CircularProgress size={24} />
+            <Typography variant="body2" sx={{ ml: 1 }}>
+              Procesando...
+            </Typography>
+          </Box>
+        )}
 
         <Notification
           isOpen={notification.isOpen}
           message={notification.message}
           type={notification.type}
         />
-      </div>
+      </Box>
     </ProtectedRoute>
   );
 }

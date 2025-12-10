@@ -1,24 +1,51 @@
 "use client";
-import Button from "@/app/components/Button";
-import Input from "@/app/components/Input";
-import Modal from "@/app/components/Modal";
-import Notification from "@/app/components/Notification";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Card,
+  Typography,
+  Box,
+  IconButton,
+  useTheme,
+  CardContent,
+} from "@mui/material";
+import {
+  Add,
+  Edit,
+  Delete,
+  LocalOffer,
+  Percent,
+  AttachMoney,
+} from "@mui/icons-material";
+import { useEffect, useState } from "react";
+import { db } from "@/app/database/db";
+import ProtectedRoute from "@/app/components/ProtectedRoute";
+import Pagination from "@/app/components/Pagination";
+import { useRubro } from "@/app/context/RubroContext";
+import { usePagination } from "@/app/context/PaginationContext";
 import {
   Promotion,
   PromotionType,
   PromotionStatus,
 } from "@/app/lib/types/types";
-import { Plus, Edit, Trash, Tag, Percent, DollarSign } from "lucide-react";
-import { useEffect, useState } from "react";
-import { db } from "@/app/database/db";
-import ProtectedRoute from "@/app/components/ProtectedRoute";
-import Pagination from "@/app/components/Pagination";
-import Select from "react-select";
-import { useRubro } from "@/app/context/RubroContext";
-import { usePagination } from "@/app/context/PaginationContext";
+import Button from "@/app/components/Button";
+import Notification from "@/app/components/Notification";
+import Modal from "@/app/components/Modal";
+import Select from "@/app/components/Select";
+import Input from "@/app/components/Input";
+import CustomDatePicker from "@/app/components/CustomDatePicker";
+import { useNotification } from "@/app/hooks/useNotification";
+import CustomChip from "@/app/components/CustomChip";
+import CustomGlobalTooltip from "@/app/components/CustomTooltipGlobal";
 
 const PromocionesPage = () => {
   const { rubro } = useRubro();
+  const theme = useTheme();
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [isOpenModal, setIsOpenModal] = useState(false);
   const [editingPromotion, setEditingPromotion] = useState<Promotion | null>(
@@ -28,9 +55,14 @@ const PromocionesPage = () => {
   const [promotionToDelete, setPromotionToDelete] = useState<Promotion | null>(
     null
   );
-  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const [notificationMessage, setNotificationMessage] = useState("");
-  const [type, setType] = useState<"success" | "error" | "info">("success");
+
+  const {
+    isNotificationOpen,
+    notificationMessage,
+    notificationType,
+    showNotification,
+    closeNotification,
+  } = useNotification();
   const { currentPage, itemsPerPage } = usePagination();
 
   const [newPromotion, setNewPromotion] = useState<
@@ -45,7 +77,6 @@ const PromocionesPage = () => {
     startDate: new Date().toISOString().split("T")[0],
     endDate: "",
     minPurchaseAmount: 0,
-
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   });
@@ -54,26 +85,37 @@ const PromocionesPage = () => {
     Record<string, string>
   >({});
 
-  // Opciones mejoradas
+  const getTableHeaderStyle = () => ({
+    bgcolor: theme.palette.mode === "dark" ? "primary.dark" : "primary.main",
+    color: "primary.contrastText",
+  });
+
+  const getCardStyle = (
+    color: "success" | "error" | "primary" | "warning"
+  ) => ({
+    bgcolor: theme.palette.mode === "dark" ? `${color}.dark` : `${color}.main`,
+    color: "white",
+    "& .MuiTypography-root": {
+      color: "white !important",
+    },
+  });
+
   const promotionTypeOptions = [
     {
       value: "PERCENTAGE_DISCOUNT",
       label: "Descuento Porcentual",
-      icon: <Percent size={16} />,
     },
     {
       value: "FIXED_DISCOUNT",
       label: "Descuento Fijo",
-      icon: <DollarSign size={16} />,
     },
   ];
 
   const statusOptions = [
-    { value: "active", label: "Activa", color: "bg-green_xl text-green_b" },
-    { value: "inactive", label: "Inactiva", color: "bg-gray_xl text-gray_b" },
+    { value: "active", label: "Activa" },
+    { value: "inactive", label: "Inactiva" },
   ];
 
-  // Validación mejorada
   const validatePromotion = (promotion: typeof newPromotion): boolean => {
     const errors: Record<string, string> = {};
 
@@ -101,18 +143,6 @@ const PromocionesPage = () => {
     return Object.keys(errors).length === 0;
   };
 
-  const showNotification = (
-    message: string,
-    type: "success" | "error" | "info"
-  ) => {
-    setType(type);
-    setNotificationMessage(message);
-    setIsNotificationOpen(true);
-    setTimeout(() => {
-      setIsNotificationOpen(false);
-    }, 3000);
-  };
-
   const fetchPromotions = async () => {
     try {
       const storedPromotions = await db.promotions.toArray();
@@ -125,7 +155,6 @@ const PromocionesPage = () => {
         (p): p is Promotion & { id: number } => !!p.id
       );
 
-      // Ordenar por estado y fecha
       setPromotions(
         promotionsWithId.sort((a, b) => {
           if (a.status === b.status) {
@@ -235,24 +264,24 @@ const PromocionesPage = () => {
 
   const getPromotionStatus = (
     promotion: Promotion
-  ): { label: string; color: string } => {
+  ): { label: string; color: "success" | "error" | "warning" | "default" } => {
     const now = new Date();
     const startDate = new Date(promotion.startDate);
     const endDate = promotion.endDate ? new Date(promotion.endDate) : null;
 
     if (promotion.status === "inactive") {
-      return { label: "Inactiva", color: "bg-gray_xl text-gray_b" };
+      return { label: "Inactiva", color: "default" };
     }
 
     if (now < startDate) {
-      return { label: "Programada", color: "bg-blue_xl text-blue_b" };
+      return { label: "Programada", color: "warning" };
     }
 
     if (endDate && now > endDate) {
-      return { label: "Expirada", color: "bg-red_xl text-red_b" };
+      return { label: "Expirada", color: "error" };
     }
 
-    return { label: "Activa", color: "bg-green_xl text-green_b" };
+    return { label: "Activa", color: "success" };
   };
 
   useEffect(() => {
@@ -265,200 +294,328 @@ const PromocionesPage = () => {
 
   return (
     <ProtectedRoute>
-      <div className="px-10 2xl:px-10 py-4 text-gray_l dark:text-white h-[calc(100vh-80px)]">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-lg 2xl:text-xl font-semibold">Promociones</h1>
-          </div>
-          {rubro !== "Todos los rubros" && (
-            <Button
-              title="Nueva Promoción"
-              text="Nueva Promoción"
-              colorText="text-white"
-              colorTextHover="text-white"
-              onClick={handleAddPromotion}
-              icon={<Plus size={18} />}
-            />
-          )}
-        </div>
+      <Box
+        sx={{
+          px: 4,
+          py: 2,
+          height: "100vh",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <Typography variant="h5" fontWeight="semibold" mb={2}>
+          Promociones
+        </Typography>
 
-        {/* Estadísticas rápidas */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-white dark:bg-gray_m p-4 rounded-lg shadow-sm border border-gray_xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray_m dark:text-white">
-                  Total Promociones
-                </p>
-                <p className="text-2xl font-bold text-gray_b dark:text-white">
-                  {promotions.length}
-                </p>
-              </div>
-              <Tag className="text-blue_m" size={24} />
-            </div>
-          </div>
-          <div className="bg-white dark:bg-gray_m p-4 rounded-lg shadow-sm border border-gray_xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray_m dark:text-white">Activas</p>
-                <p className="text-2xl font-bold text-green_b dark:text-green_m">
-                  {
-                    promotions.filter(
-                      (p) => getPromotionStatus(p).label === "Activa"
-                    ).length
-                  }
-                </p>
-              </div>
-              <Tag className="text-green_m" size={24} />
-            </div>
-          </div>
-          <div className="bg-white dark:bg-gray_m p-4 rounded-lg shadow-sm border border-gray_xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray_m dark:text-white">Expiradas</p>
-                <p className="text-2xl font-bold text-red_b dark:text-red_m">
-                  {
-                    promotions.filter(
-                      (p) => getPromotionStatus(p).label === "Expirada"
-                    ).length
-                  }
-                </p>
-              </div>
-              <Tag className="text-red_m" size={24} />
-            </div>
-          </div>
-        </div>
+        {/* Estadísticas rápidas - Estilo consistente con Ventas */}
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 2,
+            mb: 2,
+          }}
+        >
+          <Card sx={getCardStyle("primary")}>
+            <CardContent>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Box>
+                  <Typography variant="body2">Total Promociones</Typography>
+                  <Typography variant="h4" fontWeight="bold">
+                    {promotions.length}
+                  </Typography>
+                </Box>
+                <LocalOffer fontSize="large" />
+              </Box>
+            </CardContent>
+          </Card>
 
-        <div className="flex flex-col justify-between h-[calc(100vh-300px)]">
-          <div className="max-h-[calc(100vh-350px)] overflow-y-auto">
-            <table className="table-auto w-full text-center border-collapse overflow-y-auto shadow-sm shadow-gray_l">
-              <thead className="text-white bg-gradient-to-bl from-blue_m to-blue_b text-xs sticky top-0">
-                <tr>
-                  <th className="p-3 text-start">Nombre</th>
-                  <th className="p-3">Tipo</th>
-                  <th className="p-3">Descuento</th>
-                  <th className="p-3">Estado</th>
-                  <th className="p-3">Vigencia</th>
-                  {rubro !== "Todos los rubros" && (
-                    <th className="w-40 max-w-[5rem] 2xl:max-w-[10rem] p-3">
-                      Acciones
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody className="bg-white text-gray_b divide-y divide-gray_xl">
-                {currentPromotions.length > 0 ? (
-                  currentPromotions.map((promotion) => {
-                    const statusInfo = getPromotionStatus(promotion);
-                    return (
-                      <tr
-                        key={promotion.id || `promo-${promotion.createdAt}`}
-                        className="text-xs 2xl:text-sm bg-white text-gray_b border border-gray_xl hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
-                      >
-                        <td className="font-semibold px-3 text-start border border-gray_xl">
-                          <div>
-                            <p className="uppercase font-semibold">
-                              {promotion.name}
-                            </p>
-                            {promotion.description && (
-                              <p className="text-xs text-gray_m mt-1">
-                                {promotion.description}
-                              </p>
-                            )}
-                          </div>
-                        </td>
-                        <td className="p-3 border border-gray_xl">
-                          <div className="flex items-center justify-center gap-2">
-                            {
-                              promotionTypeOptions.find(
-                                (t) => t.value === promotion.type
-                              )?.icon
-                            }
-                            {
-                              promotionTypeOptions.find(
-                                (t) => t.value === promotion.type
-                              )?.label
-                            }
-                          </div>
-                        </td>
-                        <td className="p-3 border border-gray_xl font-bold">
-                          {promotion.type === "FIXED_DISCOUNT" && "$"}
-                          {promotion.discount}
-                          {promotion.type === "PERCENTAGE_DISCOUNT" && "%"}
-                        </td>
-                        <td className="p-3 border border-gray_xl">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs ${statusInfo.color}`}
-                          >
-                            {statusInfo.label}
-                          </span>
-                        </td>
-                        <td className="p-3 border border-gray_xl text-xs">
-                          <div className="flex flex-col">
-                            <span>
-                              Inicio:{" "}
-                              {new Date(
-                                promotion.startDate
-                              ).toLocaleDateString()}
-                            </span>
-                            {promotion.endDate && (
-                              <span>
-                                Fin:{" "}
+          <Card sx={getCardStyle("success")}>
+            <CardContent>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Box>
+                  <Typography variant="body2">Activas</Typography>
+                  <Typography variant="h4" fontWeight="bold">
+                    {
+                      promotions.filter(
+                        (p) => getPromotionStatus(p).label === "Activa"
+                      ).length
+                    }
+                  </Typography>
+                </Box>
+                <LocalOffer fontSize="large" />
+              </Box>
+            </CardContent>
+          </Card>
+
+          <Card sx={getCardStyle("error")}>
+            <CardContent>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Box>
+                  <Typography variant="body2">Expiradas</Typography>
+                  <Typography variant="h4" fontWeight="bold">
+                    {
+                      promotions.filter(
+                        (p) => getPromotionStatus(p).label === "Expirada"
+                      ).length
+                    }
+                  </Typography>
+                </Box>
+                <LocalOffer fontSize="large" />
+              </Box>
+            </CardContent>
+          </Card>
+        </Box>
+
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "flex-end",
+            mb: 2,
+            visibility: rubro === "Todos los rubros" ? "hidden" : "visible",
+          }}
+        >
+          <Button
+            variant="contained"
+            onClick={handleAddPromotion}
+            sx={{
+              bgcolor: "primary.main",
+              "&:hover": { bgcolor: "primary.dark" },
+            }}
+            startIcon={<Add fontSize="small" />}
+          >
+            Nueva Promoción
+          </Button>
+        </Box>
+
+        {/* Tabla de promociones */}
+
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            justifyContent: "space-between",
+          }}
+        >
+          <Box sx={{ flex: 1, minHeight: "auto" }}>
+            <TableContainer
+              component={Paper}
+              sx={{ maxHeight: "63vh", mb: 2, flex: 1 }}
+            >
+              <Table stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={getTableHeaderStyle()}>Nombre</TableCell>
+                    <TableCell sx={getTableHeaderStyle()} align="center">
+                      Tipo
+                    </TableCell>
+                    <TableCell sx={getTableHeaderStyle()} align="center">
+                      Descuento
+                    </TableCell>
+                    <TableCell sx={getTableHeaderStyle()} align="center">
+                      Estado
+                    </TableCell>
+                    <TableCell sx={getTableHeaderStyle()} align="center">
+                      Vigencia
+                    </TableCell>
+                    {rubro !== "Todos los rubros" && (
+                      <TableCell sx={getTableHeaderStyle()} align="center">
+                        Acciones
+                      </TableCell>
+                    )}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {currentPromotions.length > 0 ? (
+                    currentPromotions.map((promotion) => {
+                      const statusInfo = getPromotionStatus(promotion);
+                      return (
+                        <TableRow
+                          key={promotion.id || `promo-${promotion.createdAt}`}
+                          sx={{
+                            border: "1px solid",
+                            borderColor: "divider",
+                            "&:hover": { backgroundColor: "action.hover" },
+                            transition: "all 0.3s",
+                          }}
+                        >
+                          <TableCell>
+                            <Box>
+                              <Typography
+                                fontWeight="bold"
+                                sx={{ textTransform: "uppercase" }}
+                              >
+                                {promotion.name}
+                              </Typography>
+                              {promotion.description && (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  sx={{ mt: 0.5, display: "block" }}
+                                >
+                                  {promotion.description}
+                                </Typography>
+                              )}
+                            </Box>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 2,
+                              }}
+                            >
+                              {promotion.type === "PERCENTAGE_DISCOUNT" ? (
+                                <Percent fontSize="small" />
+                              ) : (
+                                <AttachMoney fontSize="small" />
+                              )}
+                              <Typography variant="body2">
+                                {
+                                  promotionTypeOptions.find(
+                                    (t) => t.value === promotion.type
+                                  )?.label
+                                }
+                              </Typography>
+                            </Box>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Typography fontWeight="bold">
+                              {promotion.type === "FIXED_DISCOUNT" && "$"}
+                              {promotion.discount}
+                              {promotion.type === "PERCENTAGE_DISCOUNT" && "%"}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="center">
+                            <CustomChip
+                              label={statusInfo.label}
+                              color={statusInfo.color}
+                              size="small"
+                            />
+                          </TableCell>
+                          <TableCell align="center">
+                            <Box
+                              sx={{ display: "flex", flexDirection: "column" }}
+                            >
+                              <Typography variant="caption">
+                                Inicio:{" "}
                                 {new Date(
-                                  promotion.endDate
+                                  promotion.startDate
                                 ).toLocaleDateString()}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        {rubro !== "Todos los rubros" && (
-                          <td className="p-3 border border-gray_xl">
-                            <div className="flex justify-center items-center gap-2 h-full">
-                              <Button
-                                title="Editar promoción"
-                                icon={<Edit size={18} />}
-                                colorText="text-gray_b"
-                                colorTextHover="hover:text-white"
-                                colorBg="bg-transparent"
-                                colorBgHover="hover:bg-blue_m"
-                                px="px-1"
-                                py="py-1"
-                                minwidth="min-w-0"
-                                onClick={() => handleEditPromotion(promotion)}
-                              />
-                              <Button
-                                title="Eliminar promoción"
-                                icon={<Trash size={18} />}
-                                colorText="text-gray_b"
-                                colorTextHover="hover:text-white"
-                                colorBg="bg-transparent"
-                                colorBgHover="hover:bg-red_m"
-                                px="px-1"
-                                py="py-1"
-                                minwidth="min-w-0"
-                                onClick={() => handleDeletePromotion(promotion)}
-                              />
-                            </div>
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr className="h-[50vh] 2xl:h-[calc(63vh-2px)]">
-                    <td colSpan={6} className="py-4 text-center">
-                      <div className="flex flex-col items-center justify-center text-gray_m dark:text-white">
-                        <Tag size={64} className="mb-4 text-gray_m" />
-                        <p className="text-gray_m">
-                          Todavía no hay promociones.
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                              </Typography>
+                              {promotion.endDate && (
+                                <Typography variant="caption">
+                                  Fin:{" "}
+                                  {new Date(
+                                    promotion.endDate
+                                  ).toLocaleDateString()}
+                                </Typography>
+                              )}
+                            </Box>
+                          </TableCell>
+                          {rubro !== "Todos los rubros" && (
+                            <TableCell align="center">
+                              <Box
+                                sx={{
+                                  display: "flex",
+                                  justifyContent: "center",
+                                  gap: 0.5,
+                                }}
+                              >
+                                <CustomGlobalTooltip title="Editar promoción">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() =>
+                                      handleEditPromotion(promotion)
+                                    }
+                                    sx={{
+                                      borderRadius: "4px",
+                                      color: "text.secondary",
+                                      "&:hover": {
+                                        backgroundColor: "primary.main",
+                                        color: "white",
+                                      },
+                                    }}
+                                  >
+                                    <Edit fontSize="small" />
+                                  </IconButton>
+                                </CustomGlobalTooltip>
+                                <CustomGlobalTooltip title="Eliminar promoción">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() =>
+                                      handleDeletePromotion(promotion)
+                                    }
+                                    sx={{
+                                      borderRadius: "4px",
+                                      color: "text.secondary",
+                                      "&:hover": {
+                                        backgroundColor: "error.main",
+                                        color: "white",
+                                      },
+                                    }}
+                                  >
+                                    <Delete fontSize="small" />
+                                  </IconButton>
+                                </CustomGlobalTooltip>
+                              </Box>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      );
+                    })
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={rubro !== "Todos los rubros" ? 6 : 5}
+                        align="center"
+                      >
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            color: "text.secondary",
+                            py: 4,
+                          }}
+                        >
+                          <LocalOffer
+                            sx={{
+                              marginBottom: 2,
+                              color: "#9CA3AF",
+                              fontSize: 64,
+                            }}
+                          />
+                          <Typography>Todavía no hay promociones.</Typography>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
 
           {promotions.length > 0 && (
             <Pagination
@@ -467,43 +624,55 @@ const PromocionesPage = () => {
               totalItems={promotions.length}
             />
           )}
-        </div>
+        </Box>
 
-        {/* Modal de Promoción Mejorado */}
+        {/* Modal de Promoción - Estilo consistente */}
         <Modal
           isOpen={isOpenModal}
           onClose={handleCloseModal}
           title={editingPromotion ? "Editar Promoción" : "Nueva Promoción"}
+          bgColor="bg-white dark:bg-gray_b"
           buttons={
-            <div className="flex justify-end space-x-4">
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
               <Button
-                title="Guardar"
-                text={editingPromotion ? "Actualizar" : "Guardar"}
-                colorText="text-white"
-                colorTextHover="text-white"
-                onClick={handleConfirmAddPromotion}
-              />
-              <Button
-                title="Cancelar"
-                text="Cancelar"
-                colorText="text-gray_b dark:text-white"
-                colorTextHover="hover:dark:text-white"
-                colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
+                variant="text"
                 onClick={handleCloseModal}
-              />
-            </div>
+                sx={{
+                  color: "text.secondary",
+                  borderColor: "text.secondary",
+                  "&:hover": {
+                    backgroundColor: "action.hover",
+                    borderColor: "text.primary",
+                  },
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleConfirmAddPromotion}
+                isPrimaryAction={true}
+                sx={{
+                  bgcolor: "primary.main",
+                  "&:hover": { bgcolor: "primary.dark" },
+                }}
+              >
+                {editingPromotion ? "Actualizar" : "Guardar"}
+              </Button>
+            </Box>
           }
         >
-          <div className=" p-1">
-            <div className="flex flex-col gap-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
+          <Box sx={{ p: 0.5 }}>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <Box
+                sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}
+              >
+                <Box>
                   <Input
                     label="Nombre de la promoción*"
                     type="text"
                     value={newPromotion.name}
-                    onChange={(e) =>
+                    onRawChange={(e) =>
                       setNewPromotion((prev) => ({
                         ...prev,
                         name: e.target.value,
@@ -512,17 +681,21 @@ const PromocionesPage = () => {
                     placeholder="Ej: Descuento de Verano 20%"
                   />
                   {validationErrors.name && (
-                    <p className="text-red_m text-xs mt-1">
+                    <Typography
+                      color="error"
+                      variant="caption"
+                      sx={{ mt: 0.5, display: "block" }}
+                    >
                       {validationErrors.name}
-                    </p>
+                    </Typography>
                   )}
-                </div>
+                </Box>
 
                 <Input
                   label="Descripción"
                   type="text"
                   value={newPromotion.description}
-                  onChange={(e) =>
+                  onRawChange={(e) =>
                     setNewPromotion((prev) => ({
                       ...prev,
                       description: e.target.value,
@@ -530,42 +703,32 @@ const PromocionesPage = () => {
                   }
                   placeholder="Breve descripción de la promoción"
                 />
-              </div>
+              </Box>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
-                    Tipo de Promoción*
-                  </label>
+              <Box
+                sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}
+              >
+                <Box>
                   <Select
+                    label="Tipo de Promoción*"
                     options={promotionTypeOptions}
-                    value={promotionTypeOptions.find(
-                      (t) => t.value === newPromotion.type
-                    )}
-                    onChange={(selected) =>
+                    value={newPromotion.type}
+                    onChange={(value) =>
                       setNewPromotion((prev) => ({
                         ...prev,
-                        type: selected?.value as PromotionType,
-                        discount: 0, // Reset discount when type changes
+                        type: value as PromotionType,
+                        discount: 0,
                       }))
                     }
-                    className="text-gray_m"
-                    formatOptionLabel={(option) => (
-                      <div className="flex items-center gap-2">
-                        {option.icon}
-                        {option.label}
-                      </div>
-                    )}
+                    size="small"
                   />
-                </div>
-                <div>
-                  <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
-                    Descuento a Aplicar*
-                  </label>
+                </Box>
+                <Box>
                   <Input
+                    label="Descuento a aplicar"
                     type="number"
                     value={newPromotion.discount?.toString() || "0"}
-                    onChange={(e) =>
+                    onRawChange={(e) =>
                       setNewPromotion((prev) => ({
                         ...prev,
                         discount: parseFloat(e.target.value) || 0,
@@ -581,78 +744,72 @@ const PromocionesPage = () => {
                     }
                   />
                   {validationErrors.discount && (
-                    <p className="text-red_m text-xs mt-1">
+                    <Typography
+                      color="error"
+                      variant="caption"
+                      sx={{ mt: 0.5, display: "block" }}
+                    >
                       {validationErrors.discount}
-                    </p>
+                    </Typography>
                   )}
-                </div>
-              </div>
+                </Box>
+              </Box>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
-                    Fecha de Inicio*
-                  </label>
-                  <Input
-                    type="date"
-                    value={newPromotion.startDate}
-                    onChange={(e) =>
-                      setNewPromotion((prev) => ({
-                        ...prev,
-                        startDate: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
-                    Fecha de Fin (Opcional)
-                  </label>
-                  <Input
-                    type="date"
-                    value={newPromotion.endDate || ""}
-                    onChange={(e) =>
-                      setNewPromotion((prev) => ({
-                        ...prev,
-                        endDate: e.target.value,
-                      }))
-                    }
-                  />
-                  {validationErrors.endDate && (
-                    <p className="text-red_m text-xs mt-1">
-                      {validationErrors.endDate}
-                    </p>
-                  )}
-                </div>
-              </div>
+              <Box
+                sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}
+              >
+                <CustomDatePicker
+                  label="Fecha de Inicio"
+                  required
+                  value={newPromotion.startDate}
+                  onChange={(value) =>
+                    setNewPromotion((prev) => ({
+                      ...prev,
+                      startDate: value,
+                    }))
+                  }
+                  placeholder="Seleccionar fecha de inicio"
+                  isClearable={true}
+                />
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
-                    Estado*
-                  </label>
+                <CustomDatePicker
+                  label="Fecha de Fin (Opcional)"
+                  value={newPromotion.endDate || ""}
+                  onChange={(value) =>
+                    setNewPromotion((prev) => ({
+                      ...prev,
+                      endDate: value,
+                    }))
+                  }
+                  placeholder="Seleccionar fecha de fin"
+                  isClearable={true}
+                  minDate={new Date(newPromotion.startDate)}
+                />
+              </Box>
+
+              <Box
+                sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}
+              >
+                <Box>
                   <Select
+                    label="Estado*"
                     options={statusOptions}
-                    value={statusOptions.find(
-                      (s) => s.value === newPromotion.status
-                    )}
-                    onChange={(selected) =>
+                    value={newPromotion.status}
+                    onChange={(value) =>
                       setNewPromotion((prev) => ({
                         ...prev,
-                        status: selected?.value as PromotionStatus,
+                        status: value as PromotionStatus,
                       }))
                     }
-                    className="text-gray_m"
+                    size="small"
                   />
-                </div>
-                <div>
-                  <label className="block text-gray_m dark:text-white text-sm font-semibold mb-1">
-                    Monto Mínimo de Compra (Opcional)
-                  </label>
+                </Box>
+                <Box>
                   <Input
+                    label="Monto Mínimo de Compra (Opcional)"
                     type="number"
                     value={newPromotion.minPurchaseAmount?.toString() || "0"}
-                    onChange={(e) =>
+                    onRawChange={(e) =>
                       setNewPromotion((prev) => ({
                         ...prev,
                         minPurchaseAmount: parseFloat(e.target.value) || 0,
@@ -662,59 +819,77 @@ const PromocionesPage = () => {
                     step="0.01"
                   />
                   {validationErrors.minPurchaseAmount && (
-                    <p className="text-red_m text-xs mt-1">
+                    <Typography
+                      color="error"
+                      variant="caption"
+                      sx={{ mt: 0.5, display: "block" }}
+                    >
                       {validationErrors.minPurchaseAmount}
-                    </p>
+                    </Typography>
                   )}
-                </div>
-              </div>
-            </div>
-          </div>
+                </Box>
+              </Box>
+            </Box>
+          </Box>
         </Modal>
 
-        {/* Modal de Confirmación de Eliminación */}
+        {/* Modal de Confirmación de Eliminación - Estilo consistente */}
         <Modal
           isOpen={isConfirmModalOpen}
           onClose={() => setIsConfirmModalOpen(false)}
           title="Eliminar Promoción"
+          bgColor="bg-white dark:bg-gray_b"
           buttons={
-            <>
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
               <Button
-                text="Sí, eliminar"
-                colorText="text-white dark:text-white"
-                colorTextHover="hover:dark:text-white"
-                colorBg="bg-red_m border-b-1 dark:bg-blue_b"
-                colorBgHover="hover:bg-red_b hover:dark:bg-blue_m"
-                onClick={handleConfirmDelete}
-              />
-              <Button
-                text="Cancelar"
-                colorText="text-gray_b dark:text-white"
-                colorTextHover="hover:dark:text-white"
-                colorBg="bg-transparent dark:bg-gray_m"
-                colorBgHover="hover:bg-blue_xl hover:dark:bg-gray_l"
+                variant="text"
                 onClick={() => setIsConfirmModalOpen(false)}
-              />
-            </>
+                sx={{
+                  color: "text.secondary",
+                  borderColor: "text.secondary",
+                  "&:hover": {
+                    backgroundColor: "action.hover",
+                    borderColor: "text.primary",
+                  },
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleConfirmDelete}
+                isPrimaryAction={true}
+                sx={{
+                  bgcolor: "error.main",
+                  "&:hover": { bgcolor: "error.dark" },
+                }}
+              >
+                Sí, eliminar
+              </Button>
+            </Box>
           }
         >
-          <div className="text-center">
-            <Trash size={48} className="mx-auto text-red_m mb-4" />
-            <p className="text-lg font-semibold mb-2">
-              ¿Está seguro que desea eliminar la promoción?
-            </p>
-            <p className="text-gray_m">
-              {promotionToDelete?.name} será eliminada permanentemente.
-            </p>
-          </div>
+          <Box sx={{ textAlign: "center", py: 2 }}>
+            <Delete
+              sx={{ fontSize: 48, color: "error.main", mb: 2, mx: "auto" }}
+            />
+            <Typography variant="h6" fontWeight="semibold" sx={{ mb: 1 }}>
+              ¿Está seguro/a que desea eliminar la promoción?
+            </Typography>
+            <Typography variant="body2" fontWeight="semibold" sx={{ mb: 1 }}>
+              La promoción <strong>{promotionToDelete?.name}</strong> será
+              eliminada permanentemente.
+            </Typography>
+          </Box>
         </Modal>
 
         <Notification
           isOpen={isNotificationOpen}
           message={notificationMessage}
-          type={type}
+          type={notificationType}
+          onClose={closeNotification}
         />
-      </div>
+      </Box>
     </ProtectedRoute>
   );
 };

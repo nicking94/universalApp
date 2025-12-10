@@ -1,4 +1,4 @@
-import { db } from "@/app/database/db";
+﻿import { db } from "@/app/database/db";
 
 export async function getUserPreferences(userId: number) {
   return await db.userPreferences.where("userId").equals(userId).first();

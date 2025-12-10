@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import {
   forwardRef,
   useEffect,
@@ -6,11 +6,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { BusinessData, Rubro, Sale } from "@/app/lib/types/types";
+
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
-import { formatCurrency } from "@/app/lib/utils/currency";
+import { BusinessData, Rubro, Sale } from "../lib/types/types";
+import getDisplayProductName from "../lib/utils/DisplayProductName";
+import { formatCurrency } from "../lib/utils/currency";
 
 type PrintableTicketProps = {
   sale: Sale;
@@ -32,11 +33,11 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
   ) => {
     const ticketRef = useRef<HTMLDivElement>(null);
     const [paperSize, setPaperSize] = useState<"57mm" | "80mm">("80mm");
-    const fecha = format(parseISO(sale.date), "dd/MM/yyyy HH:mm", {
-      locale: es,
-    });
 
-    // Cargar la preferencia guardada al inicializar el componente
+    const fecha = sale?.date
+      ? format(parseISO(sale.date), "dd/MM/yyyy HH:mm", { locale: es })
+      : "Fecha no disponible";
+
     useEffect(() => {
       const savedPaperSize = localStorage.getItem("ticketPaperSize") as
         | "57mm"
@@ -49,7 +50,6 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
       }
     }, []);
 
-    // Guardar en localStorage cuando cambia el tamaño
     const handlePaperSizeChange = (size: "57mm" | "80mm") => {
       setPaperSize(size);
       localStorage.setItem("ticketPaperSize", size);
@@ -66,7 +66,7 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
       if (!discount) return price * quantity;
       return price * quantity * (1 - discount / 100);
     };
-    // Agregar esta función dentro del componente PrintableTicket
+
     const calculatePromotionDiscount = (sale: Sale): number => {
       if (!sale.appliedPromotion) return 0;
 
@@ -84,7 +84,7 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
     };
 
     const getInvoiceItems = () => {
-      return sale.products.map((product) => {
+      return sale.products.map((product, index) => {
         const subtotalSinDescuento = product.price * product.quantity;
         const subtotalConDescuento = calculateDiscountedPrice(
           product.price,
@@ -93,6 +93,8 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
         );
 
         return {
+          id: product.id,
+          uniqueId: `${product.id}-${index}-${Date.now()}`,
           description: getDisplayProductName(product, rubro),
           quantity: product.quantity,
           price: product.price,
@@ -120,31 +122,30 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
       printWithBrowserDialog();
     };
 
-    // Configuraciones estándar para cada tamaño de ticket
     const getTicketConfig = () => {
       if (paperSize === "57mm") {
         return {
           width: "57mm",
           fontSize: {
-            large: "14px", // Para nombre del negocio
-            medium: "12px", // Para texto principal
-            small: "10px", // Para detalles
-            xsmall: "8px", // Para texto muy pequeño
+            large: "14px",
+            medium: "12px",
+            small: "10px",
+            xsmall: "8px",
           },
           padding: "5px",
-          maxCharsPerLine: 32, // Caracteres máx por línea en 57mm
+          maxCharsPerLine: 32,
         };
       } else {
         return {
           width: "80mm",
           fontSize: {
-            large: "16px", // Para nombre del negocio
-            medium: "14px", // Para texto principal
-            small: "12px", // Para detalles
-            xsmall: "10px", // Para texto muy pequeño
+            large: "16px",
+            medium: "14px",
+            small: "12px",
+            xsmall: "10px",
           },
           padding: "6px",
-          maxCharsPerLine: 48, // Caracteres máx por línea en 80mm
+          maxCharsPerLine: 48,
         };
       }
     };
@@ -186,7 +187,7 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
           max-height: none !important;
         }
         
-        /* ELEMENTOS ESPECÍFICOS EN BOLD */
+        /* ELEMENTOS ESPECÃFICOS EN BOLD */
         .business-name {
           font-size: ${ticketConfig.fontSize.large} !important;
           font-weight: bold !important;
@@ -306,7 +307,7 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
                 break-inside: avoid;
               }
               
-              /* ELEMENTOS ESPECÍFICOS EN BOLD */
+              /* ELEMENTOS ESPECÃFICOS EN BOLD */
               .business-name {
                 font-size: ${ticketConfig.fontSize.large} !important;
                 font-weight: bold !important;
@@ -445,7 +446,6 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
       }
     }, [autoPrint]);
 
-    // Estilos CSS para el componente - Todo en color negro y semibold
     const styles = {
       container: {
         display: "flex",
@@ -466,7 +466,7 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
       },
       paperSelectorText: {
         fontSize: "15px",
-        color: "#2563eb",
+        color: "#2d78b9",
         fontWeight: 600 as const,
       },
       paperOptions: {
@@ -791,7 +791,7 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
         textAlign: "right" as const,
         minWidth: "fit-content",
         fontWeight: "bold" as const,
-        color: "#e53e3e", // Rojo para indicar descuento
+        color: "#e53e3e",
         fontSize: ticketConfig.fontSize.medium,
       },
     };
@@ -811,7 +811,6 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
               <div
                 style={{
                   ...styles.paperOptionBox,
-                  borderColor: paperSize === "57mm" ? "#268ed4" : "#d1d5db",
                   backgroundColor: paperSize === "57mm" ? "#eaf6ff" : "white",
                 }}
               >
@@ -824,13 +823,13 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
                     handlePaperSizeChange(e.target.value as "57mm" | "80mm")
                   }
                   style={{
-                    color: "#268ed4",
+                    color: "#2d78b9",
                   }}
                 />
                 <span
                   style={{
                     ...styles.paperOptionText,
-                    color: paperSize === "57mm" ? "#2d78b9" : "#2c2c2c",
+                    color: "#2d78b9",
                   }}
                 >
                   57mm
@@ -843,8 +842,8 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
               <div
                 style={{
                   ...styles.paperOptionBox,
-                  borderColor: paperSize === "80mm" ? "#3b82f6" : "#d1d5db",
-                  backgroundColor: paperSize === "80mm" ? "#eff6ff" : "white",
+
+                  backgroundColor: paperSize === "80mm" ? "#eaf6ff" : "white",
                 }}
               >
                 <input
@@ -856,13 +855,13 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
                     handlePaperSizeChange(e.target.value as "57mm" | "80mm")
                   }
                   style={{
-                    color: "#3b82f6",
+                    color: "#eaf6ff",
                   }}
                 />
                 <span
                   style={{
                     ...styles.paperOptionText,
-                    color: paperSize === "80mm" ? "#1d4ed8" : "#374151",
+                    color: "2d78b9",
                   }}
                 >
                   80mm
@@ -918,8 +917,8 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
 
               {/* Items del ticket */}
               <div style={styles.itemsContainer}>
-                {invoiceItems.map((item, index) => (
-                  <div key={index} style={styles.item}>
+                {invoiceItems.map((item) => (
+                  <div key={item.uniqueId} style={styles.item}>
                     <div style={styles.itemRow}>
                       <div style={styles.itemDescription}>
                         <span className="product-name" style={styles.itemName}>

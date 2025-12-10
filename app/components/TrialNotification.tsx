@@ -1,8 +1,24 @@
 "use client";
 import { useEffect, useState } from "react";
-import { db } from "../database/db";
+import {
+  Snackbar,
+  Alert,
+  Box,
+  Typography,
+  Slide,
+  SlideProps,
+} from "@mui/material";
+import {
+  LocalOffer as TagsIcon,
+  FlashOn as ZapIcon,
+  Warning as AlertTriangleIcon,
+} from "@mui/icons-material";
+import { db } from "@/app/database/db";
 import { TRIAL_CREDENTIALS } from "../lib/constants/constants";
-import { Tags, BadgePercent, Zap, AlertTriangle } from "lucide-react";
+
+function SlideTransition(props: SlideProps) {
+  return <Slide {...props} direction="down" />;
+}
 
 const TrialNotification = () => {
   const [userId, setUserId] = useState<number | null>(null);
@@ -10,6 +26,7 @@ const TrialNotification = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [daysLeft, setDaysLeft] = useState<number | null>(null);
   const [discountDate, setDiscountDate] = useState<string>("");
+  const [showNotification, setShowNotification] = useState(false);
 
   const checkAuthState = async () => {
     try {
@@ -98,6 +115,8 @@ const TrialNotification = () => {
   useEffect(() => {
     if (!isAuthenticated || !userId || !isDemoUser) {
       setDaysLeft(null);
+      setShowNotification(false);
+
       return;
     }
 
@@ -106,16 +125,22 @@ const TrialNotification = () => {
     return () => clearInterval(interval);
   }, [userId, isDemoUser, isAuthenticated]);
 
-  const getNotificationStyle = () => {
-    if (!daysLeft) return "";
+  useEffect(() => {
+    if (isAuthenticated && isDemoUser && daysLeft !== null) {
+      setShowNotification(true);
+    }
+  }, [isAuthenticated, isDemoUser, daysLeft, discountDate]);
+
+  const getNotificationSeverity = () => {
+    if (!daysLeft) return "info";
 
     if (daysLeft >= 4) {
-      return "bg-green_xl text-green_b";
+      return "success";
     }
     if (daysLeft >= 2 && daysLeft < 4) {
-      return "bg-yellow-100 text-yellow-800";
+      return "warning";
     }
-    return "bg-red_l text-red_b";
+    return "error";
   };
 
   const getNotificationMessage = () => {
@@ -123,47 +148,29 @@ const TrialNotification = () => {
 
     if (daysLeft === 0) {
       return (
-        <div className="flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4" />
-          <span>
+        <Box display="flex" justifyContent="center" alignItems="center" gap={1}>
+          <AlertTriangleIcon fontSize="small" />
+          <Typography variant="body2">
             ¡Periodo de prueba finalizado! La sesión se cerrará automáticamente
-          </span>
-        </div>
+          </Typography>
+        </Box>
       );
     }
     if (daysLeft === 1) {
       return (
-        <div className="flex items-center gap-2">
-          <Zap className="w-4 h-4 animate-bounce" />
-          <span>¡Último día de prueba!</span>
-        </div>
+        <Box display="flex" justifyContent="center" alignItems="center" gap={1}>
+          <ZapIcon fontSize="small" />
+          <Typography variant="body2">¡Último día de prueba!</Typography>
+        </Box>
       );
     }
     return (
-      <div className="flex items-center gap-2">
-        <Tags className="w-4 h-4" />
-        <span>Días restantes de prueba: {daysLeft}</span>
-      </div>
-    );
-  };
-
-  const getDiscountMessage = () => {
-    if (!daysLeft || !discountDate) return "";
-
-    const now = new Date();
-    const discountEndDate = new Date(
-      discountDate.split("/").reverse().join("-")
-    );
-
-    if (now > discountEndDate) {
-      return `Descuento vencido, puedes seguir navegando la demo por ${daysLeft} días`;
-    }
-    return (
-      <div className="flex items-center gap-2">
-        <BadgePercent className="w-5 h-5 text-red_m animate-pulse" />
-        <span className="font-bold">20% OFF</span>
-        <span>hasta el {discountDate}</span>
-      </div>
+      <Box display="flex" justifyContent="center" alignItems="center" gap={1}>
+        <TagsIcon fontSize="small" />
+        <Typography variant="body2">
+          Días restantes de prueba: {daysLeft}
+        </Typography>
+      </Box>
     );
   };
 
@@ -172,18 +179,39 @@ const TrialNotification = () => {
   }
 
   return (
-    <div className="fixed top-0 left-4/7 transform -translate-x-1/2 z-99 flex flex-col items-center">
-      <div
-        className={`animate-pulse px-4 2xl:px-6 py-1 rounded-md shadow-lg text-xs font-medium ${getNotificationStyle()}`}
+    <>
+      {/* Notificación principal de días restantes */}
+      <Snackbar
+        open={showNotification}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        TransitionComponent={SlideTransition}
+        sx={{
+          position: "fixed",
+          zIndex: 9999,
+          top: "8px !important",
+          "& .MuiSnackbar-root": {
+            position: "fixed",
+          },
+        }}
       >
-        {getNotificationMessage()}
-      </div>
-      {daysLeft > 0 && (
-        <div className="mt-3 px-4 py-1 bg-blue_xl text-blue_b shadow-md shadow-blue_l border-blue_l rounded-md text-md font-medium flex items-center">
-          {getDiscountMessage()}
-        </div>
-      )}
-    </div>
+        <Alert
+          severity={getNotificationSeverity()}
+          icon={false}
+          sx={{
+            boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+            borderRadius: "8px",
+            minWidth: 300,
+            zIndex: 9999,
+            "& .MuiAlert-message": {
+              padding: "8px 0",
+              width: "100%",
+            },
+          }}
+        >
+          {getNotificationMessage()}
+        </Alert>
+      </Snackbar>
+    </>
   );
 };
 

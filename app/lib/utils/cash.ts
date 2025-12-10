@@ -1,4 +1,4 @@
-import { db } from "@/app/database/db";
+﻿import { db } from "@/app/database/db";
 import { getLocalDateString } from "./getLocalDate";
 export const ensureCashIsOpen = async () => {
   const today = getLocalDateString();

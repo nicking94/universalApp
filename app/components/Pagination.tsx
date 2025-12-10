@@ -1,12 +1,26 @@
 "use client";
 
-import React, { useMemo, useCallback } from "react";
+import React, { useMemo, useCallback, useEffect } from "react";
 import { PaginationProps } from "../lib/types/types";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { db } from "../database/db";
+import { db } from "@/app/database/db";
 import { usePagination } from "../context/PaginationContext";
-import Select from "react-select";
+import {
+  Box,
+  Pagination as MuiPagination,
+  PaginationItem,
+  Typography,
+  Stack,
+  useTheme,
+  useMediaQuery,
+  CircularProgress,
+} from "@mui/material";
+import {
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
+} from "@mui/icons-material";
+import { PaginationRenderItemParams } from "@mui/material/Pagination";
+import Select, { SelectOption } from "./Select";
 
 const Pagination: React.FC<
   Omit<
@@ -16,6 +30,7 @@ const Pagination: React.FC<
     text?: string;
     text2?: string;
     totalItems: number;
+    onSearchChange?: () => void;
   }
 > = ({
   text = "Productos por página",
@@ -29,12 +44,26 @@ const Pagination: React.FC<
     setCurrentPage,
     setItemsPerPage,
     isLoading,
+    resetToFirstPage,
   } = usePagination();
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const totalPages = useMemo(
     () => Math.ceil(totalItems / itemsPerPage),
     [totalItems, itemsPerPage]
   );
+  useEffect(() => {
+    if (!isLoading) {
+      resetToFirstPage();
+    }
+  }, [totalItems, resetToFirstPage, isLoading]);
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(totalPages || 1);
+    }
+  }, [totalPages, currentPage, setCurrentPage]);
 
   const handlePrevious = useCallback(() => {
     setCurrentPage(Math.max(1, currentPage - 1));
@@ -45,10 +74,10 @@ const Pagination: React.FC<
   }, [currentPage, totalPages, setCurrentPage]);
 
   const handleItemsPerPageChange = useCallback(
-    async (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const newItemsPerPage = Number(e.target.value);
+    async (newItemsPerPage: number) => {
       setItemsPerPage(newItemsPerPage);
-      setCurrentPage(1);
+
+      resetToFirstPage();
 
       if (userId) {
         try {
@@ -73,155 +102,172 @@ const Pagination: React.FC<
         }
       }
     },
-    [setItemsPerPage, userId, setCurrentPage]
+    [setItemsPerPage, resetToFirstPage, userId]
   );
 
   const handlePageChange = useCallback(
-    (page: number) => {
+    (event: React.ChangeEvent<unknown>, page: number) => {
       if (page !== currentPage) {
         setCurrentPage(page);
       }
     },
     [currentPage, setCurrentPage]
   );
+
+  const itemsPerPageOptions: SelectOption<number>[] = useMemo(
+    () => [
+      { value: 5, label: "5" },
+      { value: 10, label: "10" },
+      { value: 20, label: "20" },
+      { value: 30, label: "30" },
+    ],
+    []
+  );
+
+  const renderPaginationItem = (item: PaginationRenderItemParams) => {
+    if (item.type === "previous") {
+      return (
+        <PaginationItem
+          {...item}
+          onClick={handlePrevious}
+          disabled={currentPage === 1}
+          aria-label="Página anterior"
+        >
+          <ChevronLeftIcon fontSize="small" aria-hidden="true" />
+        </PaginationItem>
+      );
+    }
+
+    if (item.type === "next") {
+      return (
+        <PaginationItem
+          {...item}
+          onClick={handleNext}
+          disabled={currentPage === totalPages}
+          aria-label="Página siguiente"
+        >
+          <ChevronRightIcon fontSize="small" aria-hidden="true" />
+        </PaginationItem>
+      );
+    }
+
+    return <PaginationItem {...item} />;
+  };
+
   if (isLoading) {
-    return <div>Cargando preferencias...</div>;
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" p={2}>
+        <CircularProgress size={24} />
+        <Typography variant="body2" sx={{ ml: 1 }}>
+          Cargando preferencias...
+        </Typography>
+      </Box>
+    );
   }
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between ">
-      <div className="flex items-center gap-2">
-        <label
-          htmlFor="items-per-page"
-          className="text-sm text-gray_m dark:text-gray_xl"
-        >
+    <Stack
+      direction={{ xs: "column", sm: "row" }}
+      spacing={2}
+      alignItems="center"
+      justifyContent="space-between"
+    >
+      <Stack direction="row" alignItems="center" spacing={1}>
+        <Typography variant="body2" color="text.secondary">
           {text}
-        </label>
-        <Select
-          inputId="items-per-page"
-          options={[5, 10, 20, 30].map((n) => ({
-            value: n,
-            label: n.toString(),
-          }))}
-          noOptionsMessage={() => "Sin opciones"}
-          value={{ value: itemsPerPage, label: itemsPerPage.toString() }}
-          onChange={(selectedOption) => {
-            if (selectedOption) {
-              handleItemsPerPageChange({
-                target: { value: selectedOption.value.toString() },
-              } as React.ChangeEvent<HTMLSelectElement>);
-            }
-          }}
-          className="cursor-pointer text-gray_b p-1 text-sm focus:outline-none"
-          classNamePrefix="react-select"
-          menuPosition="fixed"
-          aria-label="Items por página"
-          components={{
-            IndicatorSeparator: () => null,
+        </Typography>
+        <Select<number>
+          label="Items"
+          options={itemsPerPageOptions}
+          value={itemsPerPage}
+          onChange={handleItemsPerPageChange}
+          size="small"
+          sx={{
+            minWidth: 80,
+            "& .MuiOutlinedInput-root": {
+              height: 40,
+            },
           }}
         />
-      </div>
-      <nav aria-label="Paginación">
-        <ul className="flex items-center gap-2">
-          <li>
-            <button
-              onClick={handlePrevious}
-              disabled={currentPage === 1}
-              aria-label="Página anterior"
-              className={`cursor-pointer p-2 rounded-md ${
-                currentPage === 1
-                  ? "text-gray_m dark:text-gray_xl "
-                  : "text-gray_b dark:text-gray_xl hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
-              }`}
-            >
-              <ChevronLeft size={18} aria-hidden="true" />
-            </button>
-          </li>
-          {currentPage > 2 && (
-            <li>
-              <button
-                onClick={() => handlePageChange(1)}
-                aria-label="Ir a primera página"
-                className="cursor-pointer text-gray_l px-3 py-1 rounded-md text-sm font-medium bg-blue_xl"
-              >
-                1
-              </button>
-            </li>
-          )}
-          {currentPage > 3 && (
-            <li>
-              <span className="px-2 text-gray_m dark:text-gray_xl">...</span>
-            </li>
-          )}
+      </Stack>
 
-          {currentPage > 1 && (
-            <li>
-              <button
-                onClick={() => handlePageChange(currentPage - 1)}
-                aria-label={`Ir a página ${currentPage - 1}`}
-                className="cursor-pointer text-gray_l px-3 py-1 rounded-md text-sm font-medium bg-blue_xl"
-              >
-                {currentPage - 1}
-              </button>
-            </li>
-          )}
-          <li>
-            <button
-              aria-current="page"
-              className="cursor-pointer px-3 py-1 rounded-md text-sm font-medium bg-gradient-to-bl from-blue_m to-blue_b text-white"
-            >
-              {currentPage}
-            </button>
-          </li>
-          {currentPage < totalPages && (
-            <li>
-              <button
-                onClick={() => handlePageChange(currentPage + 1)}
-                aria-label={`Ir a página ${currentPage + 1}`}
-                className="cursor-pointer bg-blue_xl text-gray_l  px-3 py-1 rounded-md text-sm font-medium "
-              >
-                {currentPage + 1}
-              </button>
-            </li>
-          )}
-          {currentPage < totalPages - 2 && (
-            <li>
-              <span className="px-2 text-gray_m dark:text-gray_xl">...</span>
-            </li>
-          )}
+      {/* Paginación */}
+      <Box>
+        <MuiPagination
+          page={currentPage}
+          count={totalPages}
+          onChange={handlePageChange}
+          renderItem={renderPaginationItem}
+          size={isMobile ? "small" : "medium"}
+          siblingCount={1}
+          boundaryCount={1}
+          showFirstButton
+          showLastButton
+          sx={{
+            "& .MuiPaginationItem-root": {
+              margin: "0 2px",
+              color: "text.primary",
+              backgroundColor: "background.paper",
+              border: `1px solid ${theme.palette.divider}`,
+              minWidth: 32,
+              height: 32,
+              borderRadius: theme.shape.borderRadius,
+              "&:hover": {
+                backgroundColor: "action.hover",
+                borderColor: "primary.light",
+              },
+              "&.Mui-selected": {
+                backgroundColor: "primary.main",
+                color: "primary.contrastText",
+                borderColor: "primary.main",
+                "&:hover": {
+                  backgroundColor: "primary.dark",
+                  borderColor: "primary.dark",
+                },
+              },
+              "&.Mui-disabled": {
+                color: "text.disabled",
+                backgroundColor: "action.disabledBackground",
+                borderColor: "divider",
+              },
+              "& .MuiSvgIcon-root": {
+                color: "inherit",
+              },
+            },
+            "& .MuiPaginationItem-firstLast, & .MuiPaginationItem-previousNext":
+              {
+                backgroundColor: "background.paper",
+                "&:hover": {
+                  backgroundColor: "action.hover",
+                },
+                "&.Mui-disabled": {
+                  backgroundColor: "action.disabledBackground",
+                },
+              },
+          }}
+        />
+      </Box>
 
-          {currentPage < totalPages - 1 && (
-            <li>
-              <button
-                onClick={() => handlePageChange(totalPages)}
-                aria-label="Ir a última página"
-                className="cursor-pointer bg-blue_xl px-3 py-1 rounded-md text-sm font-medium text-gray_l dark:text-gray_xl"
-              >
-                {totalPages}
-              </button>
-            </li>
-          )}
-          <li>
-            <button
-              onClick={handleNext}
-              disabled={currentPage === totalPages}
-              aria-label="Página siguiente"
-              className={`cursor-pointer p-2 rounded-md ${
-                currentPage === totalPages
-                  ? "text-gray_m dark:text-gray_xl"
-                  : "text-gray_b dark:text-gray_xl hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
-              }`}
-            >
-              <ChevronRight size={18} aria-hidden="true" />
-            </button>
-          </li>
-        </ul>
-      </nav>
-
-      <div className="text-sm text-gray_m dark:text-gray_xl">
-        {text2}: <span className="font-medium">{totalItems}</span>
-      </div>
-    </div>
+      {/* Contador total */}
+      <Typography variant="body2" color="text.secondary">
+        {text2}:{" "}
+        <Typography
+          component="span"
+          fontWeight="medium"
+          variant="body2"
+          color="primary.main"
+          sx={{
+            backgroundColor: "background.paper",
+            px: 1,
+            py: 0.5,
+            borderRadius: 1,
+            mx: 0.5,
+          }}
+        >
+          {totalItems}
+        </Typography>
+      </Typography>
+    </Stack>
   );
 };
 

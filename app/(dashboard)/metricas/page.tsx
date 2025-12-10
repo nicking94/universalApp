@@ -1,13 +1,4 @@
 "use client";
-import ProtectedRoute from "@/app/components/ProtectedRoute";
-import { db } from "@/app/database/db";
-import {
-  DailyCash,
-  DailyCashMovement,
-  MonthlyData,
-  Product,
-  Rubro,
-} from "@/app/lib/types/types";
 import {
   parseISO,
   isSameYear,
@@ -21,39 +12,531 @@ import {
 } from "date-fns";
 import { es } from "date-fns/locale";
 import { useEffect, useState, useMemo } from "react";
+
 import {
-  Chart as ChartJS,
-  BarElement,
-  CategoryScale,
-  LinearScale,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
   Tooltip,
   Legend,
-  ArcElement,
-  PointElement,
-  LineElement,
-} from "chart.js";
-import { Bar, Pie, Line } from "react-chartjs-2";
+  ResponsiveContainer,
+  PieLabelRenderProps,
+} from "recharts";
+
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Stack,
+  useTheme,
+  useMediaQuery,
+  Paper,
+  LinearProgress,
+  Tabs,
+  Tab,
+  alpha,
+} from "@mui/material";
+import {
+  TrendingUp,
+  TrendingDown,
+  MonetizationOn,
+  PieChart as PieChartIcon,
+  BarChart as BarChartIcon,
+  ShowChart,
+  Inventory,
+  CalendarToday,
+  DateRange,
+  Analytics,
+} from "@mui/icons-material";
 import { formatCurrency } from "@/app/lib/utils/currency";
-import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
+import Select, { SelectOption } from "@/app/components/Select";
+import {
+  DailyCash,
+  DailyCashMovement,
+  Product,
+  Rubro,
+} from "@/app/lib/types/types";
 import { useRubro } from "@/app/context/RubroContext";
+import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
 import { calculatePrice, calculateProfit } from "@/app/lib/utils/calculations";
-import Select from "react-select";
-import { SingleValue } from "react-select";
+import { db } from "@/app/database/db";
+import ProtectedRoute from "@/app/components/ProtectedRoute";
+import Notification from "@/app/components/Notification";
+import CustomChip from "@/app/components/CustomChip";
 
 const WEEK_STARTS_ON = 1;
-ChartJS.register(
-  BarElement,
-  CategoryScale,
-  LinearScale,
-  Tooltip,
-  Legend,
-  ArcElement,
-  PointElement,
-  LineElement
-);
+
+interface ChartDataItem {
+  name: string;
+  ingresos: number;
+  egresos: number;
+  ganancia: number;
+}
+
+interface TooltipPayloadItem {
+  name: string;
+  value: number;
+  color: string;
+  payload?: ChartDataItem;
+  dataKey?: string;
+}
+
+interface PieTooltipPayloadItem {
+  name: string;
+  value: number;
+  payload: {
+    name: string;
+    value: number;
+    fill: string;
+  };
+  color: string;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+  label?: string;
+}
+
+interface CustomPieTooltipProps {
+  active?: boolean;
+  payload?: PieTooltipPayloadItem[];
+}
+
+interface MetricCardProps {
+  title: string;
+  value: number;
+  type: "ingresos" | "egresos" | "ganancia";
+  icon: React.ReactNode;
+  trend?: number;
+  period: "week" | "month" | "year";
+  delay?: number;
+}
+
+const MetricCard = ({
+  title,
+  value,
+  type,
+  icon,
+  trend,
+  period,
+}: MetricCardProps) => {
+  const theme = useTheme();
+
+  const getColor = () => {
+    switch (type) {
+      case "ingresos":
+        return theme.palette.success.main;
+      case "egresos":
+        return theme.palette.error.main;
+      case "ganancia":
+        return theme.palette.primary.main;
+      default:
+        return theme.palette.primary.main;
+    }
+  };
+
+  const getBackgroundColor = () => {
+    switch (type) {
+      case "ingresos":
+        return alpha(theme.palette.success.main, 0.1);
+      case "egresos":
+        return alpha(theme.palette.error.main, 0.1);
+      case "ganancia":
+        return alpha(theme.palette.primary.main, 0.1);
+      default:
+        return alpha(theme.palette.primary.main, 0.1);
+    }
+  };
+
+  return (
+    <Card
+      elevation={2}
+      sx={{
+        height: "100%",
+        transition: "all 0.3s ease",
+        background: `linear-gradient(135deg, ${getBackgroundColor()} 0%, ${alpha(
+          getBackgroundColor(),
+          0.5
+        )} 100%)`,
+        position: "relative",
+        overflow: "hidden",
+        "&:hover": {
+          transform: "translateY(-4px)",
+          boxShadow: theme.shadows[8],
+        },
+        "&::before": {
+          content: '""',
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 4,
+          background: `${getColor()}`,
+        },
+      }}
+    >
+      <CardContent>
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+          mb={2}
+        >
+          <Box
+            sx={{
+              p: 1.5,
+              borderRadius: 3,
+              backgroundColor: getBackgroundColor(),
+              color: getColor(),
+              border: `2px solid ${alpha(getColor(), 0.3)}`,
+            }}
+          >
+            {icon}
+          </Box>
+          <Stack alignItems="flex-end" spacing={0.5}>
+            {trend !== undefined && (
+              <CustomChip
+                label={`${trend > 0 ? "+" : ""}${trend}%`}
+                size="small"
+                color={trend > 0 ? "success" : trend < 0 ? "error" : "default"}
+                variant="filled"
+                sx={{
+                  fontWeight: "bold",
+                  fontSize: "0.75rem",
+                }}
+              />
+            )}
+            <CustomChip
+              label={
+                period === "week" ? "SEM" : period === "month" ? "MES" : "AÑO"
+              }
+              size="small"
+              variant="outlined"
+              sx={{
+                fontSize: "0.7rem",
+
+                color: theme.palette.background.paper,
+                backgroundColor: theme.palette.primary.main,
+              }}
+            />
+          </Stack>
+        </Stack>
+
+        <Typography
+          variant="h4"
+          fontWeight="bold"
+          gutterBottom
+          color={getColor()}
+          sx={{
+            textShadow: `0 2px 4px ${alpha(getColor(), 0.2)}`,
+          }}
+        >
+          {formatCurrency(value)}
+        </Typography>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ fontWeight: 500 }}
+        >
+          {title}
+        </Typography>
+      </CardContent>
+    </Card>
+  );
+};
+
+interface ProductRankingProps {
+  title: string;
+  products: Array<{
+    name: string;
+    quantity: number;
+    amount: number;
+    profit: number;
+    unit: string;
+    rubro: Rubro;
+    displayText: string;
+  }>;
+  unit: Product["unit"] | "General";
+  onUnitChange: (unit: Product["unit"] | "General") => void;
+  unidadLegible: Record<Product["unit"] | "General", string>;
+  rubro: Rubro;
+  period: "week" | "month" | "year";
+}
+
+const ProductRanking = ({
+  title,
+  products,
+  unit,
+  onUnitChange,
+  unidadLegible,
+  rubro,
+}: ProductRankingProps) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  const unitOptions: SelectOption[] = [
+    { value: "General", label: "General" },
+    { value: "A", label: "Amperios" },
+    { value: "Bulto", label: "Bultos" },
+    { value: "Cajón", label: "Cajones" },
+    { value: "Caja", label: "Cajas" },
+    { value: "Ciento", label: "Cientos" },
+    { value: "Cm", label: "Centímetros" },
+    { value: "Docena", label: "Docenas" },
+    { value: "Gr", label: "Gramos" },
+    { value: "Kg", label: "Kilogramos" },
+    { value: "L", label: "Litros" },
+    { value: "M", label: "Metros" },
+    { value: "M²", label: "Metros cuadrados" },
+    { value: "M³", label: "Metros cúbicos" },
+    { value: "Ml", label: "Mililitros" },
+    { value: "Mm", label: "Milímetros" },
+    { value: "Pulg", label: "Pulgadas" },
+    { value: "Ton", label: "Toneladas" },
+    { value: "Unid.", label: "Unidades" },
+    { value: "V", label: "Voltios" },
+    { value: "W", label: "Watts" },
+  ];
+
+  return (
+    <Card
+      elevation={2}
+      sx={{
+        transition: "all 0.3s ease",
+        "&:hover": {
+          transform: "translateY(-2px)",
+          boxShadow: theme.shadows[4],
+        },
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <CardContent
+        sx={{
+          p: 0,
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+        }}
+      >
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+          spacing={2}
+          sx={{
+            background: theme.palette.primary.main,
+            color: "white",
+            p: 2,
+            flexShrink: 0,
+            flexWrap: isMobile ? "wrap" : "nowrap",
+          }}
+        >
+          <Typography
+            variant="h6"
+            sx={{
+              flex: 1,
+              fontWeight: "bold",
+              minWidth: 0,
+              mr: isMobile ? 0 : 2,
+              mb: isMobile ? 1 : 0,
+              textAlign: isMobile ? "center" : "left",
+              width: isMobile ? "100%" : "auto",
+            }}
+          >
+            {title}
+            {unit !== "General" && ` por ${unidadLegible[unit]}`}
+          </Typography>
+
+          {/* Selector siempre alineado a la derecha */}
+          <Select
+            label="Unidad"
+            options={unitOptions}
+            value={rubro === "indumentaria" ? "Unid." : unit}
+            onChange={(value) =>
+              onUnitChange(value as Product["unit"] | "General")
+            }
+            disabled={rubro === "indumentaria"}
+            sx={{
+              backgroundColor: "white",
+              borderRadius: 1,
+              minWidth: isMobile ? "100%" : 120,
+              maxWidth: isMobile ? "100%" : 150,
+              alignSelf: isMobile ? "stretch" : "auto",
+            }}
+          />
+        </Stack>
+
+        {/* Contenedor scrollable para los productos */}
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            overflow: "auto",
+            px: 2,
+            pb: 2,
+          }}
+        >
+          {products.length > 0 ? (
+            <Stack spacing={1}>
+              {products.map((product, index) => (
+                <Paper
+                  elevation={1}
+                  sx={{
+                    p: 2,
+                    transition: "all 0.3s ease",
+                    "&:hover": {
+                      backgroundColor: theme.palette.action.hover,
+                      transform: "translateX(4px)",
+                    },
+                  }}
+                  key={index}
+                >
+                  <Stack direction="row" alignItems="center" spacing={2}>
+                    <Box
+                      sx={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: "50%",
+                        backgroundColor: theme.palette.primary.main,
+                        color: "white",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontWeight: "bold",
+                        fontSize: "0.875rem",
+                      }}
+                    >
+                      {index + 1}
+                    </Box>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="body2" fontWeight="medium" noWrap>
+                        {product.name}
+                      </Typography>
+                      <Stack
+                        direction="row"
+                        spacing={2}
+                        alignItems="center"
+                        sx={{ mt: 0.5 }}
+                      >
+                        <Typography variant="caption" color="text.secondary">
+                          {product.displayText}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          color="success.main"
+                          fontWeight="bold"
+                        >
+                          {formatCurrency(product.amount)}
+                        </Typography>
+                      </Stack>
+                    </Box>
+                  </Stack>
+                </Paper>
+              ))}
+            </Stack>
+          ) : (
+            <Box textAlign="center" py={4}>
+              <Inventory sx={{ fontSize: 48, color: "text.disabled", mb: 1 }} />
+              <Typography variant="body2" color="text.secondary">
+                No hay datos de ventas
+              </Typography>
+            </Box>
+          )}
+        </Box>
+      </CardContent>
+    </Card>
+  );
+};
+
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
+  const theme = useTheme();
+
+  if (active && payload && payload.length) {
+    return (
+      <Paper
+        elevation={8}
+        sx={{
+          p: 2,
+          backgroundColor: theme.palette.background.paper,
+          border: `2px solid ${theme.palette.primary.main}`,
+        }}
+      >
+        <Typography
+          variant="body2"
+          fontWeight="bold"
+          gutterBottom
+          color="primary.main"
+        >
+          {label}
+        </Typography>
+        {payload.map((entry, index) => (
+          <Typography
+            key={index}
+            variant="body2"
+            sx={{ color: entry.color, fontWeight: 500 }}
+          >
+            {entry.name}: {formatCurrency(entry.value)}
+          </Typography>
+        ))}
+      </Paper>
+    );
+  }
+  return null;
+};
+
+const CustomPieTooltip = ({ active, payload }: CustomPieTooltipProps) => {
+  const theme = useTheme();
+
+  if (active && payload && payload.length) {
+    const data = payload[0];
+    return (
+      <Paper
+        elevation={8}
+        sx={{
+          p: 2,
+          backgroundColor: theme.palette.background.paper,
+          border: `2px solid ${data.color}`,
+        }}
+      >
+        <Typography
+          variant="body2"
+          fontWeight="bold"
+          gutterBottom
+          sx={{ color: data.color }}
+        >
+          {data.name}
+        </Typography>
+        <Typography variant="body2" sx={{ color: data.color, fontWeight: 500 }}>
+          {formatCurrency(data.value)}
+        </Typography>
+      </Paper>
+    );
+  }
+  return null;
+};
+
+const renderPieLabel = (props: PieLabelRenderProps) => {
+  const { name, percent } = props;
+  if (percent === undefined || name === undefined) return null;
+  return `${name} (${(percent * 100).toFixed(0)}%)`;
+};
 
 const Metrics = () => {
   const { rubro } = useRubro();
+  const theme = useTheme();
+
   const [products, setProducts] = useState<Product[]>([]);
   const [monthlyRankingUnit, setMonthlyRankingUnit] = useState<
     Product["unit"] | "General"
@@ -73,6 +556,25 @@ const Metrics = () => {
   );
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [userChangedMonth, setUserChangedMonth] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [activePeriod, setActivePeriod] = useState<"week" | "month" | "year">(
+    "week"
+  );
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState("");
+  const [notificationType, setNotificationType] = useState<
+    "success" | "error" | "info"
+  >("success");
+
+  const showNotification = (
+    message: string,
+    type: "success" | "error" | "info"
+  ) => {
+    setNotificationType(type);
+    setNotificationMessage(message);
+    setIsNotificationOpen(true);
+  };
+
   const unidadLegible: Record<Product["unit"] | "General", string> = {
     General: "General",
     A: "amperio",
@@ -96,20 +598,23 @@ const Metrics = () => {
     V: "voltio",
     W: "vatio",
   };
-  const isCurrentMonth = (month: number, year: number): boolean => {
-    const today = new Date();
-    return month === today.getMonth() + 1 && year === today.getFullYear();
+
+  const chartColors = {
+    ingresos: theme.palette.success.main,
+    egresos: theme.palette.error.main,
+    ganancia: theme.palette.primary.main,
+    grid: theme.palette.divider,
+    text: theme.palette.text.primary,
   };
+
   const filterByRubro = (
     movement: DailyCashMovement,
     currentRubro: Rubro
   ): boolean => {
     if (currentRubro === "Todos los rubros") return true;
-    // Movimientos de presupuestos deben filtrarse por su rubro original
     if (movement.fromBudget || movement.budgetId) {
       return movement.rubro === currentRubro;
     }
-    // Todos los movimientos de ingreso que coincidan con el rubro
     if (movement.type === "INGRESO") {
       if (movement.rubro) {
         return movement.rubro === currentRubro;
@@ -144,9 +649,8 @@ const Metrics = () => {
       const today = new Date();
       const selectedDate = new Date(selectedYear, selectedMonth - 1);
 
-      // Semana siempre debe calcularse desde el lunes hasta el domingo de la semana actual
       if (period === "week") {
-        const weekStart = startOfWeek(today, { weekStartsOn: WEEK_STARTS_ON }); // WEEK_STARTS_ON = 1 (Lunes)
+        const weekStart = startOfWeek(today, { weekStartsOn: WEEK_STARTS_ON });
         const weekEnd = endOfWeek(today, { weekStartsOn: WEEK_STARTS_ON });
 
         const filteredCashes = dailyCashes.filter((cash) => {
@@ -177,7 +681,6 @@ const Metrics = () => {
           { ingresos: 0, egresos: 0, ganancia: 0 }
         );
       } else if (period === "month") {
-        // Lógica para el mes
         const monthStart = startOfMonth(selectedDate);
         const monthEnd = endOfMonth(selectedDate);
 
@@ -209,7 +712,6 @@ const Metrics = () => {
           { ingresos: 0, egresos: 0, ganancia: 0 }
         );
       } else {
-        // Lógica para el año
         const yearStart = new Date(selectedYear, 0, 1);
         const yearEnd = new Date(selectedYear, 11, 31);
 
@@ -246,96 +748,96 @@ const Metrics = () => {
   );
 
   const getChartData = useMemo(
-    () => (period: "week" | "month" | "year") => {
-      if (period === "month") {
-        const daysInMonth = eachDayOfInterval({
-          start: startOfMonth(new Date(selectedYear, selectedMonth - 1)),
-          end: endOfMonth(new Date(selectedYear, selectedMonth - 1)),
-        });
+    () =>
+      (period: "week" | "month" | "year"): ChartDataItem[] => {
+        if (period === "month") {
+          const daysInMonth = eachDayOfInterval({
+            start: startOfMonth(new Date(selectedYear, selectedMonth - 1)),
+            end: endOfMonth(new Date(selectedYear, selectedMonth - 1)),
+          });
 
-        return daysInMonth.map((day) => {
-          const dateStr = format(day, "yyyy-MM-dd");
-          const dailyCash = dailyCashes.find((dc) => dc.date === dateStr);
-          if (!dailyCash)
+          return daysInMonth.map((day) => {
+            const dateStr = format(day, "yyyy-MM-dd");
+            const dailyCash = dailyCashes.find((dc) => dc.date === dateStr);
+            if (!dailyCash)
+              return {
+                name: format(day, "dd"),
+                ingresos: 0,
+                egresos: 0,
+                ganancia: 0,
+              };
+
+            const filteredMovements = dailyCash.movements.filter((m) =>
+              filterByRubro(m, rubro)
+            );
+            const ingresos = filteredMovements
+              .filter((m) => m.type === "INGRESO")
+              .reduce((sum, m) => sum + m.amount, 0);
+            const egresos = filteredMovements
+              .filter((m) => m.type === "EGRESO")
+              .reduce((sum, m) => sum + m.amount, 0);
+            const ganancia = filteredMovements
+              .filter((m) => m.type === "INGRESO")
+              .reduce((sum, m) => {
+                const productsProfit = m.profit || 0;
+                return sum + productsProfit;
+              }, 0);
+
             return {
-              date: format(day, "dd"),
-              ingresos: 0,
-              egresos: 0,
-              ganancia: 0,
+              name: format(day, "dd"),
+              ingresos,
+              egresos,
+              ganancia,
             };
+          });
+        } else if (period === "week") {
+          const weekStart = startOfWeek(new Date(), {
+            weekStartsOn: WEEK_STARTS_ON,
+          });
+          const weekEnd = endOfWeek(new Date(), {
+            weekStartsOn: WEEK_STARTS_ON,
+          });
 
-          const filteredMovements = dailyCash.movements.filter((m) =>
-            filterByRubro(m, rubro)
-          );
-          const ingresos = filteredMovements
-            .filter((m) => m.type === "INGRESO")
-            .reduce((sum, m) => sum + m.amount, 0);
-          const egresos = filteredMovements
-            .filter((m) => m.type === "EGRESO")
-            .reduce((sum, m) => sum + m.amount, 0);
-          const ganancia = filteredMovements
-            .filter((m) => m.type === "INGRESO")
-            .reduce((sum, m) => {
-              const productsProfit = m.profit || 0;
-              return sum + productsProfit;
-            }, 0);
+          const daysInWeek = eachDayOfInterval({
+            start: weekStart,
+            end: weekEnd,
+          });
 
-          return {
-            date: format(day, "dd"),
-            ingresos,
-            egresos,
-            ganancia,
-          };
-        });
-      } else if (period === "week") {
-        // Siempre usar la semana actual para el gráfico semanal
-        const weekStart = startOfWeek(new Date(), {
-          weekStartsOn: WEEK_STARTS_ON,
-        });
-        const weekEnd = endOfWeek(new Date(), { weekStartsOn: WEEK_STARTS_ON });
-
-        const daysInWeek = eachDayOfInterval({
-          start: weekStart,
-          end: weekEnd,
-        });
-
-        return daysInWeek.map((day) => {
-          const dateStr = format(day, "yyyy-MM-dd");
-          const dailyCash = dailyCashes.find((dc) => dc.date === dateStr);
-          if (!dailyCash)
+          return daysInWeek.map((day) => {
+            const dateStr = format(day, "yyyy-MM-dd");
+            const dailyCash = dailyCashes.find((dc) => dc.date === dateStr);
+            if (!dailyCash)
+              return {
+                name: format(day, "EEE", { locale: es }),
+                ingresos: 0,
+                egresos: 0,
+                ganancia: 0,
+              };
+            const filteredMovements = dailyCash.movements.filter((m) =>
+              filterByRubro(m, rubro)
+            );
+            const ingresos = filteredMovements
+              .filter((m) => m.type === "INGRESO")
+              .reduce((sum, m) => sum + m.amount, 0);
+            const egresos = filteredMovements
+              .filter((m) => m.type === "EGRESO")
+              .reduce((sum, m) => sum + m.amount, 0);
+            const ganancia = filteredMovements
+              .filter((m) => m.type === "INGRESO")
+              .reduce((sum, m) => {
+                const productsProfit = m.profit || 0;
+                return sum + productsProfit;
+              }, 0);
             return {
-              date: format(day, "EEE", { locale: es }),
-              ingresos: 0,
-              egresos: 0,
-              ganancia: 0,
+              name: format(day, "EEE", { locale: es }),
+              ingresos,
+              egresos,
+              ganancia,
             };
-          const filteredMovements = dailyCash.movements.filter((m) =>
-            filterByRubro(m, rubro)
-          );
-          const ingresos = filteredMovements
-            .filter((m) => m.type === "INGRESO")
-            .reduce((sum, m) => sum + m.amount, 0);
-          const egresos = filteredMovements
-            .filter((m) => m.type === "EGRESO")
-            .reduce((sum, m) => sum + m.amount, 0);
-          const ganancia = filteredMovements
-            .filter((m) => m.type === "INGRESO")
-            .reduce((sum, m) => {
-              const productsProfit = m.profit || 0;
-              return sum + productsProfit;
-            }, 0);
-          return {
-            date: format(day, "EEE", { locale: es }),
-            ingresos,
-            egresos,
-            ganancia,
-          };
-        });
-      } else {
-        const currentYear = new Date().getFullYear();
-        const monthlyData: MonthlyData[] = Array.from(
-          { length: 12 },
-          (_, i) => {
+          });
+        } else {
+          const currentYear = selectedYear;
+          const monthlyData = Array.from({ length: 12 }, (_, i) => {
             const monthStart = new Date(currentYear, i, 1);
             const monthEnd = new Date(currentYear, i + 1, 0);
             const monthCashes = dailyCashes.filter((cash) => {
@@ -368,15 +870,14 @@ const Metrics = () => {
             );
 
             return {
-              month: format(new Date(currentYear, i, 1), "MMM", { locale: es }),
+              name: format(new Date(currentYear, i, 1), "MMM", { locale: es }),
               ...summary,
             };
-          }
-        );
+          });
 
-        return monthlyData;
-      }
-    },
+          return monthlyData;
+        }
+      },
     [dailyCashes, selectedYear, selectedMonth, rubro, products]
   );
 
@@ -405,7 +906,6 @@ const Metrics = () => {
           const selectedDate = new Date(selectedYear, selectedMonth - 1);
 
           if (userChangedMonth) {
-            // Mostrar última semana del mes seleccionado
             const lastDayOfMonth = endOfMonth(selectedDate);
             weekStart = startOfWeek(lastDayOfMonth, {
               weekStartsOn: WEEK_STARTS_ON,
@@ -414,7 +914,6 @@ const Metrics = () => {
               weekStartsOn: WEEK_STARTS_ON,
             });
           } else {
-            // Semana actual
             const today = new Date();
             weekStart = startOfWeek(today, { weekStartsOn: WEEK_STARTS_ON });
             weekEnd = endOfWeek(today, { weekStartsOn: WEEK_STARTS_ON });
@@ -524,12 +1023,14 @@ const Metrics = () => {
       userChangedMonth,
     ]
   );
+
   useEffect(() => {
     const today = new Date();
     if (selectedYear !== today.getFullYear()) {
       db.dailyCashes.toArray().then(setDailyCashes);
     }
   }, [selectedYear]);
+
   useEffect(() => {
     const checkMonthChange = () => {
       const today = new Date();
@@ -537,11 +1038,9 @@ const Metrics = () => {
       const currentYear = today.getFullYear();
 
       if (selectedMonth !== currentMonth || selectedYear !== currentYear) {
-        // Si el mes cambió naturalmente (no por el usuario)
         if (!userChangedMonth) {
           setSelectedMonth(currentMonth);
           setSelectedYear(currentYear);
-          // Forzar recarga de datos
           db.dailyCashes.toArray().then((cashes) => {
             setDailyCashes(
               cashes.sort(
@@ -561,34 +1060,36 @@ const Metrics = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const [storedDailyCashes, storedProducts] = await Promise.all([
-        db.dailyCashes.toArray(),
-        db.products.toArray(),
-      ]);
+      setLoading(true);
+      try {
+        const [storedDailyCashes, storedProducts] = await Promise.all([
+          db.dailyCashes.toArray(),
+          db.products.toArray(),
+        ]);
 
-      // Ordenar los datos por fecha para asegurar consistencia
-      const sortedCashes = storedDailyCashes.sort(
-        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-      );
+        const sortedCashes = storedDailyCashes.sort(
+          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
 
-      setDailyCashes(sortedCashes);
-      setProducts(storedProducts);
+        setDailyCashes(sortedCashes);
+        setProducts(storedProducts);
 
-      // Actualizar años disponibles
-      const years = new Set<number>();
-      storedDailyCashes.forEach((cash) => {
-        const date = parseISO(cash.date);
-        years.add(getYear(date));
-      });
-      setAvailableYears(Array.from(years).sort((a, b) => b - a));
+        const years = new Set<number>();
+        storedDailyCashes.forEach((cash) => {
+          const date = parseISO(cash.date);
+          years.add(getYear(date));
+        });
+        setAvailableYears(Array.from(years).sort((a, b) => b - a));
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        showNotification("Error al cargar los datos", "error");
+      } finally {
+        setLoading(false);
+      }
     };
 
-    // Cargar datos iniciales
     fetchData();
-
-    // Establecer un intervalo para actualizar datos periódicamente
-    const intervalId = setInterval(fetchData, 300000); // 5 minutos
-
+    const intervalId = setInterval(fetchData, 300000);
     return () => clearInterval(intervalId);
   }, []);
 
@@ -600,722 +1101,504 @@ const Metrics = () => {
     }
   }, [rubro]);
 
-  const unitOptions: { value: Product["unit"] | "General"; label: string }[] = [
-    { value: "General", label: "General" },
-    { value: "A", label: "Amperios" },
-    { value: "Bulto", label: "Bultos" },
-    { value: "Cajón", label: "Cajones" },
-    { value: "Caja", label: "Cajas" },
-    { value: "Ciento", label: "Cientos" },
-    { value: "Cm", label: "Centímetros" },
-    { value: "Docena", label: "Docenas" },
-    { value: "Gr", label: "Gramos" },
-    { value: "Kg", label: "Kilogramos" },
-    { value: "L", label: "Litros" },
-    { value: "M", label: "Metros" },
-    { value: "M²", label: "Metros cuadrados" },
-    { value: "M³", label: "Metros cúbicos" },
-    { value: "Ml", label: "Mililitros" },
-    { value: "Mm", label: "Milímetros" },
-    { value: "Pulg", label: "Pulgadas" },
-    { value: "Ton", label: "Toneladas" },
-    { value: "Unid.", label: "Unidades" },
-    { value: "V", label: "Voltios" },
-    { value: "W", label: "Watts" },
-  ];
-
   const weeklySummary = getConsistentSummary("week");
   const monthlySummary = getConsistentSummary("month");
   const annualSummary = getConsistentSummary("year");
-
-  const dailyWeekData = getChartData("week");
-  const dailyMonthData = getChartData("month");
-  const monthlyYearData = getChartData("year") as MonthlyData[];
-
+  const weeklyChartData = getChartData("week");
+  const monthlyChartData = getChartData("month");
+  const annualChartData = getChartData("year");
   const topProductsWeekly = getProductMovements("week", weeklyRankingUnit);
   const topProductsMonthly = getProductMovements("month", monthlyRankingUnit);
   const topProductsYearly = getProductMovements("year", yearlyRankingUnit);
-
-  const weeklyBarChartData = {
-    labels: dailyWeekData.map((data) =>
-      "date" in data ? data.date : data.month
-    ),
-    datasets: [
+  const getPieChartData = (period: "week" | "month" | "year") => {
+    const summary =
+      period === "week"
+        ? weeklySummary
+        : period === "month"
+        ? monthlySummary
+        : annualSummary;
+    return [
       {
-        label: "Ingresos",
-        data: dailyWeekData.map((data) => data.ingresos || 0),
-        backgroundColor: "rgba(75, 192, 192, 0.8)",
-        borderColor: "rgba(75, 192, 192, 1)",
-        borderWidth: 1,
+        name: "Ingresos",
+        value: summary.ingresos,
+        fill: chartColors.ingresos,
       },
       {
-        label: "Egresos",
-        data: dailyWeekData.map((data) => data.egresos || 0),
-        backgroundColor: "rgba(255, 99, 132, 0.8)",
-        borderColor: "rgba(255, 99, 132, 1)",
-        borderWidth: 1,
+        name: "Egresos",
+        value: summary.egresos,
+        fill: chartColors.egresos,
       },
-    ],
+      {
+        name: "Ganancia",
+        value: summary.ganancia,
+        fill: chartColors.ganancia,
+      },
+    ];
   };
 
-  const monthlyBarChartData = {
-    labels: dailyMonthData.map((data) =>
-      "date" in data ? data.date : data.month
-    ),
-    datasets: [
-      {
-        label: "Ingresos",
-        data: dailyMonthData.map((data) => data.ingresos || 0),
-        backgroundColor: "rgba(75, 192, 192, 0.8)",
-        borderColor: "rgba(75, 192, 192, 1)",
-        borderWidth: 1,
-      },
-      {
-        label: "Egresos",
-        data: dailyMonthData.map((data) => data.egresos || 0),
-        backgroundColor: "rgba(255, 99, 132, 0.8)",
-        borderColor: "rgba(255, 99, 132, 1)",
-        borderWidth: 1,
-      },
-    ],
-  };
+  const monthOptions: SelectOption[] = Array.from({ length: 12 }, (_, i) => ({
+    value: i + 1,
+    label: format(new Date(selectedYear, i, 1), "MMMM", { locale: es }),
+  }));
 
-  const monthlyProfitLineChartData = {
-    labels: dailyMonthData.map((data) =>
-      "date" in data ? data.date : data.month
-    ),
-    datasets: [
-      {
-        label: "Ganancia Diaria",
-        data: dailyMonthData.map((data) => data.ganancia),
-        borderColor: "rgba(153, 102, 255, 1)",
-        backgroundColor: "rgba(153, 102, 255, 0.8)",
-        borderWidth: 2,
-        tension: 0.1,
-        fill: true,
-      },
-    ],
-  };
+  const yearOptions: SelectOption[] = availableYears.map((year) => ({
+    value: year,
+    label: year.toString(),
+  }));
 
-  const annualBarChartData = {
-    labels: monthlyYearData.map((data) => data.month),
-    datasets: [
-      {
-        label: "Ingresos",
-        data: monthlyYearData.map((data) => data.ingresos),
-        backgroundColor: "rgba(75, 192, 192, 0.8)",
-        borderColor: "rgba(75, 192, 192, 1)",
-        borderWidth: 1,
-      },
-      {
-        label: "Egresos",
-        data: monthlyYearData.map((data) => data.egresos),
-        backgroundColor: "rgba(255, 99, 132, 0.8)",
-        borderColor: "rgba(255, 99, 132, 1)",
-        borderWidth: 1,
-      },
-    ],
-  };
-
-  const summaryPieChartData = {
-    labels: ["Ingresos", "Egresos", "Ganancia"],
-    datasets: [
-      {
-        data: [
-          monthlySummary.ingresos,
-          monthlySummary.egresos,
-          monthlySummary.ganancia,
-        ],
-        backgroundColor: [
-          "rgba(75, 192, 192, 0.8)",
-          "rgba(255, 99, 132, 0.8)",
-          "rgba(153, 102, 255, 0.8)",
-        ],
-        borderColor: [
-          "rgba(75, 192, 192, 1)",
-          "rgba(255, 99, 132, 1)",
-          "rgba(153, 102, 255, 1)",
-        ],
-        borderWidth: 1,
-      },
-    ],
-  };
+  if (loading) {
+    return (
+      <ProtectedRoute>
+        <Box sx={{ px: 3 }}>
+          <LinearProgress />
+        </Box>
+      </ProtectedRoute>
+    );
+  }
 
   return (
     <ProtectedRoute>
-      <div className="px-10 2xl:px-10 py-4 text-gray_l dark:text-white h-[calc(100vh-80px)]">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-2 gap-2">
-          <h1 className="text-lg 2xl:text-xl font-semibold ">Métricas</h1>
-          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-            <div className="flex items-center gap-2">
-              <label
-                htmlFor="month"
-                className="text-sm font-medium text-gray_b dark:text-gray_l"
-              >
-                Mes:
-              </label>
-              <Select
-                id="month"
-                value={{
-                  value: selectedMonth,
-                  label: format(
-                    new Date(selectedYear, selectedMonth - 1, 1),
-                    "MMMM",
-                    { locale: es }
-                  ),
-                }}
-                onChange={(
-                  option: SingleValue<{ value: number; label: string }>
-                ) => {
-                  setUserChangedMonth(true);
-                  setSelectedMonth(option?.value ?? selectedMonth);
-                }}
-                options={Array.from({ length: 12 }, (_, i) => ({
-                  value: i + 1,
-                  label: format(new Date(selectedYear, i, 1), "MMMM", {
-                    locale: es,
-                  }),
-                }))}
-                className="text-gray_m min-w-40"
-                classNamePrefix="select"
-                isSearchable={false}
+      <Box
+        sx={{
+          px: 2,
+          py: 2,
+          minHeight: "100%",
+          display: "flex",
+          flexDirection: "column",
+          bgcolor: "background.default",
+          color: "text.primary",
+          overflow: "auto",
+        }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: { xs: "column", md: "row" },
+            justifyContent: "space-between",
+            alignItems: { xs: "flex-start", md: "center" },
+            gap: 2,
+            mb: 3,
+            flexShrink: 0,
+          }}
+        >
+          <Box>
+            <Typography variant="h5" fontWeight="semibold" gutterBottom>
+              Métricas
+            </Typography>
+          </Box>
+
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: { xs: "column", sm: "row" },
+              gap: 2,
+            }}
+          >
+            <Select
+              label="Mes"
+              options={monthOptions}
+              value={selectedMonth}
+              onChange={(value) => {
+                setUserChangedMonth(true);
+                setSelectedMonth(value as number);
+              }}
+              sx={{ minWidth: 120 }}
+            />
+
+            <Select
+              label="Año"
+              options={yearOptions}
+              value={selectedYear}
+              onChange={(value) => setSelectedYear(value as number)}
+              sx={{ minWidth: 120 }}
+            />
+          </Box>
+        </Box>
+
+        {/* Selector de Período - Estilo coherente */}
+        <Card sx={{ mb: 3 }} elevation={2}>
+          <CardContent sx={{ py: 2 }}>
+            <Tabs
+              value={activePeriod}
+              onChange={(_, newValue) => setActivePeriod(newValue)}
+              centered
+              sx={{
+                "& .MuiTab-root": {
+                  fontWeight: "bold",
+                  fontSize: "0.875rem",
+                  minWidth: 100,
+                  textTransform: "none",
+                },
+                "& .Mui-selected": {
+                  color: "primary.main",
+                },
+              }}
+            >
+              <Tab
+                icon={<CalendarToday />}
+                iconPosition="start"
+                label="Semanal"
+                value="week"
               />
-            </div>
-            <div className="flex items-center gap-2">
-              <label
-                htmlFor="year"
-                className="text-sm font-medium text-gray_b dark:text-gray_l"
-              >
-                Año:
-              </label>
-              <Select
-                placeholder="Seleccionar año"
-                noOptionsMessage={() => "Sin opciones"}
-                options={availableYears.map((year) => ({
-                  value: year,
-                  label: year.toString(),
-                }))}
-                value={{
-                  value: selectedYear,
-                  label: selectedYear.toString(),
-                }}
-                onChange={(selectedOption) => {
-                  if (selectedOption) {
-                    setSelectedYear(selectedOption.value);
-                  }
-                }}
-                className="text-gray_m min-w-40"
-                classNamePrefix="react-select"
-                menuPosition="fixed"
+              <Tab
+                icon={<DateRange />}
+                iconPosition="start"
+                label="Mensual"
+                value="month"
               />
-            </div>
-          </div>
-        </div>
+              <Tab
+                icon={<Analytics />}
+                iconPosition="start"
+                label="Anual"
+                value="year"
+              />
+            </Tabs>
+          </CardContent>
+        </Card>
 
-        <div className="grid grid-cols-1 2xl:grid-cols-3 gap-6 mb-6">
-          {/* Weekly Summary Card */}
-          <div className="bg-white dark:bg-gray_b rounded-xl shadow-md shadow-gray_m p-5 border border-gray_xl dark:border-gray_b ">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <span className="bg-orange-100 dark:bg-orange-900 p-2 rounded-full">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 text-orange-500 dark:text-orange-300"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M12 1.586l-4 4v12.828l4-4V1.586zM3.707 3.293A1 1 0 002 4v10a1 1 0 00.293.707L6 18.414V5.586L3.707 3.293zM17.707 5.293L14 1.586v12.828l2.293 2.293A1 1 0 0018 16V6a1 1 0 00-.293-.707z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </span>
-              Resumen Semanal
-            </h2>
+        {/* Resumen de Métricas para el período activo - Estilo coherente */}
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: { xs: "column", md: "row" },
+            gap: 2,
+            mb: 3,
+            flexShrink: 0,
+          }}
+        >
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <MetricCard
+              title="Ingresos Totales"
+              value={
+                activePeriod === "week"
+                  ? weeklySummary.ingresos
+                  : activePeriod === "month"
+                  ? monthlySummary.ingresos
+                  : annualSummary.ingresos
+              }
+              type="ingresos"
+              icon={<TrendingUp />}
+              period={activePeriod}
+              delay={0}
+            />
+          </Box>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <MetricCard
+              title="Egresos Totales"
+              value={
+                activePeriod === "week"
+                  ? weeklySummary.egresos
+                  : activePeriod === "month"
+                  ? monthlySummary.egresos
+                  : annualSummary.egresos
+              }
+              type="egresos"
+              icon={<TrendingDown />}
+              period={activePeriod}
+              delay={100}
+            />
+          </Box>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <MetricCard
+              title="Ganancia Neta"
+              value={
+                activePeriod === "week"
+                  ? weeklySummary.ganancia
+                  : activePeriod === "month"
+                  ? monthlySummary.ganancia
+                  : annualSummary.ganancia
+              }
+              type="ganancia"
+              icon={<MonetizationOn />}
+              period={activePeriod}
+              delay={200}
+            />
+          </Box>
+        </Box>
 
-            <div className="space-y-3">
-              <div className="flex justify-between items-center p-3 bg-green_xl dark:bg-green_b rounded-lg">
-                <span className="text-sm font-medium ">Ingresos</span>
-                <span className="font-bold">
-                  {formatCurrency(weeklySummary.ingresos)}
-                </span>
-              </div>
-              <div className="flex justify-between items-center p-3 bg-red_xl dark:bg-red_b/30 rounded-lg">
-                <span className="text-sm font-medium">Egresos</span>
-                <span className="font-bold">
-                  {formatCurrency(weeklySummary.egresos)}
-                </span>
-              </div>
-              <div className="flex justify-between items-center p-3 bg-purple-100 dark:bg-purple-900 rounded-lg">
-                <span className="text-sm font-medium">Ganancia</span>
-                <span className="font-bold">
-                  {formatCurrency(weeklySummary.ganancia)}
-                </span>
-              </div>
-            </div>
-            <div className="mt-4">
-              <div className="flex bg-gradient-to-bl from-blue_m to-blue_b dark:bg-gray_m text-white items-center mb-2 px-2">
-                <h3 className="w-full p-2 font-medium text-sm">
-                  5 Productos más vendidos{" "}
-                  {weeklyRankingUnit !== "General" &&
-                    `por ${unidadLegible[weeklyRankingUnit]}`}{" "}
-                  esta semana
-                </h3>
-                <Select
-                  placeholder="Seleccionar unidad"
-                  noOptionsMessage={() => "Sin opciones"}
-                  options={unitOptions}
-                  value={
-                    rubro === "indumentaria"
-                      ? { value: "Unid.", label: "Unidades" }
-                      : { value: weeklyRankingUnit, label: weeklyRankingUnit }
-                  }
-                  onChange={(selectedOption) => {
-                    if (selectedOption && rubro !== "indumentaria") {
-                      setWeeklyRankingUnit(
-                        selectedOption.value as Product["unit"]
-                      );
-                    }
+        {/* contenedor scrollable main */}
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: { xs: "column", lg: "row" },
+            gap: 2,
+            flex: 1,
+            minHeight: 0,
+          }}
+        >
+          <Box
+            sx={{
+              width: { xs: "100%", lg: "32.73%" },
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+            }}
+          >
+            <Box
+              sx={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <ProductRanking
+                title={`Top 5 Productos - ${
+                  activePeriod === "week"
+                    ? "Semana"
+                    : activePeriod === "month"
+                    ? "Mes"
+                    : "Año"
+                }`}
+                products={
+                  activePeriod === "week"
+                    ? topProductsWeekly
+                    : activePeriod === "month"
+                    ? topProductsMonthly
+                    : topProductsYearly
+                }
+                unit={
+                  activePeriod === "week"
+                    ? weeklyRankingUnit
+                    : activePeriod === "month"
+                    ? monthlyRankingUnit
+                    : yearlyRankingUnit
+                }
+                onUnitChange={
+                  activePeriod === "week"
+                    ? setWeeklyRankingUnit
+                    : activePeriod === "month"
+                    ? setMonthlyRankingUnit
+                    : setYearlyRankingUnit
+                }
+                unidadLegible={unidadLegible}
+                rubro={rubro}
+                period={activePeriod}
+              />
+            </Box>
+          </Box>
+
+          {/* Gráficos - Contenido Principal */}
+          <Box
+            sx={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+            }}
+          >
+            {/* Gráfico de Barras */}
+            <Card elevation={2}>
+              <CardContent>
+                <Typography
+                  variant="h6"
+                  gutterBottom
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    fontWeight: "semibold",
                   }}
-                  isDisabled={rubro === "indumentaria"}
-                  className={`text-gray_m min-w-40 ${
-                    rubro === "indumentaria"
-                      ? "opacity-50 cursor-not-allowed"
-                      : ""
-                  }`}
-                  classNamePrefix="react-select"
-                  menuPosition="fixed"
-                />
-              </div>
-              {topProductsWeekly.length > 0 ? (
-                <div className="space-y-2">
-                  {topProductsWeekly.map((product, index) => (
-                    <div
-                      key={index}
-                      className="py-2 flex justify-between items-center text-sm"
-                    >
-                      <span className="truncate">
-                        <span className="font-bold text-blue_m dark:text-blue_l">
-                          {index + 1}- {""}
-                        </span>
-                        {product.name}
-                      </span>
-                      <span className="font-medium">{product.displayText}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-gray_m dark:text-gray_m">
-                  No hay datos de ventas esta semana
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Monthly Summary Card */}
-          <div className="bg-white dark:bg-gray_b rounded-xl shadow-md shadow-gray_m p-5 border border-gray_xl dark:border-gray_b ">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <span className="bg-purple-100 dark:bg-purple-900 p-2 rounded-full">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 text-purple-600 dark:text-purple-300"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
                 >
-                  <path
-                    fillRule="evenodd"
-                    d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </span>
-              Resumen Mensual -{" "}
-              {format(
-                new Date(selectedYear, selectedMonth - 1, 1),
-                "MMMM yyyy",
-                { locale: es }
-              )}
-            </h2>
-
-            <div className="space-y-3">
-              <div className="flex justify-between items-center p-3 bg-green_xl dark:bg-green_b rounded-lg">
-                <span className="text-sm font-medium ">Ingresos</span>
-                <span className="font-bold">
-                  {formatCurrency(monthlySummary.ingresos)}
-                </span>
-              </div>
-              <div className="flex justify-between items-center p-3 bg-red_xl dark:bg-red_b/30 rounded-lg">
-                <span className="text-sm font-medium">Egresos</span>
-                <span className="font-bold">
-                  {formatCurrency(monthlySummary.egresos)}
-                </span>
-              </div>
-              <div className="flex justify-between items-center p-3 bg-purple-100 dark:bg-purple-600/30 rounded-lg">
-                <span className="text-sm font-medium">Ganancia</span>
-                <span className="font-bold">
-                  {formatCurrency(monthlySummary.ganancia)}
-                </span>
-              </div>
-            </div>
-            <div className="mt-4">
-              <div className="flex bg-gradient-to-bl from-blue_m to-blue_b dark:bg-gray_m text-white items-center mb-2 px-2">
-                <h3 className="w-full p-2 font-medium text-sm">
-                  5 Productos más vendidos{" "}
-                  {monthlyRankingUnit !== "General" &&
-                    `por ${unidadLegible[monthlyRankingUnit]}`}{" "}
-                  este mes
-                </h3>
-                <Select
-                  placeholder="Seleccionar unidad"
-                  noOptionsMessage={() => "Sin opciones"}
-                  options={unitOptions}
-                  value={
-                    rubro === "indumentaria"
-                      ? { value: "Unid.", label: "Unidades" }
-                      : { value: monthlyRankingUnit, label: monthlyRankingUnit }
-                  }
-                  onChange={(selectedOption) => {
-                    if (selectedOption && rubro !== "indumentaria") {
-                      setMonthlyRankingUnit(
-                        selectedOption.value as Product["unit"]
-                      );
-                    }
-                  }}
-                  isDisabled={rubro === "indumentaria"}
-                  className={`text-gray_m min-w-40  ${
-                    rubro === "indumentaria"
-                      ? "opacity-50 cursor-not-allowed"
-                      : ""
-                  }`}
-                  classNamePrefix="react-select"
-                  menuPosition="fixed"
-                />
-              </div>
-              {topProductsMonthly.length > 0 ? (
-                <div className="space-y-2">
-                  {topProductsMonthly.map((product, index) => (
-                    <div
-                      key={index}
-                      className="py-2 flex justify-between items-center text-sm"
+                  <BarChartIcon sx={{ mr: 1, color: "primary.main" }} />
+                  {activePeriod === "week"
+                    ? "Ingresos vs Egresos - Semana Actual"
+                    : activePeriod === "month"
+                    ? `Ingresos vs Egresos - ${format(
+                        new Date(selectedYear, selectedMonth - 1, 1),
+                        "MMMM",
+                        { locale: es }
+                      )}`
+                    : "Ingresos vs Egresos - Año Completo"}
+                </Typography>
+                <Box sx={{ height: 300 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={
+                        activePeriod === "week"
+                          ? weeklyChartData
+                          : activePeriod === "month"
+                          ? monthlyChartData
+                          : annualChartData
+                      }
                     >
-                      <span className="truncate">
-                        <span className="font-bold text-blue_m dark:text-blue_l">
-                          {index + 1}- {""}
-                        </span>
-                        {product.name}
-                      </span>
-                      <span className="font-medium">{product.displayText}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-gray_m dark:text-gray_m">
-                  No hay datos de ventas este mes
-                </p>
-              )}
-            </div>
-          </div>
-          <div className="bg-white dark:bg-gray_b rounded-xl shadow-md shadow-gray_m p-5 border border-gray_xl dark:border-gray_b">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <span className="bg-indigo-100 dark:bg-indigo-900 p-2 rounded-full">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 text-indigo-500 dark:text-indigo-300"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </span>
-              Resumen Anual
-            </h2>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke={chartColors.grid}
+                      />
+                      <XAxis
+                        dataKey="name"
+                        stroke={chartColors.text}
+                        fontSize={12}
+                      />
+                      <YAxis
+                        stroke={chartColors.text}
+                        fontSize={12}
+                        tickFormatter={(value) => formatCurrency(value)}
+                      />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Legend />
+                      <Bar
+                        dataKey="ingresos"
+                        fill={chartColors.ingresos}
+                        name="Ingresos"
+                        radius={[4, 4, 0, 0]}
+                      />
+                      <Bar
+                        dataKey="egresos"
+                        fill={chartColors.egresos}
+                        name="Egresos"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Box>
+              </CardContent>
+            </Card>
 
-            <div className="space-y-3">
-              <div className="flex justify-between items-center p-3 bg-green_xl dark:bg-green_b rounded-lg">
-                <span className="text-sm font-medium">Ingresos</span>
-                <span className="font-bold">
-                  {formatCurrency(annualSummary.ingresos)}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center p-3 bg-red_xl dark:bg-red_b/30 rounded-lg">
-                <span className="text-sm font-medium">Egresos</span>
-                <span className="font-bold">
-                  {formatCurrency(annualSummary.egresos)}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center p-3 bg-purple-100 dark:bg-purple-600/30  rounded-lg">
-                <span className="text-sm font-medium">Ganancia</span>
-                <span className="font-bold">
-                  {formatCurrency(annualSummary.ganancia)}
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <div className="flex bg-gradient-to-bl from-blue_m to-blue_b dark:bg-gray_m text-white items-center mb-2 px-2">
-                <h3 className="w-full p-2 font-medium text-sm">
-                  5 Productos más vendidos{" "}
-                  {yearlyRankingUnit !== "General" &&
-                    `por ${unidadLegible[yearlyRankingUnit]}`}{" "}
-                  este año
-                </h3>
-                <Select
-                  placeholder="Seleccionar unidad"
-                  noOptionsMessage={() => "Sin opciones"}
-                  options={unitOptions}
-                  value={
-                    rubro === "indumentaria"
-                      ? { value: "unidad", label: "unidad" }
-                      : { value: yearlyRankingUnit, label: yearlyRankingUnit }
-                  }
-                  onChange={(selectedOption) => {
-                    if (selectedOption && rubro !== "indumentaria") {
-                      setYearlyRankingUnit(
-                        selectedOption.value as Product["unit"]
-                      );
-                    }
-                  }}
-                  isDisabled={rubro === "indumentaria"}
-                  className={`react-select-container text-gray_m min-w-40 ${
-                    rubro === "indumentaria"
-                      ? "opacity-50 cursor-not-allowed"
-                      : ""
-                  }`}
-                  classNamePrefix="react-select"
-                  menuPosition="fixed"
-                />
-              </div>
-              {topProductsYearly.length > 0 ? (
-                <div className="space-y-2">
-                  {topProductsYearly.map((product, index) => (
-                    <div
-                      key={index}
-                      className="py-2 flex justify-between items-center text-sm"
+            {/* Gráficos Inferiores */}
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: { xs: "column", md: "row" },
+                gap: 2,
+                flex: 1,
+                minHeight: 0,
+              }}
+            >
+              {/* Gráfico de Línea */}
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Card elevation={2}>
+                  <CardContent>
+                    <Typography
+                      variant="h6"
+                      gutterBottom
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        fontWeight: "semibold",
+                      }}
                     >
-                      <span className="truncate capitalize">
-                        <span className="font-bold text-blue_m dark:text-blue_l">
-                          {index + 1}- {""}
-                        </span>
-                        {product.name}
-                      </span>
-                      <span className="font-medium">
-                        {product.displayText}{" "}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-gray_m dark:text-gray_m">
-                  No hay datos de ventas este año
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div className="bg-white dark:bg-gray_b rounded-xl shadow-md shadow-gray_m p-5 border border-gray_xl dark:border-gray_b">
-            <h2 className="text-lg font-semibold mb-4">
-              {isCurrentMonth(selectedMonth, selectedYear)
-                ? "Ingresos | Egresos - Semana Actual"
-                : `Ingresos | Egresos - ${format(
-                    new Date(selectedYear, selectedMonth - 1, 1),
-                    "MMMM yyyy",
-                    { locale: es }
-                  )}`}
-            </h2>
-            <Bar
-              data={weeklyBarChartData}
-              options={{
-                responsive: true,
+                      <ShowChart sx={{ mr: 1, color: "primary.main" }} />
+                      {activePeriod === "week"
+                        ? "Ganancia Diaria - Semana"
+                        : activePeriod === "month"
+                        ? `Ganancia Diaria - ${format(
+                            new Date(selectedYear, selectedMonth - 1, 1),
+                            "MMMM",
+                            { locale: es }
+                          )}`
+                        : "Ganancia Mensual - Año"}
+                    </Typography>
+                    <Box sx={{ height: 250 }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart
+                          data={
+                            activePeriod === "week"
+                              ? weeklyChartData
+                              : activePeriod === "month"
+                              ? monthlyChartData
+                              : annualChartData
+                          }
+                        >
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke={chartColors.grid}
+                          />
+                          <XAxis
+                            dataKey="name"
+                            stroke={chartColors.text}
+                            fontSize={11}
+                          />
+                          <YAxis
+                            stroke={chartColors.text}
+                            fontSize={11}
+                            tickFormatter={(value) => formatCurrency(value)}
+                          />
+                          <Tooltip content={<CustomTooltip />} />
+                          <Legend />
+                          <Line
+                            type="monotone"
+                            dataKey="ganancia"
+                            stroke={chartColors.ganancia}
+                            strokeWidth={3}
+                            dot={{
+                              fill: chartColors.ganancia,
+                              strokeWidth: 2,
+                              r: 4,
+                            }}
+                            activeDot={{
+                              r: 6,
+                              stroke: chartColors.ganancia,
+                              strokeWidth: 2,
+                            }}
+                            name="Ganancia"
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Box>
 
-                plugins: {
-                  legend: {
-                    position: "top",
-                  },
-                  tooltip: {
-                    callbacks: {
-                      label: function (context) {
-                        return `${context.dataset.label}: ${formatCurrency(
-                          context.raw as number
-                        )}`;
-                      },
-                    },
-                  },
-                },
-                scales: {
-                  y: {
-                    beginAtZero: true,
-                    ticks: {
-                      callback: function (value) {
-                        return formatCurrency(value as number);
-                      },
-                    },
-                  },
-                },
-              }}
-            />
-            <h2 className="text-lg font-semibold mt-4 mb-4">
-              {isCurrentMonth(selectedMonth, selectedYear)
-                ? "Ingresos | Egresos - Mes Actual"
-                : `Ingresos | Egresos - ${format(
-                    new Date(selectedYear, selectedMonth - 1, 1),
-                    "MMMM yyyy",
-                    { locale: es }
-                  )}`}
-            </h2>
-            <Bar
-              data={monthlyBarChartData}
-              options={{
-                responsive: true,
-                plugins: {
-                  legend: {
-                    position: "top",
-                  },
-                  tooltip: {
-                    callbacks: {
-                      label: function (context) {
-                        return `${context.dataset.label}: ${formatCurrency(
-                          context.raw as number
-                        )}`;
-                      },
-                    },
-                  },
-                },
-                scales: {
-                  y: {
-                    beginAtZero: true,
-                    ticks: {
-                      callback: function (value) {
-                        return formatCurrency(value as number);
-                      },
-                    },
-                  },
-                },
-              }}
-            />
-          </div>
-          <div className="bg-white dark:bg-gray_b rounded-xl shadow-md shadow-gray_m p-5 border border-gray_xl dark:border-gray_b">
-            <h2 className="text-lg font-semibold mb-4">
-              Ganancia Diaria -{" "}
-              {format(
-                new Date(selectedYear, selectedMonth - 1, 1),
-                "MMMM yyyy",
-                { locale: es }
-              )}
-            </h2>
-            <Line
-              data={monthlyProfitLineChartData}
-              options={{
-                responsive: true,
-                plugins: {
-                  legend: {
-                    position: "top",
-                  },
-                  tooltip: {
-                    callbacks: {
-                      label: function (context) {
-                        return `${context.dataset.label}: ${formatCurrency(
-                          context.raw as number
-                        )}`;
-                      },
-                    },
-                  },
-                },
-                scales: {
-                  y: {
-                    beginAtZero: false,
-                    ticks: {
-                      callback: function (value) {
-                        return formatCurrency(value as number);
-                      },
-                    },
-                  },
-                },
-              }}
-            />
-          </div>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white dark:bg-gray_b rounded-xl shadow-md shadow-gray_m p-5 border border-gray_xl dark:border-gray_b">
-            <h2 className="text-lg font-semibold mb-4">
-              Ingresos | Egresos - Año {selectedYear}
-            </h2>
-            <Bar
-              data={annualBarChartData}
-              options={{
-                responsive: true,
-                plugins: {
-                  legend: {
-                    position: "top",
-                  },
-                  tooltip: {
-                    callbacks: {
-                      label: function (context) {
-                        return `${context.dataset.label}: ${formatCurrency(
-                          context.raw as number
-                        )}`;
-                      },
-                    },
-                  },
-                },
-                scales: {
-                  y: {
-                    beginAtZero: true,
-                    ticks: {
-                      callback: function (value) {
-                        return formatCurrency(value as number);
-                      },
-                    },
-                  },
-                },
-              }}
-            />
-          </div>
-          <div className="bg-white dark:bg-gray_b rounded-xl shadow-md shadow-gray_m p-5 border border-gray_xl dark:border-gray_b">
-            <h2 className="text-lg font-semibold mb-4">
-              Distribución Mensual -{" "}
-              {format(
-                new Date(selectedYear, selectedMonth - 1, 1),
-                "MMMM yyyy",
-                { locale: es }
-              )}
-            </h2>
-            <Pie
-              data={summaryPieChartData}
-              options={{
-                responsive: true,
-                plugins: {
-                  legend: {
-                    position: "right",
-                  },
-                  tooltip: {
-                    callbacks: {
-                      label: function (context) {
-                        const label = context.label || "";
-                        const value = context.raw as number;
-                        const total = context.dataset.data.reduce(
-                          (a: number, b: number) => a + b,
-                          0
-                        );
-                        const percentage = Math.round((value / total) * 100);
-                        return `${label}: ${formatCurrency(
-                          value
-                        )} (${percentage}%)`;
-                      },
-                    },
-                  },
-                },
-              }}
-            />
-          </div>
-        </div>
-      </div>
+              {/* Gráfico de Pie */}
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Card elevation={2}>
+                  <CardContent>
+                    <Typography
+                      variant="h6"
+                      gutterBottom
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        fontWeight: "semibold",
+                      }}
+                    >
+                      <PieChartIcon sx={{ mr: 1, color: "primary.main" }} />
+                      {activePeriod === "week"
+                        ? "Distribución Semanal"
+                        : activePeriod === "month"
+                        ? "Distribución Mensual"
+                        : "Distribución Anual"}
+                    </Typography>
+                    <Box sx={{ height: 250 }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={getPieChartData(activePeriod)}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={renderPieLabel}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            {getPieChartData(activePeriod).map(
+                              (entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.fill} />
+                              )
+                            )}
+                          </Pie>
+                          <Tooltip content={<CustomPieTooltip />} />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Box>
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Notification */}
+        <Notification
+          isOpen={isNotificationOpen}
+          message={notificationMessage}
+          type={notificationType}
+          onClose={() => setIsNotificationOpen(false)}
+          autoHideDuration={3000}
+        />
+      </Box>
     </ProtectedRoute>
   );
 };

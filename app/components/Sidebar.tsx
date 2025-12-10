@@ -1,29 +1,63 @@
 "use client";
-import {
-  MenuIcon,
-  XIcon,
-  Package,
-  ShoppingCart,
-  Repeat,
-  Wallet,
-  Headphones,
-  Users,
-  Truck,
-  LineChart,
-  ClipboardList,
-  Tag,
-  ChevronDown,
-  ChevronRight,
-} from "lucide-react";
-import Button from "./Button";
 import { useRouter, usePathname } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
 import { MenuItemProps, SidebarProps } from "../lib/types/types";
 import { useEffect, useState } from "react";
 
+// Iconos de Material UI
+import {
+  Menu as MenuIcon,
+  Close as CloseIcon,
+  Inventory as InventoryIcon,
+  ShoppingCart as ShoppingCartIcon,
+  SyncAlt as SyncAltIcon,
+  AccountBalanceWallet as AccountBalanceWalletIcon,
+  Support as SupportIcon,
+  People as PeopleIcon,
+  LocalShipping as LocalShippingIcon,
+  ShowChart as ShowChartIcon,
+  Assignment as AssignmentIcon,
+  Sell as SellIcon,
+  Description as DescriptionIcon,
+  Person as PersonIcon,
+  ExpandMore as ExpandMoreIcon,
+  ChevronRight as ChevronRightIcon,
+  PointOfSale as PointOfSaleIcon,
+} from "@mui/icons-material";
+
 import { TbCashRegister } from "react-icons/tb";
 
-const menuItems: MenuItemProps[] = [
+import {
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Collapse,
+  Box,
+  IconButton,
+  Typography,
+  useTheme,
+  useMediaQuery,
+  styled,
+  Chip,
+} from "@mui/material";
+
+import Button from "./Button";
+import CustomGlobalTooltip from "./CustomTooltipGlobal";
+
+// Extender la interfaz localmente si no puedes modificar el archivo original
+interface ExtendedMenuItemProps extends MenuItemProps {
+  disabled?: boolean;
+  comingSoon?: boolean;
+}
+
+interface ExtendedSidebarProps extends SidebarProps {
+  items?: ExtendedMenuItemProps[];
+}
+
+const menuItems: ExtendedMenuItemProps[] = [
   {
     label: "Caja diaria",
     href: "/caja-diaria",
@@ -31,41 +65,131 @@ const menuItems: MenuItemProps[] = [
   },
   {
     label: "Punto de venta",
-    icon: <ShoppingCart />,
+    icon: <PointOfSaleIcon />,
     submenu: [
       {
         label: "Ventas",
         href: "/ventas",
-        icon: <ShoppingCart className="w-5 h-5" />,
+        icon: <ShoppingCartIcon />,
       },
       {
         label: "Promociones",
         href: "/promociones",
-        icon: <Tag className="w-5 h-5" />,
+        icon: <SellIcon />,
       },
     ],
   },
-  { label: "Productos", href: "/productos", icon: <Package /> },
-  { label: "Clientes", href: "/clientes", icon: <Users /> },
-  { label: "Cuentas Corrientes", href: "/cuentascorrientes", icon: <Wallet /> },
-  { label: "Proveedores", href: "/proveedores", icon: <Truck /> },
-  { label: "Presupuestos", href: "/presupuestos", icon: <ClipboardList /> },
-  { label: "Movimientos", href: "/movimientos", icon: <Repeat /> },
-  { label: "Métricas", href: "/metricas", icon: <LineChart /> },
+  { label: "Productos", href: "/productos", icon: <InventoryIcon /> },
+  { label: "Clientes", href: "/clientes", icon: <PeopleIcon /> },
+  {
+    label: "Cuentas Corrientes",
+    href: "/cuentascorrientes",
+    icon: <AccountBalanceWalletIcon />,
+  },
+  { label: "Proveedores", href: "/proveedores", icon: <LocalShippingIcon /> },
+  { label: "Presupuestos", href: "/presupuestos", icon: <AssignmentIcon /> },
+  { label: "Movimientos", href: "/movimientos", icon: <SyncAltIcon /> },
+  { label: "Métricas", href: "/metricas", icon: <ShowChartIcon /> },
+  {
+    label: "Facturación",
+    href: "#",
+    icon: <DescriptionIcon />,
+    disabled: true,
+    comingSoon: true,
+  },
+  {
+    label: "Usuarios",
+    href: "#",
+    icon: <PersonIcon />,
+    disabled: true,
+    comingSoon: true,
+  },
   {
     label: "Soporte técnico",
     href: "https://wa.me/5492613077147",
-    icon: <Headphones />,
+    icon: <SupportIcon />,
     target: "_blank",
   },
 ];
 
-const Sidebar: React.FC<SidebarProps> = ({ items = menuItems }) => {
+const MenuHeader = styled(Box)(({ theme }) => ({
+  background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+  color: theme.palette.common.white,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  padding: theme.spacing(1, 2),
+  boxShadow: theme.shadows[1],
+}));
+
+const StyledListItemButton = styled(ListItemButton, {
+  shouldForwardProp: (prop) =>
+    prop !== "isActive" && prop !== "hasSubmenu" && prop !== "isDisabled",
+})<{ isActive?: boolean; hasSubmenu?: boolean; isDisabled?: boolean }>(
+  ({ theme, isActive, hasSubmenu, isDisabled }) => ({
+    margin: theme.spacing(0.5, 1),
+    borderRadius: theme.shape.borderRadius,
+    "&:hover": {
+      backgroundColor: !isDisabled ? theme.palette.action.hover : "transparent",
+    },
+    ...(isActive && {
+      background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+      color: theme.palette.common.white,
+      boxShadow: theme.shadows[2],
+      "&:hover": {
+        background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.dark})`,
+      },
+    }),
+    ...(hasSubmenu && {
+      "& .MuiListItemText-root": {
+        flex: 1,
+      },
+    }),
+    ...(isDisabled && {
+      opacity: 0.6,
+      cursor: "not-allowed",
+      "&:hover": {
+        backgroundColor: "transparent",
+      },
+    }),
+  })
+);
+
+const SubmenuContainer = styled(Box)(({ theme }) => ({
+  marginLeft: theme.spacing(3),
+  borderLeft: `2px solid ${theme.palette.primary.main}`,
+  paddingLeft: theme.spacing(1),
+}));
+
+const ComingSoonChip = styled(Chip)(({ theme }) => ({
+  marginLeft: "auto",
+  fontSize: "0.625rem",
+  height: 20,
+  "& .MuiChip-label": {
+    paddingLeft: theme.spacing(0.5),
+    paddingRight: theme.spacing(0.5),
+  },
+}));
+
+const Sidebar: React.FC<ExtendedSidebarProps> = ({ items = menuItems }) => {
   const { isSidebarOpen, toggleSidebar } = useSidebar();
   const router = useRouter();
   const pathname = usePathname();
   const [activeItem, setActiveItem] = useState<string>("");
   const [openSubmenus, setOpenSubmenus] = useState<Set<string>>(new Set());
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+
+  const SidebarDrawer = styled(Drawer)(({ theme }) => ({
+    "& .MuiDrawer-paper": {
+      backgroundColor: theme.palette.background.paper,
+      borderRight: `1px solid ${theme.palette.divider}`,
+      boxShadow: theme.shadows[4],
+      overflowY: "auto",
+      transition: "all 0.3s ease",
+      width: isSidebarOpen ? 256 : 120,
+    },
+  }));
 
   const toggleSubmenu = (label: string) => {
     setOpenSubmenus((prev) => {
@@ -80,11 +204,16 @@ const Sidebar: React.FC<SidebarProps> = ({ items = menuItems }) => {
   };
 
   const handleItemClick = (
+    item: ExtendedMenuItemProps,
     label: string,
     href?: string,
     target?: string,
     hasSubmenu?: boolean
   ) => {
+    if (item.disabled) {
+      return;
+    }
+
     if (hasSubmenu && isSidebarOpen) {
       toggleSubmenu(label);
       return;
@@ -92,17 +221,21 @@ const Sidebar: React.FC<SidebarProps> = ({ items = menuItems }) => {
 
     setActiveItem(label);
 
-    if (href) {
+    if (href && href !== "#") {
       if (target === "_blank") {
         window.open(href, "_blank");
       } else {
         router.push(href);
       }
     }
+
+    if (isMobile) {
+      toggleSidebar();
+    }
   };
 
   useEffect(() => {
-    const findActiveItem = (items: MenuItemProps[]): string => {
+    const findActiveItem = (items: ExtendedMenuItemProps[]): string => {
       for (const item of items) {
         if (item.href === pathname) return item.label;
         if (item.submenu) {
@@ -116,103 +249,212 @@ const Sidebar: React.FC<SidebarProps> = ({ items = menuItems }) => {
     setActiveItem(findActiveItem(items));
   }, [pathname, items]);
 
-  const renderMenuItem = (item: MenuItemProps) => {
+  const renderMenuItem = (item: ExtendedMenuItemProps, level = 0) => {
     const hasSubmenu = item.submenu && item.submenu.length > 0;
     const isSubmenuOpen = openSubmenus.has(item.label);
     const isActive =
       activeItem === item.label ||
       item.submenu?.some((subItem) => activeItem === subItem.label);
+    const isDisabled = item.disabled || false;
 
     return (
-      <div key={item.label} className="w-full text-md font-semibold">
-        <button
-          onClick={() =>
-            handleItemClick(item.label, item.href, item.target, hasSubmenu)
-          }
-          className={`${
-            isActive
-              ? " shadow-md shadow-gray_xl dark:shadow-gray_m bg-gradient-to-bl from-blue_m to-blue_b text-white dark:bg-gray_b"
-              : ""
-          } ${
-            isSidebarOpen ? "justify-start" : "justify-center"
-          } cursor-pointer flex items-center px-2 py-2 w-full hover:bg-blue_xl dark:hover:bg-gray_b transition-all duration-300`}
-        >
-          {item.icon}
-          {isSidebarOpen && (
-            <>
-              <span className="ml-3 flex-1 text-left">{item.label}</span>
-              {hasSubmenu &&
-                (isSubmenuOpen ? (
-                  <ChevronDown size={16} />
-                ) : (
-                  <ChevronRight size={16} />
-                ))}
-            </>
-          )}
-        </button>
+      <Box key={item.label} sx={{ width: "100%" }}>
+        <ListItem disablePadding>
+          <StyledListItemButton
+            isActive={isActive}
+            hasSubmenu={hasSubmenu}
+            isDisabled={isDisabled}
+            onClick={() =>
+              handleItemClick(
+                item,
+                item.label,
+                item.href,
+                item.target,
+                hasSubmenu
+              )
+            }
+            sx={{
+              pl: 1 + level * 0.3,
+              justifyContent: isSidebarOpen ? "flex-start" : "center",
+            }}
+          >
+            <ListItemIcon
+              sx={{
+                minWidth: "auto",
+                color: isActive
+                  ? "common.white"
+                  : isDisabled
+                  ? "text.disabled"
+                  : "primary.dark",
+                mr: isSidebarOpen ? 2 : 0,
+              }}
+            >
+              {item.icon}
+            </ListItemIcon>
+
+            {isSidebarOpen && (
+              <>
+                <ListItemText
+                  primary={
+                    <Typography
+                      variant="body2"
+                      fontWeight="medium"
+                      sx={{
+                        flex: 1,
+                        color: isDisabled ? "text.disabled" : "inherit",
+                      }}
+                    >
+                      {item.label}
+                    </Typography>
+                  }
+                />
+                {item.comingSoon && (
+                  <ComingSoonChip
+                    label="Próximamente"
+                    color="info"
+                    size="small"
+                  />
+                )}
+                {hasSubmenu && !isDisabled && (
+                  <Box sx={{ ml: 1 }}>
+                    {isSubmenuOpen ? (
+                      <ExpandMoreIcon fontSize="small" />
+                    ) : (
+                      <ChevronRightIcon fontSize="small" />
+                    )}
+                  </Box>
+                )}
+              </>
+            )}
+          </StyledListItemButton>
+        </ListItem>
 
         {hasSubmenu && isSubmenuOpen && isSidebarOpen && item.submenu && (
-          <div className="ml-6 border-l-2 border-blue_m dark:border-blue_l space-y-1 ">
-            {item.submenu.map((subItem) => (
-              <button
-                key={subItem.label}
-                onClick={() =>
-                  handleItemClick(subItem.label, subItem.href, subItem.target)
-                }
-                className={`${
-                  activeItem === subItem.label
-                    ? "bg-blue_xl dark:bg-gray_b text-blue_b dark:text-white"
-                    : ""
-                } cursor-pointer flex items-center px-2 py-2 w-full text-sm hover:bg-blue_xl dark:hover:bg-gray_b transition-all duration-300`}
-              >
-                {subItem.icon}
-                <span className="ml-3">{subItem.label}</span>
-              </button>
-            ))}
-          </div>
+          <Collapse in={isSubmenuOpen} timeout="auto" unmountOnExit>
+            <SubmenuContainer>
+              <List disablePadding>
+                {item.submenu.map((subItem) => (
+                  <Box key={subItem.label}>
+                    {renderMenuItem(subItem, level + 1)}
+                  </Box>
+                ))}
+              </List>
+            </SubmenuContainer>
+          </Collapse>
         )}
-      </div>
+      </Box>
     );
   };
 
-  return (
-    <aside
-      className={`fixed top-0 left-0 flex flex-col justify-between bg-white dark:bg-black shadow-lg shadow-gray_b h-screen border-r border-gray_xl dark:border-gray_m text-gray_b dark:text-white transition-all duration-300 ${
-        isSidebarOpen ? "w-64" : "w-30"
-      } overflow-y-auto`}
+  const drawerContent = (
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100vh",
+        justifyContent: "space-between",
+      }}
     >
-      <div>
-        <div className="bg-gradient-to-bl from-blue_m to-blue_b dark:bg-gray_b text-white flex items-center justify-between p-2 shadow-sm shadow-gray_l dark:shadow-gray_b">
-          <span>Menú</span>
+      {/* Header y Navegación */}
+      <Box>
+        <MenuHeader>
+          <Typography variant="subtitle1" fontWeight="medium">
+            Menú
+          </Typography>
+          <CustomGlobalTooltip
+            title={isSidebarOpen ? "Cerrar menú" : "Abrir menú"}
+          >
+            <IconButton
+              onClick={toggleSidebar}
+              size="small"
+              sx={{
+                color: "common.white",
+                "&:hover": {
+                  backgroundColor: "primary.main",
+                },
+              }}
+            >
+              {isSidebarOpen ? (
+                <CloseIcon fontSize="small" />
+              ) : (
+                <MenuIcon fontSize="small" />
+              )}
+            </IconButton>
+          </CustomGlobalTooltip>
+        </MenuHeader>
+
+        <List sx={{ pt: 0.5 }}>
+          {items.map((item) => renderMenuItem(item))}
+        </List>
+      </Box>
+
+      {/* Botón Importar/Exportar */}
+      {isSidebarOpen && (
+        <Box sx={{ p: 2 }}>
           <Button
-            colorText="text-white"
-            colorBg="bg-transparent "
-            colorBgHover="hover:bg-transparent "
-            colorTextHover="text-gray_b"
-            minwidth="min-w-0"
-            px="px-1"
-            py="py-1"
-            height="h-full"
-            icon={isSidebarOpen ? <XIcon /> : <MenuIcon />}
-            onClick={toggleSidebar}
+            text="Importar | Exportar"
+            icon={<SyncAltIcon fontSize="small" />}
+            iconPosition="left"
+            onClick={() => router.push("/import-export")}
+            variant="contained"
+            size="small"
+            fullWidth
+            sx={{
+              backgroundColor: "primary.dark",
+              color: "white",
+              textTransform: "uppercase",
+              fontSize: "0.75rem",
+              fontWeight: "bold",
+              "&:hover": {
+                backgroundColor: "primary.main",
+                transform: "none",
+              },
+              py: 1,
+              "@media (min-width: 1536px)": {
+                fontSize: "0.8rem",
+              },
+            }}
           />
-        </div>
-        <nav className="space-y-1 2xl:space-y-2 pt-1">
-          {items.map(renderMenuItem)}
-        </nav>
-      </div>
-      <div className={`w-full px-4 pb-4 ${!isSidebarOpen ? "hidden" : ""}`}>
-        <button
-          onClick={() => router.push("/import-export")}
-          className="cursor-pointer w-full flex justify-center items-center gap-2 py-2 rounded-sm bg-blue_b text-white hover:bg-blue_m transition-all"
-        >
-          <Repeat size={14} />
-          <span className="uppercase text-[0.6rem] 2xl:text-[.8rem] font-semibold">
-            Importar | Exportar
-          </span>
-        </button>
-      </div>
-    </aside>
+        </Box>
+      )}
+    </Box>
+  );
+
+  return (
+    <>
+      {/* Desktop Sidebar */}
+      <SidebarDrawer
+        variant="permanent"
+        sx={{
+          width: isSidebarOpen ? 256 : 120,
+          flexShrink: 0,
+          "& .MuiDrawer-paper": {
+            width: isSidebarOpen ? 256 : 120,
+            boxSizing: "border-box",
+          },
+          display: { xs: "none", md: "block" },
+        }}
+      >
+        {drawerContent}
+      </SidebarDrawer>
+
+      {/* Mobile Drawer */}
+      <Drawer
+        variant="temporary"
+        open={isSidebarOpen}
+        onClose={toggleSidebar}
+        sx={{
+          display: { xs: "block", md: "none" },
+          "& .MuiDrawer-paper": {
+            width: 256,
+            boxSizing: "border-box",
+            backgroundColor: theme.palette.background.paper,
+          },
+        }}
+      >
+        {drawerContent}
+      </Drawer>
+    </>
   );
 };
 
