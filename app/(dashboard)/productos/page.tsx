@@ -1808,6 +1808,8 @@ const ProductsPage = () => {
           ? newProduct.hasIvaIncluded
           : true,
       quantity: Number(newProduct.quantity),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       ...(newProduct.customCategories?.length
         ? {
             customCategories: newProduct.customCategories.map((cat) => ({
@@ -2123,9 +2125,8 @@ const ProductsPage = () => {
     <ProtectedRoute>
       <Box
         sx={{
-          px: 4,
-          py: 2,
-          height: "100vh",
+          p: 4,
+          height: "calc(100vh - 64px)",
           display: "flex",
           flexDirection: "column",
         }}

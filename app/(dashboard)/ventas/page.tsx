@@ -24,8 +24,8 @@ import {
   Delete,
   LocalOffer,
   Check,
+  Edit,
 } from "@mui/icons-material";
-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { db } from "@/app/database/db";
 import { parseISO, format } from "date-fns";
@@ -68,9 +68,11 @@ import {
   PaymentMethod,
   Payment,
   ProductOption,
+  EditMode,
 } from "@/app/lib/types/types";
 import Select from "@/app/components/Select";
 import { Settings } from "@mui/icons-material";
+import { isSameDay } from "date-fns";
 
 import Button from "@/app/components/Button";
 import Notification from "@/app/components/Notification";
@@ -153,6 +155,19 @@ const VentasPage = () => {
     id: number;
     name: string;
   } | null>(null);
+
+  // Estados para edición
+  const [isEditMode, setIsEditMode] = useState<EditMode>({
+    isEditing: false,
+    originalSaleId: undefined,
+    originalCashMovementIds: [],
+  });
+  const [originalSaleBackup, setOriginalSaleBackup] = useState<Sale | null>(
+    null
+  );
+  const [originalStockBackup, setOriginalStockBackup] = useState<
+    { id: number; originalStock: number }[]
+  >([]);
 
   const CONVERSION_FACTORS = {
     Gr: { base: "Kg", factor: 0.001 },
@@ -256,6 +271,424 @@ const VentasPage = () => {
       value: unit.value,
       label: unit.label,
     }));
+  };
+  const canEditSale = (sale: Sale): boolean => {
+    const saleDate = new Date(sale.date);
+    const today = new Date();
+
+    // Solo verifica fecha y crédito de manera síncrona
+    return isSameDay(saleDate, today) && !sale.credit;
+  };
+
+  // Función para iniciar la edición de una venta
+  const handleStartEditSale = async (sale: Sale) => {
+    // Primero verificación síncrona
+    if (!canEditSale(sale)) {
+      showNotification(
+        "Solo se pueden editar ventas del día actual y que no sean a crédito",
+        "error"
+      );
+      return;
+    }
+
+    // Luego verificación asíncrona de la caja
+    const today = getLocalDateString();
+    const dailyCash = await db.dailyCashes.get({ date: today });
+
+    if (dailyCash?.closed) {
+      showNotification(
+        "No se puede editar ventas con la caja cerrada",
+        "error"
+      );
+      return;
+    }
+
+    try {
+      // 1. Hacer backup de la venta original
+      setOriginalSaleBackup({ ...sale });
+
+      // 2. Hacer backup del stock original de los productos
+      const stockBackup = sale.products.map((product) => ({
+        id: product.id,
+        originalStock: product.stock,
+      }));
+      setOriginalStockBackup(stockBackup);
+
+      // 3. Restaurar el stock de los productos (revertir la venta)
+      for (const product of sale.products) {
+        const originalProduct = products.find((p) => p.id === product.id);
+        if (originalProduct) {
+          const soldInBase = convertToBaseUnit(product.quantity, product.unit);
+          const currentStockInBase = convertToBaseUnit(
+            Number(originalProduct.stock),
+            originalProduct.unit
+          );
+          const newStockInBase = currentStockInBase + soldInBase;
+          const newStock = convertFromBaseUnit(
+            newStockInBase,
+            originalProduct.unit
+          );
+
+          await db.products.update(product.id, {
+            stock: parseFloat(newStock.toFixed(3)),
+          });
+        }
+      }
+
+      // 4. Obtener los IDs de los movimientos de caja asociados
+      const movementIds: number[] = [];
+
+      if (dailyCash) {
+        dailyCash.movements.forEach((movement) => {
+          if (movement.originalSaleId === sale.id) {
+            movementIds.push(movement.id);
+          }
+        });
+      }
+
+      // 5. Configurar modo de edición
+      setIsEditMode({
+        isEditing: true,
+        originalSaleId: sale.id,
+        originalCashMovementIds: movementIds,
+      });
+
+      // 6. Cargar la venta en el formulario
+      setNewSale({
+        products: sale.products.map((p) => ({
+          ...p,
+          quantity: p.quantity,
+          unit: p.unit,
+          discount: p.discount || 0,
+          surcharge: p.surcharge || 0,
+        })),
+        paymentMethods: sale.paymentMethods,
+        total: sale.total,
+        date: sale.date,
+        barcode: sale.barcode || "",
+        manualAmount: sale.manualAmount || 0,
+        manualProfitPercentage: sale.manualProfitPercentage || 0,
+        concept: sale.concept || "",
+      });
+
+      // 7. Configurar otros estados si es necesario
+      if (sale.appliedPromotion) {
+        setSelectedPromotions(sale.appliedPromotion);
+      }
+
+      // 8. Abrir el modal de edición
+      setIsOpenModal(true);
+    } catch (error) {
+      console.error("Error al iniciar edición:", error);
+      showNotification("Error al iniciar la edición de la venta", "error");
+    }
+  };
+
+  // Función para cancelar la edición
+  const handleCancelEdit = async () => {
+    if (!originalSaleBackup || !originalStockBackup.length) {
+      setIsEditMode({ isEditing: false });
+      handleCloseModal();
+      return;
+    }
+
+    try {
+      // 1. Revertir el stock a como estaba antes de la edición
+      for (const backup of originalStockBackup) {
+        const product = products.find((p) => p.id === backup.id);
+        if (product) {
+          await db.products.update(backup.id, { stock: backup.originalStock });
+        }
+      }
+
+      // 2. Resetear estados
+      setIsEditMode({ isEditing: false });
+      setOriginalSaleBackup(null);
+      setOriginalStockBackup([]);
+
+      // 3. Cerrar modal
+      handleCloseModal();
+
+      showNotification("Edición cancelada. Stock restaurado.", "info");
+    } catch (error) {
+      console.error("Error al cancelar edición:", error);
+      showNotification("Error al cancelar la edición", "error");
+    } finally {
+      // Forzar recarga de productos
+      const storedProducts = await db.products.toArray();
+      setProducts(storedProducts);
+    }
+  };
+
+  // Función para guardar los cambios de la edición
+  const handleSaveEdit = async () => {
+    if (
+      !isEditMode.isEditing ||
+      !isEditMode.originalSaleId ||
+      !originalSaleBackup
+    ) {
+      showNotification("No hay una venta en edición", "error");
+      return;
+    }
+
+    setIsProcessingPayment(true);
+
+    try {
+      const needsRedirect = await ensureCashIsOpen();
+      if (needsRedirect.needsRedirect) {
+        setShouldRedirectToCash(true);
+        showNotification(
+          "Debes abrir la caja primero para editar ventas",
+          "error"
+        );
+        setIsProcessingPayment(false);
+        return;
+      }
+
+      // 1. Validar stock para la venta editada
+      const stockValidation = validateStockForSale(newSale.products);
+      if (!stockValidation.isValid) {
+        stockValidation.errors.forEach((error) =>
+          showNotification(error, "error")
+        );
+        setIsProcessingPayment(false);
+        return;
+      }
+
+      // 2. Actualizar stock de productos con la nueva venta
+      for (const product of newSale.products) {
+        try {
+          const updatedStock = updateStockAfterSale(
+            product.id,
+            product.quantity,
+            product.unit
+          );
+          await db.products.update(product.id, { stock: updatedStock });
+        } catch (error) {
+          console.error(
+            `Error actualizando stock para producto ${product.id}:`,
+            error
+          );
+          showNotification(
+            `Error actualizando stock para ${product.name}`,
+            "error"
+          );
+          setIsProcessingPayment(false);
+          return;
+        }
+      }
+
+      // 3. Crear objeto de venta actualizada
+      const updatedSaleData: Partial<Sale> = {
+        products: newSale.products,
+        paymentMethods: newSale.paymentMethods,
+        total: newSale.total,
+        manualAmount: newSale.manualAmount,
+        manualProfitPercentage: newSale.manualProfitPercentage,
+        concept: newSale.concept,
+        appliedPromotion: selectedPromotions || undefined,
+        edited: true,
+        editHistory: [
+          ...(originalSaleBackup.editHistory || []),
+          {
+            date: new Date().toISOString(),
+            changes: {
+              products: newSale.products,
+              total: newSale.total,
+              paymentMethods: newSale.paymentMethods,
+            },
+            previousTotal: originalSaleBackup.total,
+            newTotal: newSale.total,
+          },
+        ],
+      };
+
+      // 4. Actualizar la venta en la base de datos
+      await db.sales.update(isEditMode.originalSaleId, updatedSaleData);
+
+      // 5. Crear objeto de venta completa para el estado local
+      const updatedSale: Sale = {
+        ...originalSaleBackup,
+        ...updatedSaleData,
+      };
+
+      // 6. Actualizar los movimientos de caja diaria
+      await updateDailyCashForEditedSale(originalSaleBackup, updatedSale);
+
+      // 7. Actualizar estado local
+      setSales((prev) =>
+        prev.map((s) => (s.id === isEditMode.originalSaleId ? updatedSale : s))
+      );
+
+      // 8. Resetear estados
+      setIsEditMode({ isEditing: false });
+      setOriginalSaleBackup(null);
+      setOriginalStockBackup([]);
+
+      // 9. Cerrar modales
+      setIsOpenModal(false);
+      setIsPaymentModalOpen(false);
+
+      // 10. Resetear formulario
+      setNewSale({
+        products: [],
+        paymentMethods: [{ method: "EFECTIVO", amount: 0 }],
+        total: 0,
+        date: new Date().toISOString(),
+        barcode: "",
+        manualAmount: 0,
+        manualProfitPercentage: 0,
+        concept: "",
+      });
+
+      setSelectedPromotions(null);
+      setTemporarySelectedPromotion(null);
+
+      showNotification("Venta editada correctamente", "success");
+    } catch (error) {
+      console.error("Error al guardar edición:", error);
+      showNotification("Error al guardar la edición", "error");
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
+  // Función para actualizar la caja diaria con la venta editada
+  const updateDailyCashForEditedSale = async (
+    originalSale: Sale,
+    updatedSale: Sale
+  ) => {
+    try {
+      const today = getLocalDateString();
+      const dailyCash = await db.dailyCashes.get({ date: today });
+
+      if (!dailyCash) {
+        throw new Error("No se encontró la caja diaria para hoy");
+      }
+
+      // Si hay movimientos específicos para esta venta, actualizarlos
+      if (
+        isEditMode.originalCashMovementIds &&
+        isEditMode.originalCashMovementIds.length > 0
+      ) {
+        const updatedMovements = dailyCash.movements.map((movement) => {
+          if (isEditMode.originalCashMovementIds?.includes(movement.id)) {
+            // Actualizar movimiento existente
+            const totalProfit = calculateTotalProfit(
+              updatedSale.products,
+              updatedSale.manualAmount || 0,
+              updatedSale.manualProfitPercentage || 0
+            );
+
+            return {
+              ...movement,
+              amount: updatedSale.total,
+              description: `Venta editada - ${
+                updatedSale.concept || "general"
+              }`,
+              items: updatedSale.products.map((p) => {
+                const priceInfo = calculatePrice(p, p.quantity, p.unit);
+                return {
+                  productId: p.id,
+                  productName: p.name,
+                  quantity: p.quantity,
+                  unit: p.unit,
+                  price: priceInfo.finalPrice / p.quantity,
+                  costPrice: p.costPrice,
+                  profit: priceInfo.profit,
+                  size: p.size,
+                  color: p.color,
+                };
+              }),
+              profit: totalProfit,
+              combinedPaymentMethods: updatedSale.paymentMethods,
+            };
+          }
+          return movement;
+        });
+
+        // Actualizar totales de la caja
+        const totalIncome = updatedMovements
+          .filter((m) => m.type === "INGRESO")
+          .reduce((sum, m) => sum + m.amount, 0);
+
+        const totalExpense = updatedMovements
+          .filter((m) => m.type === "EGRESO")
+          .reduce((sum, m) => sum + m.amount, 0);
+
+        await db.dailyCashes.update(dailyCash.id, {
+          movements: updatedMovements,
+          totalIncome,
+          totalExpense,
+        });
+      } else {
+        // Si no hay movimientos específicos, crear uno nuevo y eliminar el efecto del anterior
+        showNotification("Actualizando registros de caja...", "info");
+
+        // Recalcular toda la caja del día
+        const todaySales = await db.sales
+          .where("date")
+          .between(
+            new Date(today).toISOString(),
+            new Date(today + "T23:59:59.999Z").toISOString()
+          )
+          .toArray();
+
+        const movements: DailyCashMovement[] = [];
+
+        // Recrear todos los movimientos del día
+        for (const sale of todaySales) {
+          const totalProfit = calculateTotalProfit(
+            sale.products,
+            sale.manualAmount || 0,
+            sale.manualProfitPercentage || 0
+          );
+
+          if (sale.paymentMethods.length === 1) {
+            const movement: DailyCashMovement = {
+              id: sale.id, // Usar ID de venta como ID de movimiento
+              amount: sale.total,
+              description: `Venta - ${sale.concept || "general"}${
+                sale.edited ? " (editada)" : ""
+              }`,
+              type: "INGRESO",
+              date: sale.date,
+              paymentMethod: sale.paymentMethods[0]?.method || "EFECTIVO",
+              items: sale.products.map((p) => {
+                const priceInfo = calculatePrice(p, p.quantity, p.unit);
+                return {
+                  productId: p.id,
+                  productName: p.name,
+                  quantity: p.quantity,
+                  unit: p.unit,
+                  price: priceInfo.finalPrice / p.quantity,
+                  costPrice: p.costPrice,
+                  profit: priceInfo.profit,
+                  size: p.size,
+                  color: p.color,
+                };
+              }),
+              profit: totalProfit,
+              combinedPaymentMethods: sale.paymentMethods,
+              customerName: sale.customerName || "CLIENTE OCASIONAL",
+              createdAt: new Date().toISOString(),
+              originalSaleId: sale.id,
+            };
+            movements.push(movement);
+          }
+        }
+
+        // Actualizar la caja con todos los movimientos recalculados
+        await db.dailyCashes.update(dailyCash.id, {
+          movements,
+          totalIncome: movements.reduce((sum, m) => sum + m.amount, 0),
+          totalExpense: 0,
+        });
+      }
+    } catch (error) {
+      console.error("Error al actualizar caja diaria:", error);
+      throw error;
+    }
   };
 
   const calculateFinalTotal = (
@@ -1485,6 +1918,14 @@ const VentasPage = () => {
       setShouldRedirectToCash(true);
       return;
     }
+    // Resetear modo edición
+    setIsEditMode({
+      isEditing: false,
+      originalSaleId: undefined,
+      originalCashMovementIds: [],
+    });
+    setOriginalSaleBackup(null);
+    setOriginalStockBackup([]);
     setIsOpenModal(true);
   }, []);
 
@@ -1536,6 +1977,14 @@ const VentasPage = () => {
     setIsOpenModal(false);
     setIsPaymentModalOpen(false);
     setIsProcessingPayment(false);
+    // Resetear modo edición
+    setIsEditMode({
+      isEditing: false,
+      originalSaleId: undefined,
+      originalCashMovementIds: [],
+    });
+    setOriginalSaleBackup(null);
+    setOriginalStockBackup([]);
   };
 
   const handleCloseInfoModal = () => {
@@ -1930,9 +2379,8 @@ const VentasPage = () => {
     <ProtectedRoute>
       <Box
         sx={{
-          px: 4,
-          py: 2,
-          height: "100vh",
+          p: 4,
+          height: "calc(100vh - 64px)",
           display: "flex",
           flexDirection: "column",
         }}
@@ -2099,31 +2547,66 @@ const VentasPage = () => {
                           }}
                         >
                           <TableCell>
-                            <Typography
-                              variant="body2"
+                            <Box
                               sx={{
-                                fontWeight: "semibold",
-                                textTransform: "capitalize",
-                                maxWidth: "200px",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
                               }}
-                              title={products
-                                .map((p) => getDisplayProductName(p, rubro))
-                                .join(", ")}
                             >
-                              {products
-                                .map((p) => getDisplayProductName(p, rubro))
-                                .join(", ").length > 60
-                                ? products
-                                    .map((p) => getDisplayProductName(p, rubro))
-                                    .join(", ")
-                                    .slice(0, 30) + "..."
-                                : products
-                                    .map((p) => getDisplayProductName(p, rubro))
-                                    .join(" | ")}
-                            </Typography>
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  fontWeight: "semibold",
+                                  textTransform: "capitalize",
+                                  maxWidth: "180px",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                }}
+                                title={products
+                                  .map((p) => getDisplayProductName(p, rubro))
+                                  .join(", ")}
+                              >
+                                {products
+                                  .map((p) => getDisplayProductName(p, rubro))
+                                  .join(", ").length > 60
+                                  ? products
+                                      .map((p) =>
+                                        getDisplayProductName(p, rubro)
+                                      )
+                                      .join(", ")
+                                      .slice(0, 30) + "..."
+                                  : products
+                                      .map((p) =>
+                                        getDisplayProductName(p, rubro)
+                                      )
+                                      .join(" | ")}
+                              </Typography>
+                              {sale.edited && (
+                                <Box
+                                  sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 0.5,
+                                  }}
+                                >
+                                  <Edit
+                                    fontSize="small"
+                                    sx={{
+                                      color: "primary.main",
+                                      fontSize: "0.75rem",
+                                    }}
+                                  />
+                                  <Typography
+                                    variant="caption"
+                                    color="primary.main"
+                                  >
+                                    Editada
+                                  </Typography>
+                                </Box>
+                              )}
+                            </Box>
                           </TableCell>
 
                           <TableCell>
@@ -2254,6 +2737,24 @@ const VentasPage = () => {
                                     <Print fontSize="small" />
                                   </IconButton>
                                 </CustomGlobalTooltip>
+                                {canEditSale(sale) && (
+                                  <CustomGlobalTooltip title="Editar venta">
+                                    <IconButton
+                                      onClick={() => handleStartEditSale(sale)}
+                                      size="small"
+                                      sx={{
+                                        borderRadius: "4px",
+                                        color: "text.secondary",
+                                        "&:hover": {
+                                          backgroundColor: "primary.main",
+                                          color: "white",
+                                        },
+                                      }}
+                                    >
+                                      <Edit fontSize="small" />
+                                    </IconButton>
+                                  </CustomGlobalTooltip>
+                                )}
                               </Box>
                             </TableCell>
                           )}
@@ -2302,7 +2803,6 @@ const VentasPage = () => {
         </Box>
 
         {/* Modales */}
-
         <Modal
           isOpen={isDeleteProductModalOpen}
           onClose={() => {
@@ -2455,11 +2955,11 @@ const VentasPage = () => {
           )}
         </Modal>
 
-        {/* Modal de Nueva Venta */}
+        {/* Modal de Nueva Venta/Edición */}
         <Modal
           isOpen={isOpenModal}
           onClose={handleCloseModal}
-          title="Nueva Venta"
+          title={isEditMode.isEditing ? "Editar Venta" : "Nueva Venta"}
           bgColor="bg-white dark:bg-gray_b"
           fixedTotal={
             <Box
@@ -2480,32 +2980,62 @@ const VentasPage = () => {
           }
           buttons={
             <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
-              <Button
-                variant="text"
-                onClick={handleCloseModal}
-                sx={{
-                  color: "text.secondary",
-                  borderColor: "text.secondary",
-                  "&:hover": {
-                    backgroundColor: "action.hover",
-                    borderColor: "text.primary",
-                  },
-                }}
-              >
-                Cancelar
-              </Button>
+              {/* Mostrar "Cancelar" solo cuando NO está en modo edición */}
+              {!isEditMode.isEditing && (
+                <Button
+                  variant="text"
+                  onClick={handleCloseModal}
+                  sx={{
+                    color: "text.secondary",
+                    borderColor: "text.secondary",
+                    "&:hover": {
+                      backgroundColor: "action.hover",
+                      borderColor: "text.primary",
+                    },
+                  }}
+                >
+                  Cancelar
+                </Button>
+              )}
+
+              {/* Mostrar "Cancelar Edición" solo cuando está en modo edición */}
+              {isEditMode.isEditing && (
+                <Button
+                  variant="text"
+                  onClick={handleCancelEdit}
+                  sx={{
+                    color: "text.secondary",
+                    borderColor: "text.secondary",
+                    "&:hover": {
+                      backgroundColor: "action.hover",
+                      borderColor: "text.primary",
+                    },
+                  }}
+                >
+                  Cancelar Edición
+                </Button>
+              )}
+
               <Button
                 ref={cobrarButtonRef}
                 variant="contained"
-                onClick={handleOpenPaymentModal}
+                onClick={
+                  isEditMode.isEditing ? handleSaveEdit : handleOpenPaymentModal
+                }
                 disabled={isProcessingPayment}
                 sx={{
                   bgcolor: "primary.main",
-                  "&:hover": { bgcolor: "primary.dark" },
+                  "&:hover": {
+                    bgcolor: "primary.dark",
+                  },
                   "&:disabled": { bgcolor: "action.disabled" },
                 }}
               >
-                {isProcessingPayment ? "Procesando..." : "Cobrar"}
+                {isProcessingPayment
+                  ? "Procesando..."
+                  : isEditMode.isEditing
+                  ? "Guardar Cambios"
+                  : "Cobrar"}
               </Button>
             </Box>
           }
@@ -3097,11 +3627,13 @@ const VentasPage = () => {
               />
             </Box>
 
-            <Checkbox
-              label="Registrar Cuenta corriente"
-              checked={isCredit}
-              onChange={handleCreditChange}
-            />
+            {!isEditMode.isEditing && (
+              <Checkbox
+                label="Registrar Cuenta corriente"
+                checked={isCredit}
+                onChange={handleCreditChange}
+              />
+            )}
 
             {isCredit && (
               <Box>

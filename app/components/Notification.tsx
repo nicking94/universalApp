@@ -3,6 +3,7 @@ import { Snackbar, Alert, AlertProps, Slide, SlideProps } from "@mui/material";
 import { NotificationProps } from "../lib/types/types";
 import { forwardRef } from "react";
 import { useTheme } from "@mui/material/styles";
+import ReactDOM from "react-dom";
 
 const SlideTransition = forwardRef<HTMLDivElement, SlideProps>(
   function Transition(props, ref) {
@@ -27,6 +28,8 @@ export default function Notification({
         return "error";
       case "info":
         return "info";
+      case "warning":
+        return "warning";
       default:
         return "info";
     }
@@ -43,7 +46,7 @@ export default function Notification({
   };
 
   const getAlertStyles = () => ({
-    boxShadow: theme.shadows[3],
+    boxShadow: theme.shadows[24],
     borderRadius: theme.shape.borderRadius,
     fontWeight: 500,
     fontSize: "0.875rem",
@@ -52,6 +55,7 @@ export default function Notification({
     maxWidth: 500,
     width: "auto",
     fontFamily: theme.typography.fontFamily,
+    backdropFilter: "none",
     "& .MuiAlert-message": {
       padding: "8px 0",
       color: "white",
@@ -82,6 +86,12 @@ export default function Notification({
         color: "white",
       },
     }),
+    ...(type === "warning" && {
+      backgroundColor: theme.palette.warning.main,
+      "& .MuiAlert-icon": {
+        color: "white",
+      },
+    }),
     ...(type === "info" && {
       backgroundColor: theme.palette.primary.main,
       "& .MuiAlert-icon": {
@@ -97,30 +107,28 @@ export default function Notification({
     },
   });
 
-  const getSnackbarStyles = () => ({
-    position: "fixed" as const,
-    zIndex: theme.zIndex.snackbar,
-    "& .MuiSnackbar-root": {
-      position: "fixed",
-    },
-
-    "&.MuiSnackbar-anchorOriginBottomRight": {
-      [theme.breakpoints.down("sm")]: {
-        bottom: 16,
-        right: 16,
-        left: 16,
-      },
-    },
-  });
-
-  return (
+  const notificationContent = (
     <Snackbar
       open={isOpen}
       autoHideDuration={autoHideDuration}
       onClose={handleClose}
       anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       TransitionComponent={SlideTransition}
-      sx={getSnackbarStyles()}
+      sx={{
+        position: "fixed",
+        zIndex: 9999,
+        bottom: 24,
+        right: 24,
+        [theme.breakpoints.down("sm")]: {
+          bottom: 16,
+          right: 16,
+          left: 16,
+        },
+
+        "& .MuiBackdrop-root": {
+          display: "none",
+        },
+      }}
     >
       <Alert
         severity={getSeverity()}
@@ -132,4 +140,10 @@ export default function Notification({
       </Alert>
     </Snackbar>
   );
+
+  if (typeof document !== "undefined") {
+    return ReactDOM.createPortal(notificationContent, document.body);
+  }
+
+  return notificationContent;
 }

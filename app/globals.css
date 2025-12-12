@@ -159,6 +159,14 @@ input[type="number"] {
 .react-datepicker__input-container {
   width: 100% !important;
 }
+.MuiModal-root {
+  isolation: isolate;
+}
+
+.MuiSnackbar-root {
+  isolation: isolate !important;
+  z-index: 9999 !important;
+}
 
 @layer components {
   @keyframes ray-pulse {

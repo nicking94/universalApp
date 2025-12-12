@@ -1160,8 +1160,7 @@ const Metrics = () => {
     <ProtectedRoute>
       <Box
         sx={{
-          px: 2,
-          py: 2,
+          p: 4,
           minHeight: "100%",
           display: "flex",
           flexDirection: "column",

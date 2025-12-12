@@ -146,8 +146,7 @@ const UpdateModal: React.FC<UpdateModalProps> = ({
               size="large"
               fullWidth={isMobile}
               sx={{
-                py: 1.5,
-                px: 4,
+                p: 4,
                 borderRadius: 2,
                 textTransform: "none",
                 fontSize: "1rem",

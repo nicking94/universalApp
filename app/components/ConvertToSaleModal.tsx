@@ -25,7 +25,6 @@ import {
   Divider,
   Alert,
   useTheme,
-  Chip,
   Card,
   CardContent,
 } from "@mui/material";
@@ -34,6 +33,7 @@ import {
   Delete as DeleteIcon,
   ShoppingCart,
 } from "@mui/icons-material";
+import CustomChip from "./CustomChip"; // Importar tu CustomChip
 
 interface ConvertToSaleModalProps {
   isOpen: boolean;
@@ -233,7 +233,7 @@ export const ConvertToSaleModal = ({
           </Typography>
           <Box sx={{ display: "flex", gap: 0.5, mt: 0.5, flexWrap: "wrap" }}>
             {item.size && (
-              <Chip
+              <CustomChip
                 label={item.size}
                 size="small"
                 variant="outlined"
@@ -241,7 +241,7 @@ export const ConvertToSaleModal = ({
               />
             )}
             {item.color && (
-              <Chip
+              <CustomChip
                 label={item.color}
                 size="small"
                 variant="outlined"
@@ -549,7 +549,7 @@ export const ConvertToSaleModal = ({
                       alignItems: "center",
                     }}
                   >
-                    <Chip
+                    <CustomChip
                       label={
                         paymentOptions.find((o) => o.value === method.method)
                           ?.label

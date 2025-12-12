@@ -2,7 +2,7 @@
 "use client";
 import { useState, useCallback } from "react";
 
-export type NotificationType = "success" | "error" | "info";
+export type NotificationType = "success" | "error" | "info" | "warning";
 
 export interface UseNotificationReturn {
   isNotificationOpen: boolean;

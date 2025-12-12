@@ -99,11 +99,18 @@ export const systemActualizations: Actualization[] = [
   //     "- Agregado el módulo para crear promociones\n-Agregada la actualización automática cuando hay una nueva versión de la aplicación disponible\n- Mejoras visuales y en el rendimiento",
   //   date: new Date().toISOString(),
   // },
+  // {
+  //   id: 14,
+  //   title: `Versión 1.5.4 - Actualización`,
+  //   message:
+  //     "- ¡Mejoramos el diseño de la aplicación para una mejor experiencia de usuario!\n- Nuevas funcionalidades:\n Calcular el vuelto automaticamente\n Mostrar la hora en la tabla de los detalles del dia en la caja diaria\n- Mejoras el rendimiento",
+  //   date: new Date().toISOString(),
+  // },
   {
-    id: 14,
-    title: `Versión 1.5.4 - Actualización`,
+    id: 15,
+    title: `Versión 1.5.5 - Actualización`,
     message:
-      "- ¡Mejoramos el diseño de la aplicación para una mejor experiencia de usuario!\n- Nuevas funcionalidades:\n Calcular el vuelto automaticamente\n Mostrar la hora en la tabla de los detalles del dia en la caja diaria\n- Mejoras el rendimiento",
+      "- Añadimos el módulo de ACTUALIZACIÓN DE PRECIOS. Ahora vas a poder actualizar los precios de tus productos de una forma mucho mas ágil y rápida ahorrandote tiempo y esfuerzo\n- Nuevas funcionalidad:\n Edición de venta en la caja diaria actual. Si por algún motivo necesitas editar la venta, ahora podés hacerlo. Se modificará automáticamente el stock, y los cálculos en la caja diaria",
     date: new Date().toISOString(),
   },
 ];

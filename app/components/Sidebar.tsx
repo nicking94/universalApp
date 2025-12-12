@@ -3,30 +3,28 @@ import { useRouter, usePathname } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
 import { MenuItemProps, SidebarProps } from "../lib/types/types";
 import { useEffect, useState } from "react";
-
-// Iconos de Material UI
 import {
-  Menu as MenuIcon,
-  Close as CloseIcon,
-  Inventory as InventoryIcon,
-  ShoppingCart as ShoppingCartIcon,
-  SyncAlt as SyncAltIcon,
-  AccountBalanceWallet as AccountBalanceWalletIcon,
-  Support as SupportIcon,
-  People as PeopleIcon,
-  LocalShipping as LocalShippingIcon,
-  ShowChart as ShowChartIcon,
-  Assignment as AssignmentIcon,
-  Sell as SellIcon,
-  Description as DescriptionIcon,
-  Person as PersonIcon,
-  ExpandMore as ExpandMoreIcon,
-  ChevronRight as ChevronRightIcon,
-  PointOfSale as PointOfSaleIcon,
+  Menu,
+  Close,
+  Inventory,
+  ShoppingCart,
+  SyncAlt,
+  AccountBalanceWallet,
+  People,
+  LocalShipping,
+  ShowChart,
+  Assignment,
+  Sell,
+  Description,
+  Person,
+  ExpandMore,
+  ChevronRight,
+  PointOfSale,
+  Headphones,
+  PriceChange,
+  Category,
 } from "@mui/icons-material";
-
 import { TbCashRegister } from "react-icons/tb";
-
 import {
   Drawer,
   List,
@@ -42,12 +40,11 @@ import {
   useMediaQuery,
   styled,
   Chip,
+  alpha,
 } from "@mui/material";
-
 import Button from "./Button";
 import CustomGlobalTooltip from "./CustomTooltipGlobal";
 
-// Extender la interfaz localmente si no puedes modificar el archivo original
 interface ExtendedMenuItemProps extends MenuItemProps {
   disabled?: boolean;
   comingSoon?: boolean;
@@ -65,49 +62,64 @@ const menuItems: ExtendedMenuItemProps[] = [
   },
   {
     label: "Punto de venta",
-    icon: <PointOfSaleIcon />,
+    icon: <PointOfSale />,
     submenu: [
       {
         label: "Ventas",
         href: "/ventas",
-        icon: <ShoppingCartIcon />,
+        icon: <ShoppingCart />,
       },
       {
         label: "Promociones",
         href: "/promociones",
-        icon: <SellIcon />,
+        icon: <Sell />,
       },
     ],
   },
-  { label: "Productos", href: "/productos", icon: <InventoryIcon /> },
-  { label: "Clientes", href: "/clientes", icon: <PeopleIcon /> },
+  {
+    label: "Productos",
+    icon: <Category />,
+    submenu: [
+      {
+        label: "Lista de productos",
+        href: "/productos",
+        icon: <Inventory />,
+      },
+      {
+        label: "Actualización de precios",
+        href: "/actualizacionprecios",
+        icon: <PriceChange />,
+      },
+    ],
+  },
+  { label: "Clientes", href: "/clientes", icon: <People /> },
   {
     label: "Cuentas Corrientes",
     href: "/cuentascorrientes",
-    icon: <AccountBalanceWalletIcon />,
+    icon: <AccountBalanceWallet />,
   },
-  { label: "Proveedores", href: "/proveedores", icon: <LocalShippingIcon /> },
-  { label: "Presupuestos", href: "/presupuestos", icon: <AssignmentIcon /> },
-  { label: "Movimientos", href: "/movimientos", icon: <SyncAltIcon /> },
-  { label: "Métricas", href: "/metricas", icon: <ShowChartIcon /> },
+  { label: "Proveedores", href: "/proveedores", icon: <LocalShipping /> },
+  { label: "Presupuestos", href: "/presupuestos", icon: <Assignment /> },
+  { label: "Movimientos", href: "/movimientos", icon: <SyncAlt /> },
+  { label: "Métricas", href: "/metricas", icon: <ShowChart /> },
   {
     label: "Facturación",
     href: "#",
-    icon: <DescriptionIcon />,
+    icon: <Description />,
     disabled: true,
     comingSoon: true,
   },
   {
     label: "Usuarios",
     href: "#",
-    icon: <PersonIcon />,
+    icon: <Person />,
     disabled: true,
     comingSoon: true,
   },
   {
     label: "Soporte técnico",
     href: "https://wa.me/5492613077147",
-    icon: <SupportIcon />,
+    icon: <Headphones />,
     target: "_blank",
   },
 ];
@@ -124,47 +136,65 @@ const MenuHeader = styled(Box)(({ theme }) => ({
 
 const StyledListItemButton = styled(ListItemButton, {
   shouldForwardProp: (prop) =>
-    prop !== "isActive" && prop !== "hasSubmenu" && prop !== "isDisabled",
-})<{ isActive?: boolean; hasSubmenu?: boolean; isDisabled?: boolean }>(
-  ({ theme, isActive, hasSubmenu, isDisabled }) => ({
-    margin: theme.spacing(0.5, 1),
-    borderRadius: theme.shape.borderRadius,
-    "&:hover": {
-      backgroundColor: !isDisabled ? theme.palette.action.hover : "transparent",
-    },
-    ...(isActive && {
+    prop !== "isActive" &&
+    prop !== "hasSubmenu" &&
+    prop !== "isDisabled" &&
+    prop !== "isSubItem",
+})<{
+  isActive?: boolean;
+  hasSubmenu?: boolean;
+  isDisabled?: boolean;
+  isSubItem?: boolean;
+}>(({ theme, isActive, hasSubmenu, isDisabled, isSubItem }) => ({
+  margin: theme.spacing(0.25, 1),
+  borderRadius: theme.shape.borderRadius,
+  padding: theme.spacing(0.5, 1.5),
+  minHeight: 40,
+  "&:hover": {
+    backgroundColor: !isDisabled ? theme.palette.action.hover : "transparent",
+  },
+  ...(isActive &&
+    !isSubItem && {
       background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
       color: theme.palette.common.white,
-      boxShadow: theme.shadows[2],
+      boxShadow: theme.shadows[1],
       "&:hover": {
         background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.dark})`,
       },
     }),
-    ...(hasSubmenu && {
-      "& .MuiListItemText-root": {
-        flex: 1,
-      },
-    }),
-    ...(isDisabled && {
-      opacity: 0.6,
-      cursor: "not-allowed",
+  ...(isActive &&
+    isSubItem && {
+      backgroundColor: alpha(theme.palette.primary.main, 0.15),
+      color: theme.palette.primary.main,
+      borderLeft: `3px solid ${theme.palette.primary.light}`,
       "&:hover": {
-        backgroundColor: "transparent",
+        backgroundColor: alpha(theme.palette.primary.main, 0.2),
       },
     }),
-  })
-);
+  ...(hasSubmenu && {
+    "& .MuiListItemText-root": {
+      flex: 1,
+    },
+  }),
+  ...(isDisabled && {
+    opacity: 0.6,
+    cursor: "not-allowed",
+    "&:hover": {
+      backgroundColor: "transparent",
+    },
+  }),
+}));
 
 const SubmenuContainer = styled(Box)(({ theme }) => ({
   marginLeft: theme.spacing(3),
-  borderLeft: `2px solid ${theme.palette.primary.main}`,
+  borderLeft: `2px solid ${theme.palette.primary.light}`,
   paddingLeft: theme.spacing(1),
 }));
 
 const ComingSoonChip = styled(Chip)(({ theme }) => ({
   marginLeft: "auto",
-  fontSize: "0.625rem",
-  height: 20,
+  fontSize: "0.65rem",
+  height: 18,
   "& .MuiChip-label": {
     paddingLeft: theme.spacing(0.5),
     paddingRight: theme.spacing(0.5),
@@ -193,13 +223,10 @@ const Sidebar: React.FC<ExtendedSidebarProps> = ({ items = menuItems }) => {
 
   const toggleSubmenu = (label: string) => {
     setOpenSubmenus((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(label)) {
-        newSet.delete(label);
-      } else {
-        newSet.add(label);
+      if (prev.has(label)) {
+        return new Set();
       }
-      return newSet;
+      return new Set([label]);
     });
   };
 
@@ -235,6 +262,12 @@ const Sidebar: React.FC<ExtendedSidebarProps> = ({ items = menuItems }) => {
   };
 
   useEffect(() => {
+    if (!isSidebarOpen) {
+      setOpenSubmenus(new Set());
+    }
+  }, [isSidebarOpen]);
+
+  useEffect(() => {
     const findActiveItem = (items: ExtendedMenuItemProps[]): string => {
       for (const item of items) {
         if (item.href === pathname) return item.label;
@@ -256,6 +289,7 @@ const Sidebar: React.FC<ExtendedSidebarProps> = ({ items = menuItems }) => {
       activeItem === item.label ||
       item.submenu?.some((subItem) => activeItem === subItem.label);
     const isDisabled = item.disabled || false;
+    const isSubItem = level > 0;
 
     return (
       <Box key={item.label} sx={{ width: "100%" }}>
@@ -264,6 +298,7 @@ const Sidebar: React.FC<ExtendedSidebarProps> = ({ items = menuItems }) => {
             isActive={isActive}
             hasSubmenu={hasSubmenu}
             isDisabled={isDisabled}
+            isSubItem={isSubItem}
             onClick={() =>
               handleItemClick(
                 item,
@@ -282,11 +317,21 @@ const Sidebar: React.FC<ExtendedSidebarProps> = ({ items = menuItems }) => {
               sx={{
                 minWidth: "auto",
                 color: isActive
-                  ? "common.white"
+                  ? isSubItem
+                    ? theme.palette.primary.main
+                    : "common.white"
                   : isDisabled
                   ? "text.disabled"
                   : "primary.dark",
-                mr: isSidebarOpen ? 2 : 0,
+                mr: isSidebarOpen ? 1.5 : 0,
+                fontSize: isSubItem ? "1.1rem" : "1.3rem",
+                "& .MuiSvgIcon-root": {
+                  fontSize: isSubItem ? "1.1rem" : "1.3rem",
+                },
+                "& svg": {
+                  width: isSubItem ? "1.1rem" : "1.3rem",
+                  height: isSubItem ? "1.1rem" : "1.3rem",
+                },
               }}
             >
               {item.icon}
@@ -298,10 +343,18 @@ const Sidebar: React.FC<ExtendedSidebarProps> = ({ items = menuItems }) => {
                   primary={
                     <Typography
                       variant="body2"
-                      fontWeight="medium"
                       sx={{
                         flex: 1,
-                        color: isDisabled ? "text.disabled" : "inherit",
+                        color: isActive
+                          ? isSubItem
+                            ? theme.palette.primary.main
+                            : "common.white"
+                          : isDisabled
+                          ? "text.disabled"
+                          : "inherit",
+                        fontSize: isSubItem ? "0.8rem" : "0.85rem",
+                        fontWeight: isSubItem ? 400 : 500,
+                        lineHeight: 1.2,
                       }}
                     >
                       {item.label}
@@ -316,11 +369,25 @@ const Sidebar: React.FC<ExtendedSidebarProps> = ({ items = menuItems }) => {
                   />
                 )}
                 {hasSubmenu && !isDisabled && (
-                  <Box sx={{ ml: 1 }}>
+                  <Box sx={{ ml: 0.5 }}>
                     {isSubmenuOpen ? (
-                      <ExpandMoreIcon fontSize="small" />
+                      <ExpandMore
+                        fontSize="small"
+                        sx={{
+                          fontSize: "0.9rem",
+                          color:
+                            isActive && !isSubItem ? "common.white" : "inherit",
+                        }}
+                      />
                     ) : (
-                      <ChevronRightIcon fontSize="small" />
+                      <ChevronRight
+                        fontSize="small"
+                        sx={{
+                          fontSize: "0.9rem",
+                          color:
+                            isActive && !isSubItem ? "common.white" : "inherit",
+                        }}
+                      />
                     )}
                   </Box>
                 )}
@@ -355,7 +422,6 @@ const Sidebar: React.FC<ExtendedSidebarProps> = ({ items = menuItems }) => {
         justifyContent: "space-between",
       }}
     >
-      {/* Header y Navegación */}
       <Box>
         <MenuHeader>
           <Typography variant="subtitle1" fontWeight="medium">
@@ -375,9 +441,9 @@ const Sidebar: React.FC<ExtendedSidebarProps> = ({ items = menuItems }) => {
               }}
             >
               {isSidebarOpen ? (
-                <CloseIcon fontSize="small" />
+                <Close fontSize="small" />
               ) : (
-                <MenuIcon fontSize="small" />
+                <Menu fontSize="small" />
               )}
             </IconButton>
           </CustomGlobalTooltip>
@@ -388,12 +454,11 @@ const Sidebar: React.FC<ExtendedSidebarProps> = ({ items = menuItems }) => {
         </List>
       </Box>
 
-      {/* Botón Importar/Exportar */}
       {isSidebarOpen && (
         <Box sx={{ p: 2 }}>
           <Button
             text="Importar | Exportar"
-            icon={<SyncAltIcon fontSize="small" />}
+            icon={<SyncAlt fontSize="small" />}
             iconPosition="left"
             onClick={() => router.push("/import-export")}
             variant="contained"
@@ -405,6 +470,7 @@ const Sidebar: React.FC<ExtendedSidebarProps> = ({ items = menuItems }) => {
               textTransform: "uppercase",
               fontSize: "0.75rem",
               fontWeight: "bold",
+              padding: "6px 12px",
               "&:hover": {
                 backgroundColor: "primary.main",
                 transform: "none",
@@ -422,7 +488,6 @@ const Sidebar: React.FC<ExtendedSidebarProps> = ({ items = menuItems }) => {
 
   return (
     <>
-      {/* Desktop Sidebar */}
       <SidebarDrawer
         variant="permanent"
         sx={{
@@ -438,7 +503,6 @@ const Sidebar: React.FC<ExtendedSidebarProps> = ({ items = menuItems }) => {
         {drawerContent}
       </SidebarDrawer>
 
-      {/* Mobile Drawer */}
       <Drawer
         variant="temporary"
         open={isSidebarOpen}

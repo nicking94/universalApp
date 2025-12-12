@@ -296,9 +296,8 @@ const PromocionesPage = () => {
     <ProtectedRoute>
       <Box
         sx={{
-          px: 4,
-          py: 2,
-          height: "100vh",
+          p: 4,
+          height: "calc(100vh - 64px)",
           display: "flex",
           flexDirection: "column",
         }}

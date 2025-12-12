@@ -57,11 +57,11 @@ class MyDatabase extends Dexie {
 
   constructor() {
     super("MyDatabase");
-    this.version(31)
+    this.version(32)
       .stores({
         theme: "id",
         products:
-          "++id, name, barcode, stock, rubro, hasIvaIncluded, priceWithIva, costPriceWithIva",
+          "++id, name, barcode, stock, rubro, hasIvaIncluded, priceWithIva, costPriceWithIva, updatedAt",
         returns: "++id, productId, date",
         users: "id, username",
         auth: "id, userId",
@@ -94,68 +94,26 @@ class MyDatabase extends Dexie {
           "++id, name, type, status, startDate, endDate, rubro, [rubro+status]",
       })
       .upgrade(async (trans) => {
-        // Migración para versión 31 - Crear tabla dailyCashMovements con datos completos
-        if (trans.db.verno === 31) {
-          // Obtener todas las cajas diarias
-          const dailyCashes = await trans.table("dailyCashes").toArray();
+        if (trans.db.verno === 32) {
+          console.log("Migrando productos para agregar campo updatedAt");
 
-          // Migrar movimientos de dailyCashes a dailyCashMovements
-          for (const cash of dailyCashes) {
-            if (cash.movements && cash.movements.length > 0) {
-              console.log(
-                `Migrando ${cash.movements.length} movimientos para la caja ${cash.id} (${cash.date})`
-              );
-
-              for (const movement of cash.movements) {
-                // Crear movimiento con datos completos
-                const fullMovement: DailyCashMovement = {
-                  ...movement,
-                  id: movement.id || Date.now() + Math.random(),
-                  dailyCashId: cash.id,
-                  date: movement.date || cash.date,
-                  createdAt: movement.createdAt || new Date().toISOString(),
-                  amount: Number(movement.amount) || 0,
-                  paymentMethod: movement.paymentMethod || "EFECTIVO",
-                  type:
-                    movement.type ||
-                    (movement.amount >= 0 ? "INGRESO" : "EGRESO"),
-                  description: movement.description || "",
-                  profit: movement.profit || 0,
-                  quantity: movement.quantity || 1,
-                  unit: movement.unit || "unidad",
-                  productName: movement.productName || "",
-                  size: movement.size || "",
-                  color: movement.color || "",
-                  isCreditPayment: movement.isCreditPayment || false,
-                  isDeposit: movement.isDeposit || false,
-                  isBudgetGroup: movement.isBudgetGroup || false,
-                  expenseCategory: movement.expenseCategory || "Otros",
-                  combinedPaymentMethods: movement.combinedPaymentMethods || [],
-                  items: movement.items || [],
-                  subMovements: movement.subMovements || [],
-                };
-
-                try {
-                  await trans.table("dailyCashMovements").add(fullMovement);
-                } catch (error) {
-                  console.error(
-                    "Error al migrar movimiento:",
-                    error,
-                    fullMovement
-                  );
-                }
+          await trans
+            .table("products")
+            .toCollection()
+            .modify((product: Product) => {
+              // Si el producto no tiene updatedAt, usa la fecha actual o un valor por defecto
+              if (!product.updatedAt) {
+                product.updatedAt = new Date().toISOString();
               }
+              // También puedes agregar createdAt si no existe
+              if (!product.createdAt) {
+                product.createdAt = new Date().toISOString();
+              }
+            });
 
-              // Limpiar los movimientos del objeto dailyCash para reducir tamaño
-              // (opcional, dependiendo de si quieres mantenerlos duplicados)
-              // await trans.table("dailyCashes").update(cash.id, { movements: [] });
-            }
-          }
-
-          console.log("Migración de movimientos de caja completada");
+          console.log("Migración de productos completada");
         }
 
-        // Código de migraciones anteriores (de versiones previas)
         await trans
           .table("expenseCategories")
           .toCollection()
