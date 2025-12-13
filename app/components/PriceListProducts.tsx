@@ -162,7 +162,7 @@ const PriceListProducts: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
       <Box sx={{ flex: 1, minHeight: "auto" }}>
         <TableContainer
           component={Paper}
-          sx={{ maxHeight: "63vh", mb: 2, flex: 1 }}
+          sx={{ maxHeight: "62vh", mb: 2, flex: 1 }}
         >
           <Table stickyHeader>
             <TableHead>

@@ -1145,7 +1145,7 @@ const VentasPage = () => {
           </Box>
         }
       >
-        <Box sx={{ maxHeight: "63vh", mb: 2, overflow: "auto" }}>
+        <Box sx={{ maxHeight: "62vh", mb: 2, overflow: "auto" }}>
           <Box sx={{ display: "grid", gap: 2 }}>
             {availablePromotions.length > 0 ? (
               availablePromotions.map((promotion) => {
@@ -2604,7 +2604,7 @@ const VentasPage = () => {
           <Box sx={{ flex: 1, minHeight: "auto" }}>
             <TableContainer
               component={Paper}
-              sx={{ maxHeight: "63vh", flex: 1 }}
+              sx={{ maxHeight: "62vh", flex: 1 }}
             >
               <Table stickyHeader>
                 <TableHead>

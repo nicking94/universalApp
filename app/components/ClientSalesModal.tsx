@@ -53,7 +53,7 @@ const ClientSalesModal = ({
         </Box>
       }
     >
-      <Box sx={{ maxHeight: "63vh", mb: 2, overflow: "auto" }}>
+      <Box sx={{ maxHeight: "62vh", mb: 2, overflow: "auto" }}>
         {sales.length > 0 ? (
           <TableContainer component={Paper}>
             <Table stickyHeader>

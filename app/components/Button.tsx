@@ -187,29 +187,19 @@ const Button = forwardRef<HTMLButtonElement, CustomButtonProps>(
           },
 
           ...(size === "small" && {
-            fontSize: "0.75rem",
-            minHeight: "32px",
-            minWidth: "112px",
+            fontSize: "0.65rem",
             px: 2,
             py: 1,
-            "@media (min-width: 1536px)": {
-              minWidth: "160px",
-              minHeight: "36px",
-            },
           }),
           ...(size === "medium" && {
             fontSize: "0.875rem",
-            minHeight: "40px",
-            minWidth: "120px",
-            px: 3,
-            py: 1.5,
+            px: 2,
+            py: 1,
           }),
           ...(size === "large" && {
             fontSize: "1rem",
-            minHeight: "48px",
-            minWidth: "140px",
-            px: 4,
-            py: 2,
+            px: 2,
+            py: 1,
           }),
 
           ...(variant === "text" && {

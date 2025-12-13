@@ -821,7 +821,7 @@ const InfoModal = ({
           </Tabs>
         </Card>
 
-        <Box sx={{ maxHeight: "63vh", mb: 2, overflow: "auto" }}>
+        <Box sx={{ maxHeight: "62vh", mb: 2, overflow: "auto" }}>
           {infoModalTab === 0 && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {currentCustomerInfo.sales.length === 0 ? (
@@ -2423,7 +2423,7 @@ const CuentasCorrientesPage = () => {
           <Box sx={{ flex: 1, minHeight: "auto" }}>
             <TableContainer
               component={Paper}
-              sx={{ maxHeight: "63vh", flex: 1 }}
+              sx={{ maxHeight: "62vh", flex: 1 }}
             >
               <Table stickyHeader>
                 <TableHead>

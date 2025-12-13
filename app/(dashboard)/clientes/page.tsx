@@ -617,7 +617,7 @@ const ClientesPage = () => {
         </Box>
       </Box>
     ) : (
-      <Box sx={{ maxHeight: "63vh", mb: 2, overflow: "auto" }}>
+      <Box sx={{ maxHeight: "62vh", mb: 2, overflow: "auto" }}>
         {customerBudgets.length > 0 ? (
           <TableContainer component={Paper}>
             <Table stickyHeader>
@@ -712,7 +712,7 @@ const ClientesPage = () => {
     if (!selectedCustomer) return null;
 
     return (
-      <Box sx={{ maxHeight: "63vh", mb: 2, overflow: "auto" }}>
+      <Box sx={{ maxHeight: "62vh", mb: 2, overflow: "auto" }}>
         {customerSales.length > 0 ? (
           <TableContainer component={Paper}>
             <Table stickyHeader>
@@ -899,7 +899,7 @@ const ClientesPage = () => {
           <Box sx={{ flex: 1, minHeight: "auto" }}>
             <TableContainer
               component={Paper}
-              sx={{ maxHeight: "63vh", mb: 2, flex: 1 }}
+              sx={{ maxHeight: "62vh", mb: 2, flex: 1 }}
             >
               <Table stickyHeader>
                 <TableHead>

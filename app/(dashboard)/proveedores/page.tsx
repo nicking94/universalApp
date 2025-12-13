@@ -450,7 +450,7 @@ const ProveedoresPage = () => {
           <Box sx={{ flex: 1, minHeight: "auto" }}>
             <TableContainer
               component={Paper}
-              sx={{ maxHeight: "63vh", flex: 1 }}
+              sx={{ maxHeight: "62vh", flex: 1 }}
             >
               <Table stickyHeader>
                 <TableHead>
