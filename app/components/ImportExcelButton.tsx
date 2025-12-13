@@ -1,14 +1,18 @@
 "use client";
-import { useRef } from "react";
+import React, { useRef } from "react";
 import { Box } from "@mui/material";
-import { Folder as FolderIcon } from "@mui/icons-material";
+import { Description as DescriptionIcon } from "@mui/icons-material";
 import Button from "./Button";
 
-export default function ImportFileButton({
-  onImport,
-}: {
+interface ImportExcelButtonProps {
   onImport: (e: React.ChangeEvent<HTMLInputElement>) => void;
-}) {
+  disabled?: boolean;
+}
+
+export default function ImportExcelButton({
+  onImport,
+  disabled = false,
+}: ImportExcelButtonProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleButtonClick = () => {
@@ -18,31 +22,32 @@ export default function ImportFileButton({
   return (
     <Box>
       <Button
-        text="Importar copia de seguridad"
-        icon={<FolderIcon />}
+        text="Importar Excel de productos"
+        icon={<DescriptionIcon />}
         iconPosition="left"
         onClick={handleButtonClick}
         variant="contained"
         size="large"
-        title="Importar datos desde un archivo JSON"
-        ariaLabel="Importar datos"
+        disabled={disabled}
+        title="Importar productos desde archivo Excel (.xlsx, .xls)"
+        ariaLabel="Importar productos desde Excel"
         sx={{
-          textTransform: "uppercase",
+          textTransform: "none",
           fontWeight: 600,
-          backgroundColor: "primary.main",
+          backgroundColor: "success.main",
           color: "white",
           "&:hover": {
-            backgroundColor: "primary.dark",
+            backgroundColor: "success.dark",
             transform: "none",
           },
-          minWidth: "200px",
+          minWidth: "240px",
           height: "56px",
           fontSize: "1rem",
         }}
       />
       <input
         type="file"
-        accept=".json,.txt"
+        accept=".xlsx,.xls,.xlsm,.xlsb,.ods"
         ref={fileInputRef}
         onChange={onImport}
         style={{ display: "none" }}

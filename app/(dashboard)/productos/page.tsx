@@ -9,6 +9,7 @@ import {
   Rubro,
   UnifiedFilter,
   UnitOption,
+  PriceList,
 } from "@/app/lib/types/types";
 import {
   Info,
@@ -57,6 +58,9 @@ import {
   TableHead,
   TableRow,
   Paper,
+  FormControl,
+  InputLabel,
+  TextField,
 } from "@mui/material";
 import Input from "@/app/components/Input";
 import Button from "@/app/components/Button";
@@ -462,6 +466,8 @@ interface ProductRowProps {
   onDelete: (product: Product) => void;
   onGenerateBarcode: (product: Product) => void;
   supplierName?: string;
+  currentPriceListId?: number | null;
+  productPrices: Record<number, number>;
 }
 
 const ProductRow = React.memo(
@@ -472,6 +478,8 @@ const ProductRow = React.memo(
     onDelete,
     onGenerateBarcode,
     supplierName,
+    currentPriceListId,
+    productPrices,
   }: ProductRowProps) => {
     const displayName = useMemo(
       () => getDisplayProductName(product, rubro, false),
@@ -525,6 +533,14 @@ const ProductRow = React.memo(
       }),
       [product.stock, hasLowStock]
     );
+
+    // Obtener el precio según la lista de precios
+    const productPrice = useMemo(() => {
+      if (currentPriceListId && productPrices[product.id] !== undefined) {
+        return productPrices[product.id];
+      }
+      return product.price;
+    }, [product.id, product.price, currentPriceListId, productPrices]);
 
     const handleEdit = useCallback(() => {
       onEdit(product);
@@ -628,7 +644,7 @@ const ProductRow = React.memo(
           {formatCurrency(product.costPrice)}
         </TableCell>
         <TableCell sx={{ textAlign: "center" }}>
-          {formatCurrency(product.price)}
+          {formatCurrency(productPrice)}
         </TableCell>
         {rubro !== "indumentaria" && (
           <TableCell sx={{ textAlign: "center", fontWeight: "bold" }}>
@@ -1172,6 +1188,15 @@ const ProductsPage = () => {
     closeNotification,
   } = useNotification();
 
+  // Estados para listas de precios
+  const [priceLists, setPriceLists] = useState<PriceList[]>([]);
+  const [selectedPriceListId, setSelectedPriceListId] = useState<number | null>(
+    null
+  );
+  const [productPrices, setProductPrices] = useState<Record<number, number>>(
+    {}
+  );
+
   const [isOpenModal, setIsOpenModal] = useState(false);
   const {
     formData: newProduct,
@@ -1227,6 +1252,57 @@ const ProductsPage = () => {
   const [newSize, setNewSize] = useState("");
   const [sizeToDelete, setSizeToDelete] = useState<string | null>(null);
   const [isSizeDeleteModalOpen, setIsSizeDeleteModalOpen] = useState(false);
+
+  // Cargar listas de precios
+  useEffect(() => {
+    const loadPriceLists = async () => {
+      if (rubro === "Todos los rubros") return;
+      try {
+        const lists = await db.priceLists
+          .where("rubro")
+          .equals(rubro)
+          .toArray();
+        setPriceLists(lists);
+
+        // Seleccionar lista por defecto o primera disponible
+        const defaultList = lists.find((list) => list.isDefault);
+        if (defaultList) {
+          setSelectedPriceListId(defaultList.id);
+        } else if (lists.length > 0) {
+          setSelectedPriceListId(lists[0].id);
+        }
+      } catch (error) {
+        console.error("Error loading price lists:", error);
+      }
+    };
+
+    loadPriceLists();
+  }, [rubro]);
+
+  // Cargar precios de productos para la lista seleccionada
+  useEffect(() => {
+    const loadProductPrices = async () => {
+      if (!selectedPriceListId) return;
+
+      try {
+        const prices = await db.productPrices
+          .where("priceListId")
+          .equals(selectedPriceListId)
+          .toArray();
+
+        const priceMap: Record<number, number> = {};
+        prices.forEach((price) => {
+          priceMap[price.productId] = price.price;
+        });
+
+        setProductPrices(priceMap);
+      } catch (error) {
+        console.error("Error loading product prices:", error);
+      }
+    };
+
+    loadProductPrices();
+  }, [selectedPriceListId]);
 
   const calculatePriceWithIva = useCallback((price: number): number => {
     return price * (1 + PRODUCT_CONFIG.IVA_PERCENTAGE / 100);
@@ -1347,11 +1423,6 @@ const ProductsPage = () => {
       console.error("Error loading categories:", error);
       return [];
     }
-  }, []);
-
-  const checkProductLimit = useCallback(async (rubro: Rubro) => {
-    const products = await db.products.where("rubro").equals(rubro).count();
-    return products >= PRODUCT_CONFIG.MAX_PRODUCTS_PER_CATEGORY;
   }, []);
 
   const getCompatibleUnits = useCallback(
@@ -1832,12 +1903,44 @@ const ProductsPage = () => {
     try {
       if (editingProduct) {
         await updateProduct(editingProduct.id, productToSave);
+
+        // Si hay una lista de precios seleccionada, actualizar el precio en esa lista
+        if (selectedPriceListId) {
+          await db.productPrices.put({
+            productId: editingProduct.id,
+            priceListId: selectedPriceListId,
+            price: productToSave.price,
+          });
+        }
       } else {
-        await addProduct(productToSave);
+        const addedProduct = await addProduct(productToSave);
+
+        // Si hay una lista de precios seleccionada, guardar el precio en esa lista
+        if (selectedPriceListId) {
+          await db.productPrices.put({
+            productId: addedProduct.id,
+            priceListId: selectedPriceListId,
+            price: productToSave.price,
+          });
+        }
       }
 
       const updatedCategories = await loadCustomCategories();
       setGlobalCustomCategories(updatedCategories);
+
+      // Recargar precios de productos
+      if (selectedPriceListId) {
+        const prices = await db.productPrices
+          .where("priceListId")
+          .equals(selectedPriceListId)
+          .toArray();
+
+        const priceMap: Record<number, number> = {};
+        prices.forEach((price) => {
+          priceMap[price.productId] = price.price;
+        });
+        setProductPrices(priceMap);
+      }
 
       showNotification(
         `Producto ${productToSave.name} ${
@@ -1856,11 +1959,11 @@ const ProductsPage = () => {
     rubro,
     editingProduct,
     validateProduct,
-    checkProductLimit,
     updateProduct,
     addProduct,
     loadCustomCategories,
     showNotification,
+    selectedPriceListId,
   ]);
 
   const handleConfirmDelete = useCallback(async () => {
@@ -1914,8 +2017,15 @@ const ProductsPage = () => {
       const hasIvaIncluded =
         product.hasIvaIncluded !== undefined ? product.hasIvaIncluded : true;
 
+      // Obtener precio según lista seleccionada
+      let price = product.price;
+      if (selectedPriceListId && productPrices[product.id] !== undefined) {
+        price = productPrices[product.id];
+      }
+
       setForm({
         ...product,
+        price,
         hasIvaIncluded,
         customCategories: categoriesToSet,
         category: "",
@@ -1928,7 +2038,7 @@ const ProductsPage = () => {
 
       setIsOpenModal(true);
     },
-    [rubro, loadCustomCategories, setForm]
+    [rubro, loadCustomCategories, setForm, selectedPriceListId, productPrices]
   );
 
   const handleDeleteProduct = useCallback((product: Product) => {
@@ -2170,6 +2280,33 @@ const ProductsPage = () => {
               visibility: rubro === "Todos los rubros" ? "hidden" : "visible",
             }}
           >
+            {/* Selector de lista de precios */}
+            {rubro !== "Todos los rubros" && priceLists.length > 0 && (
+              <FormControl sx={{ minWidth: 200 }} size="small">
+                <InputLabel>Lista de precios</InputLabel>
+                <Autocomplete
+                  options={priceLists}
+                  value={
+                    priceLists.find(
+                      (list) => list.id === selectedPriceListId
+                    ) || null
+                  }
+                  onChange={(event, newValue) => {
+                    setSelectedPriceListId(newValue?.id || null);
+                  }}
+                  getOptionLabel={(option) =>
+                    `${option.name}${option.isDefault ? " (Por defecto)" : ""}`
+                  }
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Lista de precios"
+                      size="small"
+                    />
+                  )}
+                />
+              </FormControl>
+            )}
             <Button
               variant="contained"
               onClick={handleAddProduct}
@@ -2386,6 +2523,8 @@ const ProductsPage = () => {
                         onDelete={handleDeleteProduct}
                         onGenerateBarcode={handleGenerateBarcode}
                         supplierName={productSuppliers[product.id]}
+                        currentPriceListId={selectedPriceListId}
+                        productPrices={productPrices}
                       />
                     ))
                   ) : (

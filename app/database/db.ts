@@ -21,11 +21,15 @@ import {
   ExpenseCategory,
   DailyCashMovement,
   Promotion,
+  PriceList,
+  ProductPrice,
 } from "../lib/types/types";
 
 class MyDatabase extends Dexie {
   theme!: Table<Theme, number>;
   products!: Table<Product, number>;
+  priceLists!: Table<PriceList, number>;
+  productPrices!: Table<ProductPrice, [number, number]>;
   users!: Table<User, number>;
   auth!: Table<
     { id: number; isAuthenticated: boolean; userId?: number },
@@ -57,12 +61,14 @@ class MyDatabase extends Dexie {
 
   constructor() {
     super("MyDatabase");
-    this.version(32)
+    this.version(33)
       .stores({
         theme: "id",
         products:
           "++id, name, barcode, stock, rubro, hasIvaIncluded, priceWithIva, costPriceWithIva, updatedAt",
         returns: "++id, productId, date",
+        priceLists: "++id, name, rubro, isDefault",
+        productPrices: "[productId+priceListId], productId, priceListId",
         users: "id, username",
         auth: "id, userId",
         sales:
@@ -94,18 +100,27 @@ class MyDatabase extends Dexie {
           "++id, name, type, status, startDate, endDate, rubro, [rubro+status]",
       })
       .upgrade(async (trans) => {
-        if (trans.db.verno === 32) {
-          console.log("Migrando productos para agregar campo updatedAt");
+        if (trans.db.verno === 33) {
+          const rubros = ["comercio", "indumentaria"];
 
+          for (const rubro of rubros) {
+            await trans.table("priceLists").add({
+              id: Date.now() + Math.random(),
+              name: "Precio General",
+              rubro: rubro as Rubro,
+              isDefault: true,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+          }
           await trans
             .table("products")
             .toCollection()
             .modify((product: Product) => {
-              // Si el producto no tiene updatedAt, usa la fecha actual o un valor por defecto
               if (!product.updatedAt) {
                 product.updatedAt = new Date().toISOString();
               }
-              // También puedes agregar createdAt si no existe
+
               if (!product.createdAt) {
                 product.createdAt = new Date().toISOString();
               }
@@ -127,7 +142,6 @@ class MyDatabase extends Dexie {
             expense.type = "EGRESO";
           });
 
-        // Asegurar que los movimientos de caja tengan expenseCategory
         if ((await trans.table("dailyCashMovements").count()) > 0) {
           await trans
             .table("dailyCashMovements")
@@ -136,7 +150,7 @@ class MyDatabase extends Dexie {
               if (movement.type === "EGRESO" && !movement.expenseCategory) {
                 movement.expenseCategory = "Otros";
               }
-              // Asegurar que createdAt exista
+
               if (!movement.createdAt) {
                 movement.createdAt = new Date().toISOString();
               }
@@ -346,15 +360,13 @@ class MyDatabase extends Dexie {
       return undefined;
     });
 
-    // Hook para dailyCashMovements
     this.dailyCashMovements.hook(
       "creating",
       (_primKey, obj: DailyCashMovement) => {
-        // Asegurar que createdAt exista
         if (!obj.createdAt) {
           obj.createdAt = new Date().toISOString();
         }
-        // Asegurar que date exista
+
         if (!obj.date) {
           const today = new Date();
           obj.date = today.toISOString().split("T")[0];
@@ -366,7 +378,6 @@ class MyDatabase extends Dexie {
     this.dailyCashMovements.hook(
       "updating",
       (modifications: Partial<DailyCashMovement>) => {
-        // Si se actualiza pero no tiene createdAt, añadirlo
         if (modifications && !modifications.createdAt) {
           modifications.createdAt = new Date().toISOString();
         }
@@ -374,9 +385,7 @@ class MyDatabase extends Dexie {
       }
     );
 
-    // Hook para dailyCashes
     this.dailyCashes.hook("creating", (_primKey, obj: DailyCash) => {
-      // Asegurar que los movimientos tengan createdAt
       if (obj.movements && obj.movements.length > 0) {
         obj.movements = obj.movements.map((movement) => ({
           ...movement,
@@ -388,7 +397,6 @@ class MyDatabase extends Dexie {
     });
 
     this.dailyCashes.hook("updating", (modifications: Partial<DailyCash>) => {
-      // Si se actualizan movimientos, asegurar createdAt
       if (modifications.movements && modifications.movements.length > 0) {
         modifications.movements = modifications.movements.map((movement) => ({
           ...movement,
@@ -424,7 +432,6 @@ class MyDatabase extends Dexie {
       .toArray();
   }
 
-  // Métodos para manejar dailyCashMovements
   async addDailyCashMovement(
     movement: Omit<DailyCashMovement, "id">
   ): Promise<number> {
@@ -452,10 +459,8 @@ class MyDatabase extends Dexie {
   }
 
   async updateDailyCashWithMovements(dailyCashId: number): Promise<void> {
-    // Obtener todos los movimientos para esta caja
     const movements = await this.getDailyCashMovementsByCashId(dailyCashId);
 
-    // Calcular totales
     const totalIncome = movements
       .filter((m) => m.type === "INGRESO")
       .reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
@@ -464,7 +469,6 @@ class MyDatabase extends Dexie {
       .filter((m) => m.type === "EGRESO")
       .reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
 
-    // Actualizar la caja diaria
     await this.dailyCashes.update(dailyCashId, {
       movements: movements,
       totalIncome,
@@ -476,13 +480,10 @@ class MyDatabase extends Dexie {
     dailyCashId: number,
     movement: Omit<DailyCashMovement, "id" | "dailyCashId">
   ): Promise<void> {
-    // Añadir el movimiento a la tabla dailyCashMovements
     await this.addDailyCashMovement({
       ...movement,
       dailyCashId,
     });
-
-    // Actualizar la caja diaria con los nuevos movimientos
     await this.updateDailyCashWithMovements(dailyCashId);
   }
 }

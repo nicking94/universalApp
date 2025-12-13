@@ -23,6 +23,7 @@ import {
   Headphones,
   PriceChange,
   Category,
+  AttachMoney,
 } from "@mui/icons-material";
 import { TbCashRegister } from "react-icons/tb";
 import {
@@ -89,6 +90,11 @@ const menuItems: ExtendedMenuItemProps[] = [
         label: "Actualización de precios",
         href: "/actualizacionprecios",
         icon: <PriceChange />,
+      },
+      {
+        label: "Listas de precios",
+        href: "/listasprecios",
+        icon: <AttachMoney />,
       },
     ],
   },

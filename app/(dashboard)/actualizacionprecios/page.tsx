@@ -46,10 +46,10 @@ import CustomGlobalTooltip from "@/app/components/CustomTooltipGlobal";
 import Pagination from "@/app/components/Pagination";
 import { usePagination } from "@/app/context/PaginationContext";
 import Button from "@/app/components/Button";
-import { parseISO, format, differenceInDays, startOfDay } from "date-fns";
+import { parseISO, format } from "date-fns";
 import { es } from "date-fns/locale";
 import Modal from "@/app/components/Modal";
-import CustomChip from "@/app/components/CustomChip"; // Importar tu CustomChip
+import CustomChip from "@/app/components/CustomChip";
 
 const ActualizacionPreciosPage = () => {
   const theme = useTheme();
@@ -368,67 +368,6 @@ const ActualizacionPreciosPage = () => {
     return isFinite(margin) ? margin : 0;
   };
 
-  const getRowStyles = (product: Product) => {
-    const baseStyles = {
-      border: "1px solid",
-      borderColor: "divider",
-      "&:hover": {
-        backgroundColor: "action.hover",
-      },
-      transition: "all 0.3s ease-in-out",
-    };
-
-    const hasLowStock =
-      product.setMinStock &&
-      product.minStock !== undefined &&
-      product.minStock !== null &&
-      product.stock < product.minStock;
-
-    if (rubro !== "indumentaria" && product.expiration) {
-      const expDate = startOfDay(parseISO(product.expiration));
-      const today = startOfDay(new Date());
-      const diffDays = differenceInDays(expDate, today);
-
-      if (diffDays < 0) {
-        return {
-          ...baseStyles,
-          borderLeft: "4px solid",
-          borderLeftColor: "error.dark",
-          backgroundColor: "grey.50",
-        };
-      }
-      if (diffDays === 0) {
-        return {
-          ...baseStyles,
-          borderLeft: "4px solid",
-          borderLeftColor: "error.main",
-          backgroundColor: "error.main",
-          "& .MuiTableCell-root": {
-            color: "inherit",
-            fontWeight: "bold",
-          },
-        };
-      }
-      if (diffDays <= 7) {
-        return {
-          ...baseStyles,
-          borderLeft: "4px solid",
-          borderLeftColor: "error.light",
-          backgroundColor: "grey.50",
-        };
-      }
-    }
-
-    return hasLowStock
-      ? {
-          ...baseStyles,
-          borderLeft: "4px solid",
-          borderLeftColor: "info.main",
-          backgroundColor: "info.light",
-        }
-      : baseStyles;
-  };
-
   // Resetear filtros del modal al abrir
   const handleOpenBulkModal = () => {
     setModalSearchQuery("");
@@ -448,9 +387,8 @@ const ActualizacionPreciosPage = () => {
     <ProtectedRoute>
       <Box
         sx={{
-          px: { xs: 2, sm: 3, md: 4 },
-          py: 2,
-          height: "100vh",
+          p: 4,
+          height: "calc(100vh - 64px)",
           display: "flex",
           flexDirection: "column",
           gap: 2,
@@ -545,10 +483,9 @@ const ActualizacionPreciosPage = () => {
                   {currentProducts.length > 0 ? (
                     currentProducts.map((product) => {
                       const margin = calculateProfitMargin(product);
-                      const rowStyles = getRowStyles(product);
 
                       return (
-                        <TableRow key={product.id} sx={rowStyles} hover>
+                        <TableRow key={product.id} hover>
                           <TableCell
                             sx={{
                               fontWeight: "bold",

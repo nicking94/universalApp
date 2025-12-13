@@ -69,6 +69,7 @@ import {
   Payment,
   ProductOption,
   EditMode,
+  PriceList,
 } from "@/app/lib/types/types";
 import Select from "@/app/components/Select";
 import { Settings } from "@mui/icons-material";
@@ -83,6 +84,7 @@ import BusinessDataModal from "@/app/components/BusinessDataModal";
 import CustomChip from "@/app/components/CustomChip";
 import ProductSearchAutocomplete from "@/app/components/ProductSearchAutocomplete";
 import CustomGlobalTooltip from "@/app/components/CustomTooltipGlobal";
+import PriceListSelector from "@/app/components/PriceListSelector";
 
 type CustomerOption = {
   value: string;
@@ -155,6 +157,16 @@ const VentasPage = () => {
     id: number;
     name: string;
   } | null>(null);
+
+  // Estados para listas de precios
+  const [priceLists, setPriceLists] = useState<PriceList[]>([]);
+  const [selectedPriceListId, setSelectedPriceListId] = useState<number | null>(
+    null
+  );
+
+  const [availablePriceLists, setAvailablePriceLists] = useState<PriceList[]>(
+    []
+  );
 
   // Estados para edición
   const [isEditMode, setIsEditMode] = useState<EditMode>({
@@ -272,6 +284,85 @@ const VentasPage = () => {
       label: unit.label,
     }));
   };
+
+  const getProductPrice = async (productId: number): Promise<number> => {
+    if (!selectedPriceListId) {
+      // Usar precio base
+      const product = products.find((p) => p.id === productId);
+      return product?.price || 0;
+    }
+
+    try {
+      // Buscar precio específico en la lista
+      const productPrice = await db.productPrices.get([
+        productId,
+        selectedPriceListId,
+      ]);
+      if (productPrice) {
+        return productPrice.price;
+      }
+
+      // Si no hay precio específico, usar precio base
+      const product = products.find((p) => p.id === productId);
+      return product?.price || 0;
+    } catch (error) {
+      console.error("Error getting product price:", error);
+      const product = products.find((p) => p.id === productId);
+      return product?.price || 0;
+    }
+  };
+
+  const updateProductPrices = async (priceListId: number) => {
+    const updatedProducts = await Promise.all(
+      newSale.products.map(async (product) => {
+        let newPrice = product.price;
+
+        if (priceListId) {
+          try {
+            const productPrice = await db.productPrices.get([
+              product.id,
+              priceListId,
+            ]);
+            if (productPrice) {
+              newPrice = productPrice.price;
+            }
+          } catch (error) {
+            console.error("Error getting product price:", error);
+          }
+        }
+
+        return {
+          ...product,
+          price: newPrice,
+        };
+      })
+    );
+
+    setNewSale((prev) => {
+      const newTotal = calculateFinalTotal(
+        updatedProducts,
+        prev.manualAmount || 0,
+        selectedPromotions
+      );
+
+      return {
+        ...prev,
+        products: updatedProducts,
+        total: newTotal,
+        paymentMethods: synchronizePaymentMethods(
+          prev.paymentMethods,
+          newTotal
+        ),
+      };
+    });
+  };
+
+  const getPriceListName = (priceListId: number | undefined): string => {
+    if (!priceListId) return "Precio General";
+    const list = priceLists.find((p) => p.id === priceListId);
+    return list ? list.name : "Precio General";
+  };
+
   const canEditSale = (sale: Sale): boolean => {
     const saleDate = new Date(sale.date);
     const today = new Date();
@@ -371,12 +462,17 @@ const VentasPage = () => {
         concept: sale.concept || "",
       });
 
-      // 7. Configurar otros estados si es necesario
+      // 7. Configurar lista de precios si existe
+      if (sale.priceListId) {
+        setSelectedPriceListId(sale.priceListId);
+      }
+
+      // 8. Configurar otros estados si es necesario
       if (sale.appliedPromotion) {
         setSelectedPromotions(sale.appliedPromotion);
       }
 
-      // 8. Abrir el modal de edición
+      // 9. Abrir el modal de edición
       setIsOpenModal(true);
     } catch (error) {
       console.error("Error al iniciar edición:", error);
@@ -486,6 +582,7 @@ const VentasPage = () => {
         manualAmount: newSale.manualAmount,
         manualProfitPercentage: newSale.manualProfitPercentage,
         concept: newSale.concept,
+        priceListId: selectedPriceListId || undefined, // Convertir null a undefined
         appliedPromotion: selectedPromotions || undefined,
         edited: true,
         editHistory: [
@@ -496,6 +593,7 @@ const VentasPage = () => {
               products: newSale.products,
               total: newSale.total,
               paymentMethods: newSale.paymentMethods,
+              priceListId: selectedPriceListId || undefined, // Convertir null a undefined aquí también
             },
             previousTotal: originalSaleBackup.total,
             newTotal: newSale.total,
@@ -541,6 +639,7 @@ const VentasPage = () => {
         concept: "",
       });
 
+      setSelectedPriceListId(null);
       setSelectedPromotions(null);
       setTemporarySelectedPromotion(null);
 
@@ -1388,6 +1487,7 @@ const VentasPage = () => {
         customerId: customerId || "",
         paid: !isCredit,
         concept: newSale.concept || "",
+        priceListId: selectedPriceListId || undefined,
         appliedPromotion: selectedPromotions || undefined,
       };
 
@@ -1468,6 +1568,7 @@ const VentasPage = () => {
         setSelectedCustomer(null);
         setCustomerName("");
         setCustomerPhone("");
+        setSelectedPriceListId(null);
         setSelectedPromotions(null);
         setTemporarySelectedPromotion(null);
         setSelectedSale(saleToSave);
@@ -1491,6 +1592,7 @@ const VentasPage = () => {
         setSelectedCustomer(null);
         setCustomerName("");
         setCustomerPhone("");
+        setSelectedPriceListId(null);
         setSelectedPromotions(null);
         setTemporarySelectedPromotion(null);
 
@@ -1669,7 +1771,9 @@ const VentasPage = () => {
     }
   };
 
-  const handleProductScan = (productId: number) => {
+  const handleProductScan = async (productId: number) => {
+    const price = await getProductPrice(productId);
+
     setNewSale((prevState) => {
       const existingProductIndex = prevState.products.findIndex(
         (p) => p.id === productId
@@ -1702,6 +1806,7 @@ const VentasPage = () => {
 
         const newProduct = {
           ...productToAdd,
+          price, // Usar precio de la lista seleccionada
           quantity: 1,
           unit: productToAdd.unit,
           discount: 0,
@@ -1918,6 +2023,7 @@ const VentasPage = () => {
       setShouldRedirectToCash(true);
       return;
     }
+
     // Resetear modo edición
     setIsEditMode({
       isEditing: false,
@@ -1926,8 +2032,18 @@ const VentasPage = () => {
     });
     setOriginalSaleBackup(null);
     setOriginalStockBackup([]);
+
+    // Cargar listas de precios disponibles
+    if (rubro !== "Todos los rubros") {
+      const lists = await db.priceLists.where("rubro").equals(rubro).toArray();
+      setAvailablePriceLists(lists); // This is now correct
+
+      const defaultList = availablePriceLists.find((list) => list.isDefault);
+      setSelectedPriceListId(defaultList?.id || null);
+    }
+
     setIsOpenModal(true);
-  }, []);
+  }, [rubro]);
 
   const updateCustomerPurchaseHistory = async (
     customerId: string,
@@ -1972,6 +2088,7 @@ const VentasPage = () => {
     setSelectedCustomer(null);
     setCustomerName("");
     setCustomerPhone("");
+    setSelectedPriceListId(null);
     setSelectedPromotions(null);
     setTemporarySelectedPromotion(null);
     setIsOpenModal(false);
@@ -2117,6 +2234,29 @@ const VentasPage = () => {
     };
 
     fetchPromotions();
+  }, [rubro]);
+
+  useEffect(() => {
+    const loadPriceLists = async () => {
+      if (rubro !== "Todos los rubros") {
+        try {
+          const lists = await db.priceLists
+            .where("rubro")
+            .equals(rubro)
+            .toArray();
+          setPriceLists(lists);
+          setAvailablePriceLists(lists);
+        } catch (error) {
+          console.error("Error loading price lists:", error);
+        }
+      } else {
+        setPriceLists([]);
+        setAvailablePriceLists([]);
+        setSelectedPriceListId(null);
+      }
+    };
+
+    loadPriceLists();
   }, [rubro]);
 
   useEffect(() => {
@@ -2513,17 +2653,15 @@ const VentasPage = () => {
                     >
                       Total
                     </TableCell>
-                    {rubro !== "Todos los rubros" && (
-                      <TableCell
-                        sx={{
-                          bgcolor: "primary.main",
-                          color: "primary.contrastText",
-                        }}
-                        align="center"
-                      >
-                        Acciones
-                      </TableCell>
-                    )}
+                    <TableCell
+                      sx={{
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                      }}
+                      align="center"
+                    >
+                      Lista de Precios
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -2712,6 +2850,11 @@ const VentasPage = () => {
                               {formatCurrency(total)}
                             </Typography>
                           </TableCell>
+                          <TableCell align="center">
+                            <Typography variant="body2" color="text.secondary">
+                              {getPriceListName(sale.priceListId)}
+                            </Typography>
+                          </TableCell>
                           {rubro !== "Todos los rubros" && (
                             <TableCell align="center">
                               <Box
@@ -2764,7 +2907,7 @@ const VentasPage = () => {
                   ) : (
                     <TableRow>
                       <TableCell
-                        colSpan={rubro !== "Todos los rubros" ? 6 : 5}
+                        colSpan={rubro !== "Todos los rubros" ? 7 : 6}
                         align="center"
                       >
                         <Box
@@ -3104,32 +3247,54 @@ const VentasPage = () => {
                       isDisabled: false,
                     } as ProductOption;
                   })}
-                  onProductSelect={(selectedOptions: ProductOption[]) => {
+                  onProductSelect={async (selectedOptions: ProductOption[]) => {
                     const existingProductsMap = new Map(
                       newSale.products.map((p) => [p.id, p])
                     );
 
-                    const updatedProducts = selectedOptions
-                      .filter((option) => !option.isDisabled)
-                      .map((option) => {
-                        const existingProduct = existingProductsMap.get(
-                          option.product.id
-                        );
+                    const updatedProducts = await Promise.all(
+                      selectedOptions
+                        .filter((option) => !option.isDisabled)
+                        .map(async (option) => {
+                          const existingProduct = existingProductsMap.get(
+                            option.product.id
+                          );
 
-                        if (existingProduct) {
+                          if (existingProduct) {
+                            return {
+                              ...existingProduct,
+                            };
+                          }
+
+                          // Obtener precio según la lista seleccionada
+                          let price = option.product.price;
+                          if (selectedPriceListId) {
+                            try {
+                              const productPrice = await db.productPrices.get([
+                                option.product.id,
+                                selectedPriceListId,
+                              ]);
+                              if (productPrice) {
+                                price = productPrice.price;
+                              }
+                            } catch (error) {
+                              console.error(
+                                "Error getting product price:",
+                                error
+                              );
+                            }
+                          }
+
                           return {
-                            ...existingProduct,
+                            ...option.product,
+                            price,
+                            quantity: 1,
+                            discount: 0,
+                            surcharge: 0,
+                            unit: option.product.unit || "Unid.",
                           };
-                        }
-
-                        return {
-                          ...option.product,
-                          quantity: 1,
-                          discount: 0,
-                          surcharge: 0,
-                          unit: option.product.unit || "Unid.",
-                        };
-                      });
+                        })
+                    );
 
                     setNewSale((prev) => {
                       const newTotal = calculateFinalTotal(
@@ -3157,6 +3322,23 @@ const VentasPage = () => {
                   maxDisplayed={50}
                 />
               </Box>
+            </Box>
+
+            {/* Selector de Lista de Precios */}
+            <Box sx={{ width: "100%" }}>
+              <PriceListSelector
+                selectedPriceListId={selectedPriceListId}
+                onPriceListChange={(priceListId) => {
+                  setSelectedPriceListId(priceListId);
+
+                  // Actualizar precios de productos existentes
+                  if (newSale.products.length > 0 && priceListId !== null) {
+                    updateProductPrices(priceListId);
+                  }
+                }}
+                rubro={rubro}
+                disabled={isEditMode.isEditing}
+              />
             </Box>
 
             {newSale.products.length > 0 && (

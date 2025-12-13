@@ -110,7 +110,7 @@ export const systemActualizations: Actualization[] = [
     id: 15,
     title: `Versión 1.5.5 - Actualización`,
     message:
-      "- Añadimos el módulo de ACTUALIZACIÓN DE PRECIOS. Ahora vas a poder actualizar los precios de tus productos de una forma mucho mas ágil y rápida ahorrandote tiempo y esfuerzo\n- Nuevas funcionalidad:\n Edición de venta en la caja diaria actual. Si por algún motivo necesitas editar la venta, ahora podés hacerlo. Se modificará automáticamente el stock, y los cálculos en la caja diaria",
+      "- Añadimos el módulo de ACTUALIZACIÓN DE PRECIOS. Ahora vas a poder actualizar los precios de tus productos de una forma mucho mas ágil y rápida ahorrandote tiempo y esfuerzo\n- Añadimos un módulo de LISTAS DE PRECIOS en las que vas a poder crear listas, asignarle el precio a cada producto en cada lista, y usar esas listas a la hora de hacer una venta\n- Añadimos la opcion de importar Excel de productos para cargar productos por primera vez a traves de archivos Excel\n- Nueva funcionalidad:\n Edición de venta en la caja diaria actual. Si por algún motivo necesitas editar la venta, ahora podés hacerlo. Se modificará automáticamente el stock, y los cálculos en la caja diaria",
     date: new Date().toISOString(),
   },
 ];

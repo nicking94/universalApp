@@ -114,6 +114,23 @@ export type UserMenuProps = {
 
 export type Rubro = "Todos los rubros" | "comercio" | "indumentaria" | string;
 
+export type PriceList = {
+  id: number;
+  name: string;
+  rubro: Rubro;
+  isDefault: boolean;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type ProductPrice = {
+  productId: number;
+  priceListId: number;
+  price: number;
+  costPrice?: number;
+};
+
 export type Product = {
   id: number;
   name: string;
@@ -169,6 +186,7 @@ export type Product = {
   minStock?: number;
   createdAt?: string;
   updatedAt?: string;
+  priceListId?: number;
 };
 export type ProductDisplayInfo = {
   name: string;
@@ -226,6 +244,7 @@ export interface Sale {
     previousTotal: number;
     newTotal: number;
   }[];
+  priceListId?: number;
 }
 
 export type SaleItem = {
