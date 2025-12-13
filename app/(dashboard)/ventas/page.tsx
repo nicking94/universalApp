@@ -3639,16 +3639,43 @@ const VentasPage = () => {
                       <TextField
                         type="number"
                         value={
-                          newSale.manualProfitPercentage?.toString() || "0"
+                          newSale.manualProfitPercentage === 0 ||
+                          newSale.manualProfitPercentage === undefined
+                            ? ""
+                            : newSale.manualProfitPercentage.toString()
                         }
                         onChange={(e) => {
-                          const value = Math.min(
+                          const rawValue = e.target.value;
+
+                          // Si el campo está vacío, establecer como 0
+                          if (rawValue === "" || rawValue === "-") {
+                            setNewSale((prev) => ({
+                              ...prev,
+                              manualProfitPercentage: 0,
+                              total: calculateFinalTotal(
+                                prev.products,
+                                prev.manualAmount || 0,
+                                selectedPromotions
+                              ),
+                            }));
+                            return;
+                          }
+
+                          // Convertir a número y validar
+                          const numericValue = Number(rawValue);
+                          if (isNaN(numericValue)) {
+                            return; // No hacer nada si no es un número válido
+                          }
+
+                          // Limitar entre 0 y 100
+                          const clampedValue = Math.min(
                             100,
-                            Math.max(0, Number(e.target.value))
+                            Math.max(0, numericValue)
                           );
+
                           setNewSale((prev) => ({
                             ...prev,
-                            manualProfitPercentage: value || 0,
+                            manualProfitPercentage: clampedValue,
                             total: calculateFinalTotal(
                               prev.products,
                               prev.manualAmount || 0,
@@ -3656,11 +3683,31 @@ const VentasPage = () => {
                             ),
                           }));
                         }}
+                        onBlur={(e) => {
+                          // Al perder el foco, si el campo está vacío, asegurarse de que sea 0
+                          if (e.target.value === "" || e.target.value === "-") {
+                            setNewSale((prev) => ({
+                              ...prev,
+                              manualProfitPercentage: 0,
+                              total: calculateFinalTotal(
+                                prev.products,
+                                prev.manualAmount || 0,
+                                selectedPromotions
+                              ),
+                            }));
+                          }
+                        }}
                         label="% Ganancia"
-                        inputProps={{ min: 0, max: 100, step: "1" }}
+                        inputProps={{
+                          min: 0,
+                          max: 100,
+                          step: "1",
+                          inputMode: "decimal",
+                        }}
                         size="small"
                         fullWidth
                         disabled={isCredit}
+                        placeholder="0" // Placeholder en lugar de valor forzado
                       />
                     </Box>
                   </Box>

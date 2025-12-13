@@ -114,6 +114,7 @@ const InputCash: React.FC<InputCashProps> = ({
     [maxDecimals]
   );
 
+  // Efecto para sincronizar el valor cuando no está enfocado
   useEffect(() => {
     if (!isFocused) {
       const formatted = formatNumber(value);
@@ -190,11 +191,16 @@ const InputCash: React.FC<InputCashProps> = ({
 
   const handleFocus = useCallback(() => {
     setIsFocused(true);
-    if (displayValue) {
+
+    // Cuando el valor es 0 o el campo está vacío, establece displayValue como cadena vacía
+    if (value === 0 || displayValue === "") {
+      setDisplayValue("");
+    } else if (displayValue) {
+      // Solo limpia los puntos si hay un valor
       const cleanValue = displayValue.replace(/\./g, "");
       setDisplayValue(cleanValue);
     }
-  }, [displayValue]);
+  }, [displayValue, value]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -243,7 +249,7 @@ const InputCash: React.FC<InputCashProps> = ({
     <FormControl fullWidth variant="outlined">
       <TextField
         inputRef={inputRef}
-        value={displayValue}
+        value={isFocused ? displayValue : formatNumber(value)}
         onChange={handleChange}
         onBlur={handleBlur}
         onFocus={handleFocus}

@@ -1,16 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useRef } from "react";
-import {
-  Box,
-  Typography,
-  TextField,
-  Card,
-  InputAdornment,
-  useTheme,
-  alpha,
-  Fade,
-} from "@mui/material";
+import { Box, Typography, Card, useTheme, alpha, Fade } from "@mui/material";
 import {
   AttachMoney,
   CheckCircle,
@@ -20,6 +11,7 @@ import {
 import Modal from "./Modal";
 import Button from "./Button";
 import { formatCurrency } from "@/app/lib/utils/currency";
+import Input from "./Input";
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -250,34 +242,42 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                 Monto Recibido
               </Typography>
               <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                <TextField
+                <Input
                   type="number"
                   value={localPaymentAmount === 0 ? "" : localPaymentAmount}
-                  onChange={(e) => {
+                  onChange={(value) => {
+                    const numValue =
+                      typeof value === "string" ? parseFloat(value) : value;
+                    handlePaymentAmountChange(
+                      isNaN(numValue as number) ? 0 : (numValue as number)
+                    );
+                  }}
+                  onRawChange={(e) => {
                     const value =
                       e.target.value === "" ? 0 : parseFloat(e.target.value);
                     handlePaymentAmountChange(isNaN(value) ? 0 : value);
                   }}
                   placeholder="0.00"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <AttachMoney color="primary" />
-                      </InputAdornment>
-                    ),
-                    sx: {
+                  icon={<AttachMoney color="primary" />}
+                  customSx={{
+                    "& .MuiOutlinedInput-root": {
                       borderRadius: 2,
                       bgcolor:
-                        theme.palette.mode === "dark" ? "grey.800" : "grey.50",
+                        theme.palette.mode === "dark"
+                          ? theme.palette.background.paper
+                          : "grey.50",
                       "&:focus-within": {
                         bgcolor:
                           theme.palette.mode === "dark"
-                            ? "grey.700"
+                            ? theme.palette.background.default
                             : "common.white",
                         boxShadow: `0 0 0 2px ${alpha(
                           theme.palette.primary.main,
-                          0.2
+                          theme.palette.mode === "dark" ? 0.4 : 0.2
                         )}`,
+                      },
+                      "& .MuiOutlinedInput-input": {
+                        color: theme.palette.text.primary,
                       },
                     },
                   }}
@@ -285,6 +285,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                   size="medium"
                   disabled={isProcessing}
                   autoFocus
+                  capitalize={false}
                 />
                 <Box sx={{ display: "flex", gap: 2 }}>
                   <Button

@@ -179,7 +179,6 @@ const ActualizacionPreciosPage = () => {
     setModalFilteredProducts(filtered);
   };
 
-  // Efecto para filtrar productos del modal cuando cambian los filtros
   useEffect(() => {
     if (isBulkModalOpen) {
       filterModalProducts();
@@ -192,7 +191,6 @@ const ActualizacionPreciosPage = () => {
     isBulkModalOpen,
   ]);
 
-  // Obtener categorías filtradas por rubro
   const getFilteredCategories = () => {
     if (rubro === "Todos los rubros") {
       return [...new Set(availableCategories.map((cat) => cat.name))];

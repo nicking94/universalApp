@@ -58,9 +58,6 @@ import {
   TableHead,
   TableRow,
   Paper,
-  FormControl,
-  InputLabel,
-  TextField,
 } from "@mui/material";
 import Input from "@/app/components/Input";
 import Button from "@/app/components/Button";
@@ -2282,30 +2279,26 @@ const ProductsPage = () => {
           >
             {/* Selector de lista de precios */}
             {rubro !== "Todos los rubros" && priceLists.length > 0 && (
-              <FormControl sx={{ minWidth: 200 }} size="small">
-                <InputLabel>Lista de precios</InputLabel>
-                <Autocomplete
-                  options={priceLists}
-                  value={
-                    priceLists.find(
-                      (list) => list.id === selectedPriceListId
-                    ) || null
-                  }
-                  onChange={(event, newValue) => {
-                    setSelectedPriceListId(newValue?.id || null);
-                  }}
-                  getOptionLabel={(option) =>
-                    `${option.name}${option.isDefault ? " (Por defecto)" : ""}`
-                  }
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Lista de precios"
-                      size="small"
-                    />
-                  )}
-                />
-              </FormControl>
+              <Select
+                label="Lista de precios"
+                options={priceLists.map((list) => ({
+                  value: list.id, // Esto puede ser string o number
+                  label: `${list.name}${
+                    list.isDefault ? " (Por defecto)" : ""
+                  }`,
+                  metadata: list,
+                }))}
+                value={selectedPriceListId || ""}
+                onChange={(value) => {
+                  // Convertir string a number si es necesario
+                  const newValue = value ? Number(value) : null;
+                  setSelectedPriceListId(newValue);
+                }}
+                fullWidth={false}
+                sx={{ minWidth: 200 }}
+                size="small"
+                getOptionId={(option) => option.metadata?.id}
+              />
             )}
             <Button
               variant="contained"
@@ -2724,7 +2717,7 @@ const ProductsPage = () => {
                     .map((ret, index) => (
                       <tr
                         key={index}
-                        className="hover:bg-gray_xxl dark:hover:bg-blue_xl transition-all duration-300"
+                        className="hover:bg-gray_xxl dark:hover:bg-gray_m transition-all duration-300"
                       >
                         <td className="p-2">{ret.productName}</td>
                         <td className="p-2">{ret.reason}</td>
