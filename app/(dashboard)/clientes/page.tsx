@@ -617,7 +617,7 @@ const ClientesPage = () => {
         </Box>
       </Box>
     ) : (
-      <Box sx={{ maxHeight: "62vh", mb: 2, overflow: "auto" }}>
+      <Box sx={{ maxHeight: "60vh", mb: 2, overflow: "auto" }}>
         {customerBudgets.length > 0 ? (
           <TableContainer component={Paper}>
             <Table stickyHeader>
@@ -712,7 +712,7 @@ const ClientesPage = () => {
     if (!selectedCustomer) return null;
 
     return (
-      <Box sx={{ maxHeight: "62vh", mb: 2, overflow: "auto" }}>
+      <Box sx={{ maxHeight: "60vh", mb: 2, overflow: "auto" }}>
         {customerSales.length > 0 ? (
           <TableContainer component={Paper}>
             <Table stickyHeader>
@@ -729,12 +729,6 @@ const ClientesPage = () => {
                     align="center"
                   >
                     Total
-                  </TableCell>
-                  <TableCell
-                    sx={{ bgcolor: "primary.main", color: "white" }}
-                    align="center"
-                  >
-                    Estado
                   </TableCell>
                 </TableRow>
               </TableHead>
@@ -753,13 +747,6 @@ const ClientesPage = () => {
                     </TableCell>
                     <TableCell align="center">
                       ${sale.total.toFixed(2)}
-                    </TableCell>
-                    <TableCell align="center">
-                      <CustomChip
-                        label={sale.paid ? "Pagado" : "Pendiente"}
-                        color={sale.paid ? "success" : "warning"}
-                        size="small"
-                      />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -899,7 +886,7 @@ const ClientesPage = () => {
           <Box sx={{ flex: 1, minHeight: "auto" }}>
             <TableContainer
               component={Paper}
-              sx={{ maxHeight: "62vh", mb: 2, flex: 1 }}
+              sx={{ maxHeight: "60vh", mb: 2, flex: 1 }}
             >
               <Table stickyHeader>
                 <TableHead>
@@ -911,9 +898,7 @@ const ClientesPage = () => {
                     <TableCell sx={getTableHeaderStyle()} align="center">
                       Estado
                     </TableCell>
-                    <TableCell sx={getTableHeaderStyle()} align="center">
-                      Saldo Pendiente
-                    </TableCell>
+                    {/* ELIMINAR: Saldo Pendiente */}
                     <TableCell sx={getTableHeaderStyle()} align="center">
                       Fecha de Registro
                     </TableCell>
@@ -1011,18 +996,7 @@ const ClientesPage = () => {
                               size="small"
                             />
                           </TableCell>
-                          <TableCell align="center">
-                            <Typography
-                              fontWeight="bold"
-                              color={
-                                hasPendingBalance
-                                  ? "error.main"
-                                  : "success.main"
-                              }
-                            >
-                              ${pendingBalance.toFixed(2)}
-                            </Typography>
-                          </TableCell>
+
                           <TableCell align="center">
                             {new Date(customer.createdAt).toLocaleDateString(
                               "es-AR"
@@ -1125,7 +1099,7 @@ const ClientesPage = () => {
                   ) : (
                     <TableRow>
                       <TableCell
-                        colSpan={rubro !== "Todos los rubros" ? 6 : 5}
+                        colSpan={rubro !== "Todos los rubros" ? 5 : 4}
                         align="center"
                       >
                         <Box

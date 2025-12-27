@@ -467,6 +467,7 @@ const PresupuestosPage = () => {
           stock: 0,
           costPrice: item.basePrice || 0,
           price: item.price,
+          currentPrice: item.price,
           quantity: item.quantity,
           unit: item.unit,
           discount: item.discount || 0,
@@ -504,6 +505,7 @@ const PresupuestosPage = () => {
             description: `Venta - presupuesto de ${budgetToConvert.customerName}`,
             type: "INGRESO",
             date: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
             paymentMethod: method.method,
             profit: methodProfit,
             profitPercentage: (methodProfit / methodAmount) * 100,
@@ -1179,7 +1181,7 @@ const PresupuestosPage = () => {
           <Box sx={{ flex: 1, minHeight: "auto" }}>
             <TableContainer
               component={Paper}
-              sx={{ maxHeight: "62vh", flex: 1 }}
+              sx={{ maxHeight: "60vh", flex: 1 }}
             >
               <Table stickyHeader>
                 <TableHead>
@@ -1470,14 +1472,11 @@ const PresupuestosPage = () => {
                             flexDirection: "column",
                             alignItems: "center",
                             color: "text.secondary",
+                            py: 4,
                           }}
                         >
                           <Description
-                            sx={{
-                              fontSize: 64,
-                              mb: 2,
-                              color: "text.disabled",
-                            }}
+                            sx={{ fontSize: 64, color: "grey.400", mb: 2 }}
                           />
                           <Typography>
                             {searchQuery

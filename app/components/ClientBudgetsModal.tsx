@@ -215,7 +215,7 @@ const ClientBudgetsModal = ({
           </Box>
         </Box>
       ) : (
-        <Box sx={{ maxHeight: "62vh", mb: 2, overflow: "auto" }}>
+        <Box sx={{ maxHeight: "60vh", mb: 2, overflow: "auto" }}>
           {budgets.length > 0 ? (
             <TableContainer component={Paper}>
               <Table stickyHeader>

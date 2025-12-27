@@ -63,6 +63,7 @@ import Input from "@/app/components/Input";
 import Button from "@/app/components/Button";
 import { useNotification } from "@/app/hooks/useNotification";
 import CustomGlobalTooltip from "@/app/components/CustomTooltipGlobal";
+import { runPriceListCleanup } from "@/app/lib/utils/cleanupPriceLists";
 
 const PRODUCT_CONFIG = {
   MAX_PRODUCTS_PER_CATEGORY: 30,
@@ -147,6 +148,7 @@ const getDefaultProduct = (rubro: Rubro): Product => ({
   stock: 0,
   costPrice: 0,
   price: 0,
+  currentPrice: 0,
   hasIvaIncluded: true,
   expiration: "",
   quantity: 0,
@@ -1250,23 +1252,47 @@ const ProductsPage = () => {
   const [sizeToDelete, setSizeToDelete] = useState<string | null>(null);
   const [isSizeDeleteModalOpen, setIsSizeDeleteModalOpen] = useState(false);
 
-  // Cargar listas de precios
+  // En el useEffect que carga las listas de precios, reemplázalo con:
   useEffect(() => {
     const loadPriceLists = async () => {
       if (rubro === "Todos los rubros") return;
       try {
+        // Primero ejecutar la limpieza
+        await runPriceListCleanup();
+
+        // Luego cargar las listas filtrando duplicados
         const lists = await db.priceLists
           .where("rubro")
           .equals(rubro)
+          .and((list) => list.isActive !== false)
           .toArray();
-        setPriceLists(lists);
+
+        // Filtrar duplicados por nombre (case-insensitive)
+        const uniqueLists = Array.from(
+          new Map(
+            lists.map((list) => {
+              const key = `${list.name.toLowerCase().trim()}_${list.rubro}_${
+                list.isDefault
+              }`;
+              return [key, list];
+            })
+          ).values()
+        ).sort((a, b) => {
+          // Primero las listas por defecto
+          if (a.isDefault && !b.isDefault) return -1;
+          if (!a.isDefault && b.isDefault) return 1;
+          // Luego por nombre
+          return a.name.localeCompare(b.name);
+        });
+
+        setPriceLists(uniqueLists);
 
         // Seleccionar lista por defecto o primera disponible
-        const defaultList = lists.find((list) => list.isDefault);
+        const defaultList = uniqueLists.find((list) => list.isDefault);
         if (defaultList) {
           setSelectedPriceListId(defaultList.id);
-        } else if (lists.length > 0) {
-          setSelectedPriceListId(lists[0].id);
+        } else if (uniqueLists.length > 0) {
+          setSelectedPriceListId(uniqueLists[0].id);
         }
       } catch (error) {
         console.error("Error loading price lists:", error);
@@ -2188,6 +2214,14 @@ const ProductsPage = () => {
 
     initialize();
   }, [rubro, isOpenModal, loadCustomCategories, editingProduct, resetForm]);
+  useEffect(() => {
+    // Ejecutar limpieza de duplicados al cargar la página
+    const initialize = async () => {
+      await runPriceListCleanup();
+    };
+
+    initialize();
+  }, []);
 
   useEffect(() => {
     if (rubro === "indumentaria") {
@@ -2257,7 +2291,7 @@ const ProductsPage = () => {
               label="Lista de precios"
               options={priceLists.map((list) => ({
                 value: list.id,
-                label: `${list.name}${list.isDefault ? " (Por defecto)" : ""}`,
+                label: `${list.name}`,
                 metadata: list,
               }))}
               value={selectedPriceListId || ""}
@@ -2354,7 +2388,7 @@ const ProductsPage = () => {
           <Box sx={{ flex: 1, minHeight: "auto" }}>
             <TableContainer
               component={Paper}
-              sx={{ maxHeight: "62vh", mb: 2, flex: 1 }}
+              sx={{ maxHeight: "60vh", mb: 2, flex: 1 }}
             >
               <Table stickyHeader>
                 <TableHead>
@@ -2544,11 +2578,7 @@ const ProductsPage = () => {
                           }}
                         >
                           <Inventory2
-                            sx={{
-                              marginBottom: 2,
-                              color: "#9CA3AF",
-                              fontSize: 64,
-                            }}
+                            sx={{ fontSize: 64, color: "grey.400", mb: 2 }}
                           />
                           <Typography>Todavía no hay productos.</Typography>
                         </Box>
@@ -2741,9 +2771,7 @@ const ProductsPage = () => {
               </table>
             ) : (
               <div className="text-center py-4">
-                <Inventory2
-                  sx={{ fontSize: 48, color: "gray_m", marginBottom: 2 }}
-                />
+                <Inventory2 sx={{ fontSize: 64, color: "grey.400", mb: 2 }} />
                 <p>No hay devoluciones registradas</p>
               </div>
             )}

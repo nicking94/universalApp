@@ -13,7 +13,6 @@ import { Assignment } from "@mui/icons-material";
 import { Sale, Customer } from "@/app/lib/types/types";
 import Modal from "@/app/components/Modal";
 import Button from "@/app/components/Button";
-import CustomChip from "./CustomChip";
 
 interface ClientSalesModalProps {
   isOpen: boolean;
@@ -53,7 +52,7 @@ const ClientSalesModal = ({
         </Box>
       }
     >
-      <Box sx={{ maxHeight: "62vh", mb: 2, overflow: "auto" }}>
+      <Box sx={{ maxHeight: "60vh", mb: 2, overflow: "auto" }}>
         {sales.length > 0 ? (
           <TableContainer component={Paper}>
             <Table stickyHeader>
@@ -70,12 +69,6 @@ const ClientSalesModal = ({
                     align="center"
                   >
                     Total
-                  </TableCell>
-                  <TableCell
-                    sx={{ bgcolor: "primary.main", color: "white" }}
-                    align="center"
-                  >
-                    Estado
                   </TableCell>
                 </TableRow>
               </TableHead>
@@ -94,13 +87,6 @@ const ClientSalesModal = ({
                     </TableCell>
                     <TableCell align="center">
                       ${sale.total.toFixed(2)}
-                    </TableCell>
-                    <TableCell align="center">
-                      <CustomChip
-                        label={sale.paid ? "Pagado" : "Pendiente"}
-                        color={sale.paid ? "success" : "warning"}
-                        size="small"
-                      />
                     </TableCell>
                   </TableRow>
                 ))}

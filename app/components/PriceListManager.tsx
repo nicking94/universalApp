@@ -35,17 +35,32 @@ const PriceListsManager: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
     name: "",
     isDefault: false,
   });
-  const { showNotification } = useNotification();
+  const { showNotification } = useNotification(); // Cambiado de useNotificationRef
   const { currentPage, itemsPerPage } = usePagination();
 
   const loadPriceLists = useCallback(async () => {
     try {
       const lists = await db.priceLists.where("rubro").equals(rubro).toArray();
-      setPriceLists(lists.sort((a) => (a.isDefault ? -1 : 1)));
+
+      const uniqueLists = Array.from(
+        new Map(
+          lists.map((list) => {
+            const key = `${list.name.toLowerCase().trim()}_${list.rubro}`;
+            return [key, list];
+          })
+        ).values()
+      ).sort((a, b) => {
+        if (a.isDefault && !b.isDefault) return -1;
+        if (!a.isDefault && b.isDefault) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      setPriceLists(uniqueLists); // Solo actualizar priceLists
     } catch (error) {
       console.error("Error loading price lists:", error);
+      showNotification("Error al cargar listas de precios", "error");
     }
-  }, [rubro]);
+  }, [rubro, showNotification]);
 
   useEffect(() => {
     loadPriceLists();
@@ -91,7 +106,6 @@ const PriceListsManager: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
         });
         showNotification("Lista de precios actualizada", "success");
       } else {
-        // Si se está marcando como default, quitar default de otras listas
         if (formData.isDefault) {
           await db.priceLists
             .where("rubro")
@@ -100,7 +114,6 @@ const PriceListsManager: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
             .modify({ isDefault: false });
         }
 
-        // Generar un ID único para la nueva lista
         const newPriceList: PriceList = {
           id: Date.now(),
           name: formData.name.trim(),
@@ -166,7 +179,7 @@ const PriceListsManager: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
     }
   };
 
-  // Paginación
+  // Paginación - usar filteredLists en lugar de priceLists
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentLists = priceLists.slice(indexOfFirstItem, indexOfLastItem);
@@ -199,7 +212,7 @@ const PriceListsManager: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
       <Box sx={{ flex: 1, minHeight: "auto" }}>
         <TableContainer
           component={Paper}
-          sx={{ maxHeight: "62vh", mb: 2, flex: 1 }}
+          sx={{ maxHeight: "60vh", mb: 2, flex: 1 }}
         >
           <Table stickyHeader>
             <TableHead>

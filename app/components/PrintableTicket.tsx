@@ -9,7 +9,7 @@ import {
 
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-import { BusinessData, Rubro, Sale } from "../lib/types/types";
+import { BusinessData, InvoiceItem, Rubro, Sale } from "../lib/types/types";
 import getDisplayProductName from "../lib/utils/DisplayProductName";
 import { formatCurrency } from "../lib/utils/currency";
 
@@ -55,6 +55,16 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
       localStorage.setItem("ticketPaperSize", size);
     };
 
+    const getTotalVenta = (sale: Sale) => {
+      if (
+        sale.creditType === "credito_cuotas" &&
+        sale.creditDetails?.totalAmount
+      ) {
+        return sale.creditDetails.totalAmount;
+      }
+      return sale.total;
+    };
+
     const calculatedInvoiceNumber =
       invoiceNumber ?? `${sale.id.toString().padStart(3, "0")}`;
 
@@ -67,30 +77,20 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
       return price * quantity * (1 - discount / 100);
     };
 
-    const calculatePromotionDiscount = (sale: Sale): number => {
-      if (!sale.appliedPromotion) return 0;
+    const getInvoiceItems = (): InvoiceItem[] => {
+      const isCreditSale = sale.credit;
+      let subtotalSinInteres = 0;
 
-      const subtotal =
-        invoiceItems.reduce((sum, item) => sum + item.subtotalSinDescuento, 0) +
-        (sale.manualAmount || 0);
-
-      if (sale.appliedPromotion.type === "PERCENTAGE_DISCOUNT") {
-        return (subtotal * sale.appliedPromotion.discount) / 100;
-      } else if (sale.appliedPromotion.type === "FIXED_DISCOUNT") {
-        return sale.appliedPromotion.discount;
-      }
-
-      return 0;
-    };
-
-    const getInvoiceItems = () => {
-      return sale.products.map((product, index) => {
+      // Calcular subtotal sin interés
+      const items = sale.products.map((product, index) => {
         const subtotalSinDescuento = product.price * product.quantity;
         const subtotalConDescuento = calculateDiscountedPrice(
           product.price,
           product.quantity,
           product.discount
         );
+
+        subtotalSinInteres += subtotalConDescuento;
 
         return {
           id: product.id,
@@ -99,14 +99,47 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
           quantity: product.quantity,
           price: product.price,
           subtotal: subtotalConDescuento,
-          unit: product.unit,
-          discount: product.discount,
           subtotalSinDescuento: subtotalSinDescuento,
           ahorro: subtotalSinDescuento - subtotalConDescuento,
+          unit: product.unit,
+          discount: product.discount,
         };
       });
-    };
 
+      // Si es venta a crédito con cuotas, calcular el interés total
+      if (
+        isCreditSale &&
+        sale.creditType === "credito_cuotas" &&
+        sale.creditDetails?.totalAmount
+      ) {
+        const totalWithInterest = sale.creditDetails.totalAmount;
+        const totalInterest = totalWithInterest - subtotalSinInteres;
+        const interestRate = sale.creditDetails.interestRate || 0;
+
+        // Calcular el interés por cuota (solo para mostrar en el ticket)
+        const interestPerInstallment =
+          totalInterest / (sale.creditDetails.numberOfInstallments || 1);
+
+        return items.map((item) => {
+          // Calcular la proporción de este ítem en el subtotal total
+          const proportion =
+            subtotalSinInteres > 0 ? item.subtotal / subtotalSinInteres : 0;
+
+          // Calcular el interés total correspondiente a este ítem
+          const interestAmount = totalInterest * proportion;
+
+          return {
+            ...item,
+            subtotal: item.subtotal + interestAmount,
+            interestIncluded: interestAmount,
+            interestRate: interestRate, // Guardar tasa de interés para mostrar
+            interestPerInstallment: interestPerInstallment * proportion, // Interés por cuota
+          };
+        });
+      }
+
+      return items;
+    };
     const invoiceItems = getInvoiceItems();
 
     const shouldShowCustomerInfo = (): boolean => {
@@ -938,9 +971,20 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
                         <div style={styles.itemAmount}>
                           {formatCurrency(item.subtotal)}
                         </div>
-                        {item.discount && item.discount > 0 && (
+                        {(item.discount || 0) > 0 && (
                           <div style={styles.discountText}>
                             desc. {item.discount}%
+                          </div>
+                        )}
+                        {item.interestIncluded && item.interestIncluded > 0 && (
+                          <div
+                            style={{
+                              fontSize: ticketConfig.fontSize.xsmall,
+                              color: "#d32f2f",
+                              fontWeight: 600,
+                            }}
+                          >
+                            interés: {formatCurrency(item.interestIncluded)}
                           </div>
                         )}
                       </div>
@@ -948,23 +992,6 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
                     <div style={styles.dashedSeparator}></div>
                   </div>
                 ))}
-
-                {sale.appliedPromotion && (
-                  <div style={styles.promotionSection}>
-                    <div style={styles.doubleSeparator}></div>
-                    <div style={styles.promotionRow}>
-                      <div style={styles.promotionDescription}>
-                        <span style={styles.promotionName}>
-                          PROMOCION: {sale.appliedPromotion.name}
-                        </span>
-                      </div>
-                      <div style={styles.promotionDiscount}>
-                        -{formatCurrency(calculatePromotionDiscount(sale))}
-                      </div>
-                    </div>
-                    <div style={styles.doubleSeparator}></div>
-                  </div>
-                )}
               </div>
 
               {sale.manualAmount !== undefined && sale.manualAmount > 0 && (
@@ -997,24 +1024,35 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
                 <div style={styles.doubleSeparator}></div>
                 <div className="total-amount" style={styles.totalRow}>
                   <span>TOTAL:</span>
-                  <span>{formatCurrency(sale.total)}</span>
+                  {formatCurrency(getTotalVenta(sale))}
                 </div>
               </div>
 
-              {/* Cuenta corriente */}
+              {/* Cuenta corriente o crédito en cuotas */}
               {sale.credit && (
                 <div style={styles.creditSection}>
                   <p className="footer-text" style={styles.footerText}>
-                    ** CUENTA CORRIENTE **
+                    {sale.creditType === "credito_cuotas"
+                      ? "** CRÉDITO EN CUOTAS **"
+                      : "** CUENTA CORRIENTE **"}
                   </p>
-                  {sale.customerName && (
-                    <p className="footer-text" style={styles.footerText}>
-                      Cliente: {sale.customerName}
-                    </p>
-                  )}
+                  {sale.customerName &&
+                    sale.customerName !== "CLIENTE OCASIONAL" && (
+                      <p className="footer-text" style={styles.footerText}>
+                        Cliente: {sale.customerName}
+                      </p>
+                    )}
+                  {sale.creditType === "credito_cuotas" &&
+                    sale.creditDetails && (
+                      <>
+                        <p className="footer-text" style={styles.footerText}>
+                          Cuota(s):{" "}
+                          {sale.creditDetails.numberOfInstallments || 1}
+                        </p>
+                      </>
+                    )}
                 </div>
               )}
-
               {/* Pie del ticket */}
               <div className="footer-text" style={styles.footer}>
                 <p className="footer-text" style={styles.footerText}>

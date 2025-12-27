@@ -25,7 +25,6 @@ const SessionChecker = () => {
       const now = new Date();
 
       const userConfig = USERS.find((u) => u.id === auth.userId);
-      console.log(`🔍 Configuración del usuario:`, userConfig);
 
       if (userConfig && userConfig.isActive === false) {
         await db.auth.put({

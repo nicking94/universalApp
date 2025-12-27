@@ -287,7 +287,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                   autoFocus
                   capitalize={false}
                 />
-                <Box sx={{ display: "flex", gap: 2 }}>
+                <Box sx={{ minWidth: 200, display: "flex", gap: 2 }}>
                   <Button
                     variant="outlined"
                     color="success"
@@ -524,29 +524,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             </Box>
           </Card>
         </Fade>
-
-        {/* Información adicional para crédito */}
-        {isCredit && !registerCheck && (
-          <Fade in={true} timeout={1500}>
-            <Card
-              sx={{
-                p: 2.5,
-                bgcolor: alpha(theme.palette.info.main, 0.1),
-                border: 1,
-                borderColor: alpha(theme.palette.info.main, 0.2),
-                borderRadius: 2,
-              }}
-            >
-              <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
-                <Typography variant="body2" color="info.dark">
-                  Esta venta se registrará en la cuenta corriente del cliente.
-                  El saldo pendiente deberá ser pagado posteriormente según los
-                  términos acordados.
-                </Typography>
-              </Box>
-            </Card>
-          </Fade>
-        )}
       </Box>
 
       {/* Estilos para la animación de spinner */}

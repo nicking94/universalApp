@@ -482,6 +482,7 @@ const MovimientosPage = () => {
           type: newExpense.type,
           paymentMethod: newExpense.paymentMethod,
           date: newExpense.date,
+          createdAt: new Date().toISOString(),
           rubro: rubro,
           supplierName: newExpense.supplier,
           expenseCategory: newExpense.category,
@@ -937,7 +938,7 @@ const MovimientosPage = () => {
           <Box sx={{ flex: 1, minHeight: "auto" }}>
             <TableContainer
               component={Paper}
-              sx={{ maxHeight: "62vh", flex: 1 }}
+              sx={{ maxHeight: "60vh", flex: 1 }}
             >
               <Table sx={{ minWidth: 650 }} size="small">
                 <TableHead>
@@ -1155,15 +1156,12 @@ const MovimientosPage = () => {
                             display: "flex",
                             flexDirection: "column",
                             alignItems: "center",
-                            color: "text.disabled",
+                            color: "text.secondary",
+                            py: 4,
                           }}
                         >
                           <InsertDriveFile
-                            sx={{
-                              fontSize: 64,
-                              mb: 2,
-                              color: theme.palette.text.disabled,
-                            }}
+                            sx={{ fontSize: 64, color: "grey.400", mb: 2 }}
                           />
                           <Typography>
                             No hay movimientos registrados.

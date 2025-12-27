@@ -11,17 +11,26 @@ import {
   IconButton,
 } from "@mui/material";
 import { CheckBoxOutlineBlank, CheckBox, Close } from "@mui/icons-material";
-import { SyntheticEvent, useMemo, useState, useCallback, useRef } from "react";
+import {
+  SyntheticEvent,
+  useMemo,
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+} from "react";
 import { Product, ProductOption, Rubro } from "@/app/lib/types/types";
 import { formatCurrency } from "@/app/lib/utils/currency";
 import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
 
+// Nueva interfaz que incluye selectedPriceListId
 interface ProductSearchAutocompleteProps {
   products: Product[];
   selectedProducts: ProductOption[];
   onProductSelect: (selectedOptions: ProductOption[]) => void;
   onSearchChange: (query: string) => void;
   rubro: Rubro;
+  selectedPriceListId?: number | null; // ✅ Nueva prop
   disabled?: boolean;
   placeholder?: string;
   maxDisplayed?: number;
@@ -33,18 +42,66 @@ const ProductSearchAutocomplete = ({
   onProductSelect,
   onSearchChange,
   rubro,
+  selectedPriceListId = null, // ✅ Valor por defecto
   disabled = false,
   placeholder = "Seleccionar productos",
   maxDisplayed = 50,
 }: ProductSearchAutocompleteProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [productsWithCurrentPrices, setProductsWithCurrentPrices] =
+    useState<Product[]>(products);
 
   const icon = useMemo(() => <CheckBoxOutlineBlank fontSize="small" />, []);
   const checkedIcon = useMemo(() => <CheckBox fontSize="small" />, []);
 
+  // Función para obtener precio de producto según lista de precios
+  const getProductPrice = useCallback(
+    async (product: Product): Promise<number> => {
+      if (!selectedPriceListId) {
+        return product.price; // Precio base
+      }
+
+      try {
+        // Importar la base de datos
+        const { db } = await import("@/app/database/db");
+        const productPrice = await db.productPrices.get([
+          product.id,
+          selectedPriceListId,
+        ]);
+        return productPrice ? productPrice.price : product.price;
+      } catch (error) {
+        console.error("Error getting product price:", error);
+        return product.price;
+      }
+    },
+    [selectedPriceListId]
+  );
+
+  // Actualizar precios de productos cuando cambia la lista de precios
+  useEffect(() => {
+    const updateProductPrices = async () => {
+      if (products.length === 0) return;
+
+      const updatedProducts = await Promise.all(
+        products.map(async (product) => {
+          const currentPrice = await getProductPrice(product);
+          return {
+            ...product,
+            price: currentPrice,
+            currentPrice: currentPrice, // Campo adicional para referencia
+          };
+        })
+      );
+
+      setProductsWithCurrentPrices(updatedProducts);
+    };
+
+    updateProductPrices();
+  }, [products, selectedPriceListId, getProductPrice]);
+
   const productOptions = useMemo(() => {
-    return products
+    return productsWithCurrentPrices
       .filter((p) => rubro === "Todos los rubros" || p.rubro === rubro)
       .map((p) => {
         const stock = Number(p.stock);
@@ -71,7 +128,7 @@ const ProductSearchAutocomplete = ({
           isDisabled: !isValidStock || stock <= 0,
         } as ProductOption;
       });
-  }, [products, rubro]);
+  }, [productsWithCurrentPrices, rubro]);
 
   const filteredProductOptions = useMemo(() => {
     if (!searchQuery) return productOptions.slice(0, maxDisplayed);
@@ -246,6 +303,16 @@ const ProductSearchAutocomplete = ({
                 <Typography variant="caption" color="text.secondary">
                   Precio: {formatCurrency(option.product.price)}
                 </Typography>
+                {selectedPriceListId &&
+                  option.product.currentPrice !== option.product.price && (
+                    <Typography
+                      variant="caption"
+                      color="info.main"
+                      fontWeight="bold"
+                    >
+                      (Lista)
+                    </Typography>
+                  )}
               </Box>
             )}
           </Box>

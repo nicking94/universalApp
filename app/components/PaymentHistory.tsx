@@ -16,7 +16,6 @@ import {
   AccountBalance as AccountBalanceIcon,
   CreditCard as CreditCardIcon,
   Receipt as ReceiptIcon,
-  CalendarToday as CalendarIcon,
 } from "@mui/icons-material";
 import CustomChip from "./CustomChip";
 
@@ -121,7 +120,6 @@ export const PaymentHistory: React.FC<PaymentHistoryProps> = ({
                     mt: 0.5,
                   }}
                 >
-                  <CalendarIcon sx={{ fontSize: 14 }} />
                   <Typography variant="caption" color="text.secondary">
                     {format(new Date(payment.date), "dd/MM/yyyy HH:mm")}
                   </Typography>

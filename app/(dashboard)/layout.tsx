@@ -24,6 +24,7 @@ export default function AppLayout({
   const router = useRouter();
   const [theme, setTheme] = useState<string>("light");
   const { isUpdating, isAutoUpdate } = useAppVersion();
+
   const isMobile = useMediaQuery(lightTheme.breakpoints.down("md")); // Detecta tablets y móviles
 
   const handleTheme = () => {
@@ -59,6 +60,45 @@ export default function AppLayout({
     document.documentElement.classList.add(theme);
     saveTheme();
   }, [theme]);
+
+  useEffect(() => {
+    const requestPersistentStorage = async () => {
+      try {
+        if ("storage" in navigator && "persist" in navigator.storage) {
+          const alreadyPersisted = await navigator.storage.persisted();
+
+          if (!alreadyPersisted) {
+            const granted = await navigator.storage.persist();
+            console.log(
+              "🔐 Storage persistente:",
+              granted ? "Concedido" : "Denegado"
+            );
+
+            if (granted) {
+              // Verificar y mostrar información de almacenamiento
+              const estimate = await navigator.storage.estimate();
+              console.log(
+                `💾 Cuota: ${Math.round(estimate.quota || 0 / 1024 / 1024)}MB`
+              );
+              console.log(
+                `📊 Uso: ${Math.round(estimate.usage || 0 / 1024 / 1024)}MB`
+              );
+            } else {
+              console.warn(
+                "⚠️ Storage persistente no concedido. Los datos podrían perderse."
+              );
+            }
+          } else {
+            console.log("✅ Storage ya es persistente");
+          }
+        }
+      } catch (err) {
+        console.warn("No se pudo solicitar storage persistente", err);
+      }
+    };
+
+    requestPersistentStorage();
+  }, []);
 
   const muiTheme = theme === "dark" ? darkTheme : lightTheme;
 

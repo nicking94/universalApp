@@ -10,6 +10,7 @@ import Notification from "@/app/components/Notification";
 
 const LoginPage = () => {
   const router = useRouter();
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showTermsCheckbox, setShowTermsCheckbox] = useState(false);
   const [isOpenNotification, setIsOpenNotification] = useState(false);
@@ -25,6 +26,12 @@ const LoginPage = () => {
     const initialize = async () => {
       try {
         setIsLoading(true);
+        // Verificar si ya está autenticado
+        const auth = await db.auth.get(1);
+        if (auth?.isAuthenticated) {
+          router.replace("/caja-diaria");
+          return;
+        }
 
         // 1. Cargar preferencias primero
         const preferences = await db.userPreferences.get(1);
@@ -86,7 +93,7 @@ const LoginPage = () => {
     };
 
     initialize();
-  }, []); // Solo se ejecuta una vez al montar
+  }, [router]);
 
   const checkTrialPeriod = async (userId: number) => {
     try {
@@ -121,9 +128,7 @@ const LoginPage = () => {
   };
 
   const handleLogin = async (data: AuthData) => {
-    if (!isInitialized) return;
-
-    // Solo verificar términos si se debe mostrar el checkbox
+    if (!isInitialized || isRedirecting) return;
     if (showTermsCheckbox && !acceptedTerms) {
       setNotificationMessage("Debes aceptar los términos y condiciones");
       setNotificationType("error");
@@ -132,7 +137,6 @@ const LoginPage = () => {
       return;
     }
 
-    // Solo guardar preferencias si se muestra el checkbox y se aceptaron
     if (showTermsCheckbox) {
       await db.userPreferences.put({
         id: 1,
@@ -242,6 +246,8 @@ const LoginPage = () => {
     setNotificationMessage("Inicio de sesión exitoso");
     setNotificationType("success");
     setIsOpenNotification(true);
+
+    setIsRedirecting(true);
     setTimeout(() => {
       setIsOpenNotification(false);
       router.replace("/caja-diaria");

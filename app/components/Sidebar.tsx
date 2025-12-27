@@ -24,6 +24,8 @@ import {
   PriceChange,
   Category,
   AttachMoney,
+  CreditCard,
+  RequestQuote,
 } from "@mui/icons-material";
 import { TbCashRegister } from "react-icons/tb";
 import {
@@ -100,9 +102,20 @@ const menuItems: ExtendedMenuItemProps[] = [
   },
   { label: "Clientes", href: "/clientes", icon: <People /> },
   {
-    label: "Cuentas Corrientes",
-    href: "/cuentascorrientes",
-    icon: <AccountBalanceWallet />,
+    label: "Cobranzas",
+    icon: <RequestQuote />,
+    submenu: [
+      {
+        label: "Créditos",
+        href: "/creditos",
+        icon: <CreditCard />,
+      },
+      {
+        label: "Cuentas Corrientes",
+        href: "/cuentascorrientes",
+        icon: <AccountBalanceWallet />,
+      },
+    ],
   },
   { label: "Proveedores", href: "/proveedores", icon: <LocalShipping /> },
   { label: "Presupuestos", href: "/presupuestos", icon: <Assignment /> },

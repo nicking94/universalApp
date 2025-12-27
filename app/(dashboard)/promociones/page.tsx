@@ -418,7 +418,7 @@ const PromocionesPage = () => {
           <Box sx={{ flex: 1, minHeight: "auto" }}>
             <TableContainer
               component={Paper}
-              sx={{ maxHeight: "62vh", mb: 2, flex: 1 }}
+              sx={{ maxHeight: "60vh", mb: 2, flex: 1 }}
             >
               <Table stickyHeader>
                 <TableHead>
@@ -600,11 +600,7 @@ const PromocionesPage = () => {
                           }}
                         >
                           <LocalOffer
-                            sx={{
-                              marginBottom: 2,
-                              color: "#9CA3AF",
-                              fontSize: 64,
-                            }}
+                            sx={{ fontSize: 64, color: "grey.400", mb: 2 }}
                           />
                           <Typography>Todavía no hay promociones.</Typography>
                         </Box>

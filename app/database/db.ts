@@ -23,6 +23,8 @@ import {
   Promotion,
   PriceList,
   ProductPrice,
+  Installment,
+  CreditAlert,
 } from "../lib/types/types";
 
 class MyDatabase extends Dexie {
@@ -58,21 +60,25 @@ class MyDatabase extends Dexie {
   expenses!: Table<Expense, number>;
   expenseCategories!: Table<ExpenseCategory, number>;
   promotions!: Table<Promotion, number>;
+  installments!: Table<Installment, number>;
+  creditAlerts!: Table<CreditAlert, number>;
 
   constructor() {
     super("MyDatabase");
-    this.version(33)
+    this.version(34)
       .stores({
         theme: "id",
         products:
           "++id, name, barcode, stock, rubro, hasIvaIncluded, priceWithIva, costPriceWithIva, updatedAt",
         returns: "++id, productId, date",
-        priceLists: "++id, name, rubro, isDefault",
-        productPrices: "[productId+priceListId], productId, priceListId",
+        priceLists:
+          "++id, name, rubro, isDefault, isActive, createdAt, updatedAt",
+        productPrices:
+          "[productId+priceListId], productId, priceListId, isActive",
         users: "id, username",
         auth: "id, userId",
         sales:
-          "++id, date, *paymentMethod, customerName, customerId, paid, credit, chequeInfo",
+          "++id, date, *paymentMethod, customerName, customerId, paid, chequeInfo, credit, creditType",
         dailyCashes: "++id, &date, closed",
         dailyCashMovements:
           "++id, dailyCashId, date, type, paymentMethod, createdAt",
@@ -98,21 +104,13 @@ class MyDatabase extends Dexie {
         expenseCategories: "++id, name, rubro, type",
         promotions:
           "++id, name, type, status, startDate, endDate, rubro, [rubro+status]",
+        installments:
+          "++id, creditSaleId, dueDate, status, [creditSaleId+status]",
+        creditAlerts:
+          "++id, creditSaleId, installmentId, type, status, dueDate, [status+type]",
       })
       .upgrade(async (trans) => {
-        if (trans.db.verno === 33) {
-          const rubros = ["comercio", "indumentaria"];
-
-          for (const rubro of rubros) {
-            await trans.table("priceLists").add({
-              id: Date.now() + Math.random(),
-              name: "Precio General",
-              rubro: rubro as Rubro,
-              isDefault: true,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            });
-          }
+        if (trans.db.verno === 34) {
           await trans
             .table("products")
             .toCollection()
@@ -125,8 +123,6 @@ class MyDatabase extends Dexie {
                 product.createdAt = new Date().toISOString();
               }
             });
-
-          console.log("Migración de productos completada");
         }
 
         await trans
@@ -235,6 +231,9 @@ class MyDatabase extends Dexie {
           .modify((sale: Sale) => {
             if (sale.customerName)
               sale.customerName = this.formatString(sale.customerName);
+            if (sale.credit === true && !sale.creditType) {
+              sale.creditType = "cuenta_corriente";
+            }
           });
 
         await trans

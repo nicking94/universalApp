@@ -39,7 +39,6 @@ import {
   Receipt as ReceiptIcon,
   Payment as PaymentIcon,
   AttachMoney as AttachMoneyIcon,
-  CalendarToday as CalendarIcon,
   AccountBalance as AccountBalanceIcon,
   ExpandLess,
   ExpandMore,
@@ -100,7 +99,7 @@ const useCreditSales = () => {
       ]);
 
       const sales = allSales.filter(
-        (sale) => sale.credit === true
+        (sale) => sale.credit === true && sale.creditType === "cuenta_corriente"
       ) as CreditSale[];
 
       setCreditSales(sales);
@@ -368,7 +367,6 @@ const PaymentHistory = ({
                     mt: 0.5,
                   }}
                 >
-                  <CalendarIcon sx={{ fontSize: 14 }} />
                   <Typography variant="caption" color="text.secondary">
                     {format(new Date(payment.date), "dd/MM/yyyy HH:mm")}
                   </Typography>
@@ -729,7 +727,7 @@ const InfoModal = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Gestión de Cuenta Corriente - ${currentCustomerInfo.name}`}
+      title={`Cuenta Corriente - ${currentCustomerInfo.name}`}
       bgColor="bg-white dark:bg-gray-800"
       buttons={
         <Box sx={{ display: "flex", justifyContent: "end", width: "100%" }}>
@@ -821,7 +819,7 @@ const InfoModal = ({
           </Tabs>
         </Card>
 
-        <Box sx={{ maxHeight: "62vh", mb: 2, overflow: "auto" }}>
+        <Box sx={{ maxHeight: "60vh", mb: 2, overflow: "auto" }}>
           {infoModalTab === 0 && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {currentCustomerInfo.sales.length === 0 ? (
@@ -1462,8 +1460,12 @@ const CuentasCorrientesPage = () => {
 
   const calculateCustomerBalance = useCallback(
     (customerName: string) => {
+      // Filtrar solo cuentas corrientes, no crédito en cuotas
       const customerSales = creditSales.filter(
-        (sale) => sale.customerName === customerName && !sale.chequeInfo
+        (sale) =>
+          sale.customerName === customerName &&
+          !sale.chequeInfo &&
+          sale.creditType === "cuenta_corriente" // Solo cuentas corrientes
       );
 
       const customerPayments = payments.filter((p) =>
@@ -1526,6 +1528,7 @@ const CuentasCorrientesPage = () => {
           description: `Cuenta corriente de ${sale.customerName}`,
           type: "INGRESO",
           date: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
           paymentMethod: payment.method,
           items: sale.products.map((p) => ({
             productId: p.id,
@@ -2307,7 +2310,9 @@ const CuentasCorrientesPage = () => {
           rubro === "Todos los rubros" ||
           sale.products.some((product) => product.rubro === rubro);
 
-        return matchesSearch && matchesRubro;
+        const isCuentaCorriente = sale.creditType === "cuenta_corriente";
+
+        return matchesSearch && matchesRubro && isCuentaCorriente;
       })
       .sort((a, b) => {
         if (a.paid !== b.paid) {
@@ -2423,7 +2428,7 @@ const CuentasCorrientesPage = () => {
           <Box sx={{ flex: 1, minHeight: "auto" }}>
             <TableContainer
               component={Paper}
-              sx={{ maxHeight: "62vh", flex: 1 }}
+              sx={{ maxHeight: "60vh", flex: 1 }}
             >
               <Table stickyHeader>
                 <TableHead>
@@ -2645,11 +2650,7 @@ const CuentasCorrientesPage = () => {
                           }}
                         >
                           <WalletIcon
-                            sx={{
-                              marginBottom: 2,
-                              color: "#9CA3AF",
-                              fontSize: 64,
-                            }}
+                        sx={{ fontSize: 64, color: "grey.400", mb: 2 }}
                           />
                           <Typography>
                             No hay cuentas corrientes registradas.

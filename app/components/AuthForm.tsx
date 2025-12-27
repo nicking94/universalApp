@@ -169,11 +169,6 @@ const AuthForm: React.FC<AuthFormProps> = ({
           disabled={showTermsCheckbox && !acceptedTerms}
           fullWidth
           text={type === "login" ? "Iniciar Sesión" : "Registrarse"}
-          title={
-            type === "login"
-              ? "Iniciar sesión en el sistema"
-              : "Crear una nueva cuenta"
-          }
           isPrimaryAction={true}
           size="medium"
           sx={{

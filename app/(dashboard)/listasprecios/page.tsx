@@ -17,16 +17,13 @@ import {
   TableRow,
   Paper,
   IconButton,
-  FormControl,
   TextField,
-  Autocomplete,
 } from "@mui/material";
 import {
   Add,
   Edit,
   Delete,
   AttachMoney,
-  ViewList,
   Assignment,
   CheckCircle,
   Cancel,
@@ -50,7 +47,9 @@ import { formatCurrency } from "@/app/lib/utils/currency";
 import getDisplayProductName from "@/app/lib/utils/DisplayProductName";
 
 // Componente para gestión de listas de precios
-const PriceListsManager: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
+const PriceListsManager: React.FC<{
+  rubro: Rubro;
+}> = ({ rubro }) => {
   const [priceLists, setPriceLists] = useState<PriceList[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPriceList, setEditingPriceList] = useState<PriceList | null>(
@@ -58,6 +57,10 @@ const PriceListsManager: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
   );
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [listToDelete, setListToDelete] = useState<PriceList | null>(null);
+  const [isProductsModalOpen, setIsProductsModalOpen] = useState(false); // Nuevo estado para el modal de productos
+  const [selectedPriceList, setSelectedPriceList] = useState<PriceList | null>(
+    null
+  ); // Lista seleccionada para ver/modificar
   const [listName, setListName] = useState("");
   const [isActive, setIsActive] = useState(true);
 
@@ -82,9 +85,18 @@ const PriceListsManager: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
   const loadPriceLists = useCallback(async () => {
     try {
       const lists = await db.priceLists.where("rubro").equals(rubro).toArray();
-      const sortedLists = lists.sort((a, b) => a.name.localeCompare(b.name));
-      setPriceLists(sortedLists);
-      setFilteredLists(sortedLists);
+
+      // Filtrar duplicados por nombre
+      const uniqueLists = Array.from(
+        new Map(lists.map((list) => [list.name, list])).values()
+      ).sort((a, b) => {
+        if (a.isDefault && !b.isDefault) return -1;
+        if (!a.isDefault && b.isDefault) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      setPriceLists(uniqueLists);
+      setFilteredLists(uniqueLists);
     } catch (error) {
       console.error("Error loading price lists:", error);
       showNotificationRef.current("Error al cargar listas de precios", "error");
@@ -123,6 +135,23 @@ const PriceListsManager: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
     if (!listName.trim()) {
       showNotificationRef.current(
         "El nombre de la lista es requerido",
+        "error"
+      );
+      return;
+    }
+
+    const existingList = await db.priceLists
+      .where("name")
+      .equalsIgnoreCase(listName.trim())
+      .and((list) => list.rubro === rubro)
+      .first();
+
+    if (
+      existingList &&
+      (!editingPriceList || existingList.id !== editingPriceList.id)
+    ) {
+      showNotification(
+        "Ya existe una lista con ese nombre en este rubro",
         "error"
       );
       return;
@@ -208,6 +237,12 @@ const PriceListsManager: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
     }
   };
 
+  // Función para abrir el modal de productos
+  const handleViewProducts = (list: PriceList) => {
+    setSelectedPriceList(list);
+    setIsProductsModalOpen(true);
+  };
+
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentLists = filteredLists.slice(indexOfFirstItem, indexOfLastItem);
@@ -279,278 +314,311 @@ const PriceListsManager: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
   );
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        flex: 1,
-        justifyContent: "space-between",
-      }}
-    >
-      {/* Header con búsqueda y botón */}
+    <>
       <Box
         sx={{
           display: "flex",
+          flexDirection: "column",
+          flex: 1,
           justifyContent: "space-between",
-          alignItems: "center",
-          mb: 2,
-          width: "100%",
         }}
       >
-        <Box sx={{ width: "100%", maxWidth: "400px" }}>
-          <SearchBar onSearch={setSearchQuery} />
-        </Box>
+        {/* Header con búsqueda y botón */}
         <Box
-          sx={{ display: "flex", justifyContent: "flex-end", width: "100%" }}
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 2,
+            width: "100%",
+          }}
         >
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => handleOpenModal()}
-            sx={{
-              bgcolor: "primary.main",
-              "&:hover": { bgcolor: "primary.dark" },
-            }}
+          <Box sx={{ width: "100%", maxWidth: "400px" }}>
+            <SearchBar onSearch={setSearchQuery} />
+          </Box>
+          <Box
+            sx={{ display: "flex", justifyContent: "flex-end", width: "100%" }}
           >
-            Nueva Lista
-          </Button>
-        </Box>
-      </Box>
-
-      {/* Tabla de listas */}
-      <Box sx={{ flex: 1, minHeight: "auto" }}>
-        <TableContainer
-          component={Paper}
-          sx={{ maxHeight: "55vh", mb: 2, flex: 1 }}
-        >
-          <Table stickyHeader>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={getTableHeaderStyle()}>Nombre</TableCell>
-                <TableCell sx={getTableHeaderStyle()} align="center">
-                  Estado
-                </TableCell>
-                <TableCell sx={getTableHeaderStyle()} align="center">
-                  Fecha de Creación
-                </TableCell>
-                <TableCell sx={getTableHeaderStyle()} align="center">
-                  Acciones
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {currentLists.length > 0 ? (
-                currentLists.map((list) => (
-                  <TableRow
-                    key={list.id}
-                    sx={{
-                      border: "1px solid",
-                      borderColor: "divider",
-                      "&:hover": {
-                        backgroundColor: "action.hover",
-                        transform: "translateY(-1px)",
-                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                      },
-                      transition: "all 0.3s ease-in-out",
-                    }}
-                  >
-                    <TableCell>
-                      <Typography fontWeight="medium">{list.name}</Typography>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "center",
-                          alignItems: "center",
-                          gap: 1,
-                        }}
-                      >
-                        <CustomChip
-                          label={
-                            list.isActive !== false ? "Activa" : "Inactiva"
-                          }
-                          color={list.isActive !== false ? "success" : "error"}
-                          size="small"
-                          icon={
-                            list.isActive !== false ? (
-                              <CheckCircle />
-                            ) : (
-                              <Cancel />
-                            )
-                          }
-                        />
-                      </Box>
-                    </TableCell>
-                    <TableCell align="center">
-                      {list.createdAt
-                        ? new Date(list.createdAt).toLocaleDateString("es-AR")
-                        : "Sin fecha"}
-                    </TableCell>
-                    <TableCell align="center">
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "center",
-                          gap: 1,
-                        }}
-                      >
-                        <CustomGlobalTooltip title="Editar lista">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleOpenModal(list)}
-                            sx={{
-                              borderRadius: "4px",
-                              color: "text.secondary",
-                              "&:hover": {
-                                backgroundColor: "primary.main",
-                                color: "white",
-                              },
-                            }}
-                          >
-                            <Edit fontSize="small" />
-                          </IconButton>
-                        </CustomGlobalTooltip>
-                        <CustomGlobalTooltip title="Eliminar lista">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleDeleteClick(list)}
-                            sx={{
-                              borderRadius: "4px",
-                              color: "text.secondary",
-                              "&:hover": {
-                                backgroundColor: "error.main",
-                                color: "white",
-                              },
-                            }}
-                          >
-                            <Delete fontSize="small" />
-                          </IconButton>
-                        </CustomGlobalTooltip>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={4} align="center">
-                    <Box
-                      sx={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        color: "text.secondary",
-                        py: 4,
-                      }}
-                    >
-                      <ViewList
-                        sx={{ fontSize: 64, color: "grey.400", mb: 2 }}
-                      />
-                      <Typography sx={{ mb: 2 }}>
-                        {searchQuery
-                          ? "No se encontraron listas de precios"
-                          : "No hay listas de precios creadas para este rubro"}
-                      </Typography>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Box>
-
-      {/* Paginación */}
-      {filteredLists.length > 0 && (
-        <Pagination
-          text="Listas por página"
-          text2="Total de listas"
-          totalItems={filteredLists.length}
-        />
-      )}
-
-      {/* Modal para crear/editar lista */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title={editingPriceList ? "Editar Lista" : "Nueva Lista de Precios"}
-        bgColor="bg-white dark:bg-gray_b"
-        buttons={
-          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
-            <Button
-              variant="text"
-              onClick={() => setIsModalOpen(false)}
-              sx={{
-                color: "text.secondary",
-                borderColor: "text.secondary",
-                "&:hover": {
-                  backgroundColor: "action.hover",
-                  borderColor: "text.primary",
-                },
-              }}
-            >
-              Cancelar
-            </Button>
             <Button
               variant="contained"
-              onClick={handleSave}
-              isPrimaryAction={true}
+              startIcon={<Add />}
+              onClick={() => handleOpenModal()}
               sx={{
                 bgcolor: "primary.main",
                 "&:hover": { bgcolor: "primary.dark" },
               }}
             >
-              {editingPriceList ? "Actualizar" : "Crear"}
+              Nueva Lista
             </Button>
           </Box>
-        }
-      >
-        <Box sx={{ display: "flex", flexDirection: "row", gap: 2 }}>
-          <Input
-            label="Nombre de la lista"
-            value={listName}
-            onChange={(value) => setListName(value.toString())}
-            placeholder="Ej: Mayorista, Minorista, Oferta"
-            required
-          />
-          <Select
-            label="Estado"
-            value={isActive ? "active" : "inactive"}
-            options={statusOptions}
-            onChange={(value) => setIsActive(value === "active")}
-            size="small"
-          />
-          {!isActive && (
-            <Typography variant="caption" color="warning.main">
-              ⚠️ Una lista inactiva no estará disponible para seleccionar en las
-              ventas.
-            </Typography>
-          )}
         </Box>
-      </Modal>
 
-      {DeleteModalContent}
+        {/* Tabla de listas */}
+        <Box sx={{ flex: 1, minHeight: "auto" }}>
+          <TableContainer
+            component={Paper}
+            sx={{ maxHeight: "55vh", mb: 2, flex: 1 }}
+          >
+            <Table stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={getTableHeaderStyle()}>Nombre</TableCell>
+                  <TableCell sx={getTableHeaderStyle()} align="center">
+                    Estado
+                  </TableCell>
+                  <TableCell sx={getTableHeaderStyle()} align="center">
+                    Fecha de Creación
+                  </TableCell>
+                  <TableCell sx={getTableHeaderStyle()} align="center">
+                    Acciones
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {currentLists.length > 0 ? (
+                  currentLists.map((list) => (
+                    <TableRow
+                      key={list.id}
+                      sx={{
+                        border: "1px solid",
+                        borderColor: "divider",
+                        "&:hover": {
+                          backgroundColor: "action.hover",
+                          transform: "translateY(-1px)",
+                          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                        },
+                        transition: "all 0.3s ease-in-out",
+                      }}
+                    >
+                      <TableCell>
+                        <Typography fontWeight="medium">{list.name}</Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            gap: 1,
+                          }}
+                        >
+                          <CustomChip
+                            label={
+                              list.isActive !== false ? "Activa" : "Inactiva"
+                            }
+                            color={
+                              list.isActive !== false ? "success" : "error"
+                            }
+                            size="small"
+                            icon={
+                              list.isActive !== false ? (
+                                <CheckCircle />
+                              ) : (
+                                <Cancel />
+                              )
+                            }
+                          />
+                        </Box>
+                      </TableCell>
+                      <TableCell align="center">
+                        {list.createdAt
+                          ? new Date(list.createdAt).toLocaleDateString("es-AR")
+                          : "Sin fecha"}
+                      </TableCell>
+                      <TableCell align="center">
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "center",
+                            gap: 1,
+                          }}
+                        >
+                          <CustomGlobalTooltip title="Ver/Modificar precios">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleViewProducts(list)}
+                              sx={{
+                                borderRadius: "4px",
+                                color: "text.secondary",
+                                "&:hover": {
+                                  backgroundColor: "info.main",
+                                  color: "white",
+                                },
+                              }}
+                            >
+                              <AttachMoney fontSize="small" />
+                            </IconButton>
+                          </CustomGlobalTooltip>
+                          <CustomGlobalTooltip title="Editar lista">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleOpenModal(list)}
+                              sx={{
+                                borderRadius: "4px",
+                                color: "text.secondary",
+                                "&:hover": {
+                                  backgroundColor: "primary.main",
+                                  color: "white",
+                                },
+                              }}
+                            >
+                              <Edit fontSize="small" />
+                            </IconButton>
+                          </CustomGlobalTooltip>
 
-      <Notification
-        isOpen={isNotificationOpen}
-        message={notificationMessage}
-        type={notificationType}
-        onClose={closeNotification}
-      />
-    </Box>
+                          <CustomGlobalTooltip title="Eliminar lista">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDeleteClick(list)}
+                              sx={{
+                                borderRadius: "4px",
+                                color: "text.secondary",
+                                "&:hover": {
+                                  backgroundColor: "error.main",
+                                  color: "white",
+                                },
+                              }}
+                            >
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </CustomGlobalTooltip>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  // EMPTY SPACE MEJORADO - Similar a la página de movimientos
+                  <TableRow>
+                    <TableCell colSpan={4} sx={{ py: 4, textAlign: "center" }}>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          color: "text.disabled",
+                        }}
+                      >
+                        <AttachMoney
+                          sx={{ fontSize: 64, color: "grey.400", mb: 2 }}
+                        />
+                        <Typography>
+                          {searchQuery
+                            ? "No se encontraron listas de precios."
+                            : "No hay listas de precios registradas."}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
+
+        {/* Paginación */}
+        {filteredLists.length > 0 && (
+          <Pagination
+            text="Listas por página"
+            text2="Total de listas"
+            totalItems={filteredLists.length}
+          />
+        )}
+
+        {/* Modal para crear/editar lista */}
+        <Modal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          title={editingPriceList ? "Editar Lista" : "Nueva Lista de Precios"}
+          bgColor="bg-white dark:bg-gray_b"
+          buttons={
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
+              <Button
+                variant="text"
+                onClick={() => setIsModalOpen(false)}
+                sx={{
+                  color: "text.secondary",
+                  borderColor: "text.secondary",
+                  "&:hover": {
+                    backgroundColor: "action.hover",
+                    borderColor: "text.primary",
+                  },
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleSave}
+                isPrimaryAction={true}
+                sx={{
+                  bgcolor: "primary.main",
+                  "&:hover": { bgcolor: "primary.dark" },
+                }}
+              >
+                {editingPriceList ? "Actualizar" : "Crear"}
+              </Button>
+            </Box>
+          }
+        >
+          <Box sx={{ display: "flex", flexDirection: "row", gap: 2 }}>
+            <Input
+              label="Nombre de la lista"
+              value={listName}
+              onChange={(value) => setListName(value.toString())}
+              placeholder="Ej: Mayorista, Minorista, Oferta"
+              required
+            />
+            <Select
+              label="Estado"
+              value={isActive ? "active" : "inactive"}
+              options={statusOptions}
+              onChange={(value) => setIsActive(value === "active")}
+              size="small"
+            />
+            {!isActive && (
+              <Typography variant="caption" color="warning.main">
+                ⚠️ Una lista inactiva no estará disponible para seleccionar en
+                las ventas.
+              </Typography>
+            )}
+          </Box>
+        </Modal>
+
+        {/* Modal para ver/modificar precios */}
+        {selectedPriceList && (
+          <PriceListProductsModal
+            isOpen={isProductsModalOpen}
+            onClose={() => setIsProductsModalOpen(false)}
+            rubro={rubro}
+            priceList={selectedPriceList}
+          />
+        )}
+
+        {DeleteModalContent}
+
+        <Notification
+          isOpen={isNotificationOpen}
+          message={notificationMessage}
+          type={notificationType}
+          onClose={closeNotification}
+        />
+      </Box>
+    </>
   );
 };
 
-// Componente para precios por producto - ACTUALIZADO para filtrar solo listas activas
-const PriceListProducts: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
-  const [priceLists, setPriceLists] = useState<PriceList[]>([]);
-  const [selectedPriceListId, setSelectedPriceListId] = useState<number | null>(
-    null
-  );
+// Componente Modal para productos de lista de precios
+const PriceListProductsModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  rubro: Rubro;
+  priceList: PriceList;
+}> = ({ isOpen, onClose, rubro, priceList }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [priceUpdates, setPriceUpdates] = useState<Record<number, number>>({});
   const [searchQuery, setSearchQuery] = useState("");
+  const [isSaving, setIsSaving] = useState(false); // Estado para controlar el guardado
 
   const {
     isNotificationOpen,
@@ -570,30 +638,16 @@ const PriceListProducts: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
 
   const loadData = useCallback(async () => {
     try {
-      // Cargar SOLO listas de precios ACTIVAS
-      const lists = await db.priceLists
-        .where("rubro")
-        .equals(rubro)
-        .and((list) => list.isActive !== false)
-        .toArray();
-
-      const sortedLists = lists.sort((a, b) => a.name.localeCompare(b.name));
-      setPriceLists(sortedLists);
-
-      if (sortedLists.length > 0 && !selectedPriceListId) {
-        setSelectedPriceListId(sortedLists[0].id);
-      }
-
       // Cargar productos
       const prods = await db.products.where("rubro").equals(rubro).toArray();
       setProducts(prods);
       setFilteredProducts(prods);
 
-      // Cargar precios existentes
-      if (selectedPriceListId) {
+      // Cargar precios existentes para la lista seleccionada
+      if (priceList.id) {
         const prices = await db.productPrices
           .where("priceListId")
-          .equals(selectedPriceListId)
+          .equals(priceList.id)
           .toArray();
 
         const updates: Record<number, number> = {};
@@ -606,11 +660,13 @@ const PriceListProducts: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
       console.error("Error loading data:", error);
       showNotificationRef.current("Error al cargar datos", "error");
     }
-  }, [rubro, selectedPriceListId]);
+  }, [rubro, priceList]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (isOpen) {
+      loadData();
+    }
+  }, [isOpen, loadData]);
 
   useEffect(() => {
     if (searchQuery) {
@@ -632,19 +688,73 @@ const PriceListProducts: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
     }));
   };
 
-  const savePrice = async (productId: number) => {
-    if (!selectedPriceListId || priceUpdates[productId] === undefined) return;
+  // Guardar todos los precios modificados
+  const saveAllPrices = async () => {
+    setIsSaving(true);
+    try {
+      let hasChanges = false;
+
+      for (const [productId, price] of Object.entries(priceUpdates)) {
+        // Verificar si el precio realmente cambió del precio original
+        const originalPrice =
+          products.find((p) => p.id === parseInt(productId))?.price || 0;
+        if (price !== originalPrice) {
+          await db.productPrices.put({
+            productId: parseInt(productId),
+            priceListId: priceList.id,
+            price,
+          });
+          hasChanges = true;
+        }
+      }
+
+      if (hasChanges) {
+        showNotificationRef.current(
+          "Todos los precios han sido guardados",
+          "success"
+        );
+        // Cerrar el modal después de 1.5 segundos para que el usuario vea el mensaje
+        setTimeout(() => {
+          onClose();
+        }, 1500);
+      } else {
+        showNotificationRef.current("No hay cambios para guardar", "info");
+      }
+    } catch (error) {
+      console.error("Error saving all prices:", error);
+      showNotificationRef.current("Error al guardar los precios", "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // También modificar la función savePrice para que cierre el modal si es el único cambio
+  const savePriceAndCloseIfSingle = async (productId: number) => {
+    if (!priceList.id || priceUpdates[productId] === undefined) return;
 
     try {
       await db.productPrices.put({
         productId,
-        priceListId: selectedPriceListId,
+        priceListId: priceList.id,
         price: priceUpdates[productId],
       });
       showNotificationRef.current(
         "Precio actualizado correctamente",
         "success"
       );
+
+      // Verificar si solo hay un precio modificado
+      const modifiedPricesCount = Object.keys(priceUpdates).length;
+      const originalPrice =
+        products.find((p) => p.id === productId)?.price || 0;
+      const currentPrice = priceUpdates[productId];
+
+      if (modifiedPricesCount === 1 && currentPrice !== originalPrice) {
+        // Si solo hay un precio modificado y es diferente del original, cerrar después de 1.5 segundos
+        setTimeout(() => {
+          onClose();
+        }, 1500);
+      }
     } catch (error) {
       console.error("Error saving price:", error);
       showNotificationRef.current("Error al guardar el precio", "error");
@@ -665,56 +775,63 @@ const PriceListProducts: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
   });
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        flex: 1,
-        justifyContent: "space-between",
-      }}
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Precios - ${priceList.name}`}
+      bgColor="bg-white dark:bg-gray_b"
+      buttons={
+        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
+          <Button
+            variant="text"
+            onClick={onClose}
+            disabled={isSaving}
+            sx={{
+              color: "text.secondary",
+              "&:hover": {
+                backgroundColor: "action.hover",
+              },
+            }}
+          >
+            Cerrar
+          </Button>
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <Button
+              variant="contained"
+              startIcon={<CheckCircle />}
+              onClick={saveAllPrices}
+              disabled={isSaving}
+              sx={{
+                bgcolor: "primary.main",
+                "&:hover": { bgcolor: "primary.dark" },
+                "&.Mui-disabled": {
+                  bgcolor: "action.disabledBackground",
+                  color: "action.disabled",
+                },
+              }}
+            >
+              {isSaving ? "Guardando..." : "Guardar Todos"}
+            </Button>
+          </Box>
+        </Box>
+      }
     >
-      {/* Header con búsqueda y selector de lista */}
       <Box
         sx={{
           display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 2,
+          flexDirection: "column",
           gap: 2,
-          flexWrap: "wrap",
+          maxHeight: "70vh",
         }}
       >
-        {/* Buscador primero */}
-        <Box sx={{ width: "100%", maxWidth: "400px" }}>
+        {/* Barra de búsqueda dentro del modal */}
+        <Box sx={{ width: "100%" }}>
           <SearchBar onSearch={setSearchQuery} />
         </Box>
 
-        {/* Selector de lista después */}
-        <FormControl sx={{ minWidth: 250 }} size="small">
-          <Autocomplete
-            options={priceLists}
-            value={
-              priceLists.find((list) => list.id === selectedPriceListId) || null
-            }
-            onChange={(event, newValue) => {
-              setSelectedPriceListId(newValue?.id || null);
-            }}
-            getOptionLabel={(option) => option.name}
-            renderInput={(params) => (
-              <TextField {...params} label="Listas de precios" size="small" />
-            )}
-            sx={{ minWidth: 250, backgroundColor: "background.paper" }}
-          />
-        </FormControl>
-      </Box>
-
-      {/* Tabla de productos */}
-      <Box sx={{ flex: 1, minHeight: "auto" }}>
-        <TableContainer
-          component={Paper}
-          sx={{ maxHeight: "55vh", mb: 2, flex: 1 }}
-        >
-          <Table stickyHeader>
+        {/* Tabla de productos */}
+        <TableContainer component={Paper} sx={{ maxHeight: "50vh", flex: 1 }}>
+          <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
                 <TableCell sx={getTableHeaderStyle()}>Producto</TableCell>
@@ -739,23 +856,18 @@ const PriceListProducts: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
                     <TableRow
                       key={product.id}
                       sx={{
-                        border: "1px solid",
-                        borderColor: "divider",
                         "&:hover": {
                           backgroundColor: "action.hover",
-                          transform: "translateY(-1px)",
-                          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
                         },
-                        transition: "all 0.3s ease-in-out",
                       }}
                     >
                       <TableCell>
-                        <Typography fontWeight="medium">
+                        <Typography variant="body2" fontWeight="medium">
                           {getDisplayProductName(product, rubro)}
                         </Typography>
                       </TableCell>
                       <TableCell align="center">
-                        <Typography color="text.secondary">
+                        <Typography variant="body2" color="text.secondary">
                           {formatCurrency(product.price)}
                         </Typography>
                       </TableCell>
@@ -769,7 +881,7 @@ const PriceListProducts: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
                               parseFloat(e.target.value)
                             )
                           }
-                          onBlur={() => savePrice(product.id)}
+                          onBlur={() => savePriceAndCloseIfSingle(product.id)}
                           size="small"
                           sx={{ width: 120 }}
                           InputProps={{
@@ -777,10 +889,12 @@ const PriceListProducts: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
                               <Typography sx={{ mr: 1 }}>$</Typography>
                             ),
                           }}
+                          disabled={isSaving}
                         />
                       </TableCell>
                       <TableCell align="center">
                         <Typography
+                          variant="body2"
                           color={
                             difference > 0
                               ? "success.main"
@@ -808,24 +922,28 @@ const PriceListProducts: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
                   );
                 })
               ) : (
+                // EMPTY SPACE MEJORADO - Similar al principal
                 <TableRow>
-                  <TableCell colSpan={4} align="center">
+                  <TableCell colSpan={4} sx={{ py: 4, textAlign: "center" }}>
                     <Box
                       sx={{
                         display: "flex",
                         flexDirection: "column",
                         alignItems: "center",
-                        color: "text.secondary",
-                        py: 4,
+                        color: "text.disabled",
                       }}
                     >
                       <Assignment
-                        sx={{ fontSize: 64, color: "grey.400", mb: 2 }}
+                        sx={{
+                          fontSize: 48,
+                          color: "grey.400",
+                          mb: 2,
+                        }}
                       />
-                      <Typography sx={{ mb: 2 }}>
+                      <Typography>
                         {searchQuery
-                          ? "No se encontraron productos"
-                          : "No hay productos en este rubro"}
+                          ? "No se encontraron productos."
+                          : "No hay productos en este rubro."}
                       </Typography>
                     </Box>
                   </TableCell>
@@ -834,16 +952,16 @@ const PriceListProducts: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
             </TableBody>
           </Table>
         </TableContainer>
-      </Box>
 
-      {/* Paginación */}
-      {filteredProducts.length > 0 && (
-        <Pagination
-          text="Productos por página"
-          text2="Total de productos"
-          totalItems={filteredProducts.length}
-        />
-      )}
+        {/* Paginación dentro del modal */}
+        {filteredProducts.length > 0 && (
+          <Pagination
+            text="Productos por página"
+            text2="Total de productos"
+            totalItems={filteredProducts.length}
+          />
+        )}
+      </Box>
 
       <Notification
         isOpen={isNotificationOpen}
@@ -851,15 +969,13 @@ const PriceListProducts: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
         type={notificationType}
         onClose={closeNotification}
       />
-    </Box>
+    </Modal>
   );
 };
 
 // Página principal rediseñada
 const ListasPreciosPage = () => {
   const { rubro } = useRubro();
-
-  const [activeTab, setActiveTab] = useState<"lists" | "products">("lists");
 
   const {
     isNotificationOpen,
@@ -929,62 +1045,15 @@ const ListasPreciosPage = () => {
         {/* Header */}
         <Box sx={{ mb: 3 }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-            <AttachMoney color="primary" sx={{ fontSize: 32 }} />
             <Typography variant="h5" fontWeight="semibold">
               Listas de Precios
             </Typography>
-          </Box>
-
-          {/* Pestañas */}
-          <Box sx={{ mt: 3 }}>
-            <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-              <Box sx={{ display: "flex", gap: 2 }}>
-                <Button
-                  variant="text"
-                  onClick={() => setActiveTab("lists")}
-                  sx={{
-                    borderBottom: activeTab === "lists" ? 2 : 0,
-                    borderColor: "primary.main",
-                    borderRadius: 0,
-                    pb: 1.5,
-                    fontWeight: activeTab === "lists" ? "bold" : "normal",
-                    color:
-                      activeTab === "lists" ? "primary.main" : "text.secondary",
-                  }}
-                  startIcon={<ViewList />}
-                >
-                  Gestionar Listas
-                </Button>
-                <Button
-                  variant="text"
-                  onClick={() => setActiveTab("products")}
-                  sx={{
-                    borderBottom: activeTab === "products" ? 2 : 0,
-                    borderColor: "primary.main",
-                    borderRadius: 0,
-                    pb: 1.5,
-                    fontWeight: activeTab === "products" ? "bold" : "normal",
-                    color:
-                      activeTab === "products"
-                        ? "primary.main"
-                        : "text.secondary",
-                  }}
-                  startIcon={<AttachMoney />}
-                >
-                  Precios de Productos
-                </Button>
-              </Box>
-            </Box>
           </Box>
         </Box>
 
         {/* Contenido principal */}
         <Box sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
-          {activeTab === "lists" ? (
-            <PriceListsManager rubro={rubro} />
-          ) : (
-            <PriceListProducts rubro={rubro} />
-          )}
+          <PriceListsManager rubro={rubro} />
         </Box>
 
         <Notification

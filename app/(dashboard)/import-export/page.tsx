@@ -1,7 +1,5 @@
 "use client";
-import { saveAs } from "file-saver";
 import { useState } from "react";
-import { format } from "date-fns";
 import * as XLSX from "xlsx";
 
 import {
@@ -25,26 +23,25 @@ import ProtectedRoute from "@/app/components/ProtectedRoute";
 import ImportFileButton from "@/app/components/ImportFileButton";
 import Notification from "@/app/components/Notification";
 import Button from "@/app/components/Button";
+import { useBackup } from "@/app/hooks/useBackup";
+import { useNotification } from "@/app/hooks/useNotification";
+import { useRouter } from "next/navigation";
 
 export default function ImportExportPage() {
-  const [jsonLoading, setJsonLoading] = useState(false);
+  const router = useRouter();
   const [excelLoading, setExcelLoading] = useState(false);
-  const [notification, setNotification] = useState<{
-    isOpen: boolean;
-    message: string;
-    type: "success" | "error" | "info";
-  }>({ isOpen: false, message: "", type: "info" });
 
-  const showNotification = (
-    message: string,
-    type: "success" | "error" | "info" = "info",
-    duration: number = 5000
-  ) => {
-    setNotification({ isOpen: true, message, type });
-    setTimeout(() => {
-      setNotification((prev) => ({ ...prev, isOpen: false }));
-    }, duration);
-  };
+  // Usar el hook de backup
+  const { exportAllData } = useBackup();
+
+  // Usar el hook de notificación
+  const {
+    isNotificationOpen,
+    notificationMessage,
+    notificationType,
+    showNotification,
+    closeNotification,
+  } = useNotification();
 
   // Función para importar desde Excel
   const importExcelData = async (
@@ -244,6 +241,7 @@ export default function ImportExportPage() {
           stock: productData.stock || 0,
           costPrice: productData.costPrice || 0,
           price: productData.price || 0,
+          currentPrice: productData.price || 0,
           quantity: productData.stock || 0,
           unit: productData.unit || "Unid.",
           rubro: productData.rubro || "comercio",
@@ -878,81 +876,20 @@ export default function ImportExportPage() {
     ajustarAnchoColumnas(instruccionesSheet, instruccionesData);
 
     // Guardar el archivo
-    XLSX.writeFile(workbook, "plantilla_productos_completa.xlsx");
+    XLSX.writeFile(workbook, "plantilla_de_prueba_universalapp.xlsx");
     showNotification("Plantilla completa descargada exitosamente", "success");
   };
 
-  const exportData = async () => {
-    setJsonLoading(true);
-    try {
-      const theme = await db.theme.toArray();
-      const products = await db.products.toArray();
-      const priceLists = await db.priceLists.toArray();
-      const productPrices = await db.productPrices.toArray();
-      const sales = await db.sales.toArray();
-      const dailyCashes = await db.dailyCashes.toArray();
-      const payments = await db.payments.toArray();
-      const customers = await db.customers.toArray();
-      const suppliers = await db.suppliers.toArray();
-      const supplierProducts = await db.supplierProducts.toArray();
-      const notes = await db.notes.toArray();
-      const budgets = await db.budgets.toArray();
-      const userPreferences = await db.userPreferences.toArray();
-      const businessData = await db.businessData.toArray();
-      const deletedActualizations = await db.deletedActualizations.toArray();
-      const notifications = await db.notifications.toArray();
-      const expenses = await db.expenses.toArray();
-      const expensesCategories = await db.expenseCategories.toArray();
-      const trialPeriods = await db.trialPeriods.toArray();
-      const appState = await db.appState.toArray();
-      const returns = await db.returns.toArray();
-      const customCategories = await db.customCategories.toArray();
-      const promotions = await db.promotions.toArray();
-
-      const data = {
-        theme,
-        products,
-        priceLists,
-        productPrices,
-        sales,
-        dailyCashes,
-        payments,
-        customers,
-        suppliers,
-        supplierProducts,
-        budgets,
-        notes,
-        userPreferences,
-        businessData,
-        deletedActualizations,
-        notifications,
-        expenses,
-        expensesCategories,
-        trialPeriods,
-        appState,
-        returns,
-        customCategories,
-        promotions,
-      };
-      const json = JSON.stringify(data, null, 2);
-      const blob = new Blob([json], { type: "application/json;charset=utf-8" });
-      const formattedDate = format(new Date(), "dd-MM-yyyy");
-
-      saveAs(blob, `copia de seguridad del ${formattedDate}.json`);
-      showNotification("Copia de seguridad exportada exitosamente", "success");
-    } catch (error) {
-      console.error("Error al exportar datos:", error);
-      showNotification("Error al exportar los datos", "error");
-    } finally {
-      setJsonLoading(false);
-    }
+  // Función para exportar datos usando el hook
+  const handleExportData = async () => {
+    await exportAllData();
   };
 
+  // Función para importar datos JSON
   const importData = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setJsonLoading(true);
     try {
       const text = await file.text();
       const data = JSON.parse(text);
@@ -1065,7 +1002,6 @@ export default function ImportExportPage() {
               db.priceLists.bulkAdd(data.priceLists || []),
               db.productPrices.bulkAdd(data.productPrices || []),
               db.sales.bulkPut(data.sales || []),
-              db.auth.bulkAdd(data.auth || []),
               db.dailyCashes.bulkAdd(data.dailyCashes || []),
               db.payments.bulkAdd(data.payments || []),
               db.customers.bulkAdd(data.customers || []),
@@ -1100,13 +1036,22 @@ export default function ImportExportPage() {
       );
 
       setTimeout(() => {
-        window.location.reload();
+        // Asegurarse de que auth esté limpio
+        db.auth
+          .put({ id: 1, isAuthenticated: false, userId: undefined })
+          .then(() => {
+            // Usar router en lugar de window.location
+            router.push("/login");
+          })
+          .catch((error) => {
+            console.error("Error al limpiar auth:", error);
+            router.push("/login");
+          });
       }, 1500);
     } catch (error) {
       console.error("Error al importar datos:", error);
       showNotification("Error al importar los datos", "error");
     } finally {
-      setJsonLoading(false);
       event.target.value = "";
     }
   };
@@ -1190,9 +1135,7 @@ export default function ImportExportPage() {
               text="Exportar Copia de Seguridad"
               icon={<DownloadIcon />}
               iconPosition="left"
-              onClick={exportData}
-              disabled={jsonLoading}
-              loading={jsonLoading}
+              onClick={handleExportData}
               variant="contained"
               size="large"
               title="Exportar todos los datos a un archivo JSON"
@@ -1279,7 +1222,7 @@ export default function ImportExportPage() {
           </Stack>
         </Box>
 
-        {(jsonLoading || excelLoading) && (
+        {excelLoading && (
           <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
             <CircularProgress size={24} />
             <Typography variant="body2" sx={{ ml: 1 }}>
@@ -1289,9 +1232,10 @@ export default function ImportExportPage() {
         )}
 
         <Notification
-          isOpen={notification.isOpen}
-          message={notification.message}
-          type={notification.type}
+          isOpen={isNotificationOpen}
+          message={notificationMessage}
+          type={notificationType}
+          onClose={closeNotification}
         />
       </Box>
     </ProtectedRoute>

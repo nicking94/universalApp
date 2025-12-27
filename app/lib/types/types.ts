@@ -137,6 +137,7 @@ export type Product = {
   stock: number;
   costPrice: number;
   price: number;
+  currentPrice: number;
   costPriceWithIva?: number;
   priceWithIva?: number;
   hasIvaIncluded?: boolean;
@@ -222,6 +223,8 @@ export interface Sale {
   manualAmount?: number;
   manualProfitPercentage?: number;
   credit?: boolean;
+  creditType?: CreditType;
+  creditDetails?: CreditDetails;
   paid?: boolean;
   customerName?: string;
   customerPhone?: string;
@@ -263,6 +266,9 @@ export type SaleItem = {
   rubro?: Rubro;
   fromBudget?: boolean;
   budgetId?: string;
+  costPrice?: number;
+  profit?: number;
+  profitPercentage?: number;
 };
 
 export type PaginationProps = {
@@ -291,12 +297,92 @@ export type PaymentMethod =
   | "TRANSFERENCIA"
   | "TARJETA"
   | "CHEQUE"
-  | "MIXTO";
+  | "CUENTA_CORRIENTE"
+  | "CREDITO_CUOTAS";
 
+export type CreditAlert = {
+  id?: number;
+  creditSaleId: number;
+  installmentId?: number;
+  type: "vencimiento" | "atraso" | "pago";
+  status: "pendiente" | "resuelta";
+  dueDate: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+// Nuevos tipos para crédito en cuotas
+export type InstallmentStatus =
+  | "pendiente"
+  | "pagada"
+  | "vencida"
+  | "atrasada"
+  | "cancelada";
+export type CreditType = "cuenta_corriente" | "credito_cuotas";
+
+export interface Installment {
+  id?: number;
+  creditSaleId: number;
+  number: number;
+  dueDate: string;
+  amount: number;
+  interestAmount: number;
+  penaltyAmount: number;
+  status: InstallmentStatus;
+  paymentDate?: string | null;
+  paymentMethod?: PaymentMethod | null;
+  daysOverdue?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  totalAmount?: number;
+}
+
+export interface CreditDetails {
+  type: CreditType;
+  principalAmount: number;
+  totalAmount: number;
+  currentInstallment: number;
+  totalNumberOfInstallments: number;
+  numberOfInstallments?: number;
+  interestRate?: number;
+  penaltyRate?: number;
+  startDate?: string;
+  endDate?: string;
+  paidAmount: number;
+  paidPrincipalAmount?: number;
+  paidInterestAmount?: number;
+  remainingAmount: number;
+  nextDueDate?: string;
+  lastPaymentDate?: string;
+  isOverdue?: boolean;
+  overdueDays?: number;
+}
+
+export type CreditInstallmentDetails = {
+  numberOfInstallments: number;
+  interestRate: number;
+  penaltyRate: number;
+  startDate: string;
+  currentInstallment: number;
+};
 export type PaymentSplit = {
   method: PaymentMethod;
   amount: number;
   isDeposit?: boolean;
+};
+
+export type InvoiceItem = {
+  id: number;
+  uniqueId: string;
+  description: string;
+  quantity: number;
+  price: number;
+  subtotal: number;
+  unit: Product["unit"];
+  discount?: number;
+  subtotalSinDescuento: number;
+  ahorro: number;
+  interestIncluded?: number; // Nuevo campo
 };
 
 export type DailyCashMovement = {
@@ -314,7 +400,7 @@ export type DailyCashMovement = {
   description: string;
   type: "INGRESO" | "EGRESO" | "TODOS";
   date: string;
-  paymentMethod?: "EFECTIVO" | "TRANSFERENCIA" | "TARJETA" | "CHEQUE" | "MIXTO";
+  paymentMethod?: PaymentMethod;
   productId?: number;
   productName?: string;
   costPrice?: number;
@@ -359,7 +445,8 @@ export type DailyCashMovement = {
   fromBudget?: boolean;
   expenseCategory?: string;
   customerName?: string;
-  createdAt?: string;
+  customerId?: string;
+  createdAt: string;
   timestamp?: string;
 };
 
@@ -385,6 +472,9 @@ export type DailyCash = {
 
 export interface CreditSale extends Sale {
   credit: boolean;
+  creditType: CreditType;
+  creditDetails?: CreditDetails;
+  installments?: Installment[];
   customerName: string;
   customerPhone?: string;
   customerId?: string;
@@ -419,6 +509,7 @@ export interface Payment {
   customerName?: string;
   products?: Product[];
   saleTotal?: number;
+  installmentNumber?: number;
 }
 export type ChequeWithDetails = Omit<Payment, "products"> & {
   saleDate: string;
