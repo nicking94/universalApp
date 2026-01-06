@@ -34,7 +34,6 @@ import {
   AccountCircle as AccountCircleIcon,
   ExpandLess,
   CreditCard,
-  Delete as DeleteIcon,
 } from "@mui/icons-material";
 import { format, parseISO } from "date-fns";
 import ProtectedRoute from "@/app/components/ProtectedRoute";
@@ -115,10 +114,8 @@ const CreditSaleCard = ({
   credit,
   onPayment,
   onPayAll,
-  onDelete,
   isExpanded,
   onToggleExpand,
-  showDeleteButton = false,
 }: CreditSaleCardProps) => {
   const paymentProgress = (credit.paidAmount / credit.totalAmount) * 100;
   const isPaid = credit.pendingAmount <= 0;
@@ -368,27 +365,6 @@ const CreditSaleCard = ({
               </Box>
             )}
 
-            {/* Botón de eliminar (solo si está completamente pagado y se muestra) */}
-            {showDeleteButton && isPaid && onDelete && (
-              <CustomGlobalTooltip title="Eliminar crédito">
-                <IconButton
-                  size="small"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(credit);
-                  }}
-                  sx={{
-                    color: "error.main",
-                    "&:hover": {
-                      backgroundColor: "error.50",
-                    },
-                  }}
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </CustomGlobalTooltip>
-            )}
-
             <IconButton
               size="small"
               onClick={(e) => {
@@ -552,15 +528,6 @@ const CreditosPage = () => {
     useState<CreditSummary | null>(null);
   const [allPaymentsModalOpen, setAllPaymentsModalOpen] = useState(false);
 
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [creditToDelete, setCreditToDelete] = useState<CreditSummary | null>(
-    null
-  );
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [selectedCustomerForDeletion, setSelectedCustomerForDeletion] =
-    useState<CustomerCreditSummary | null>(null);
-
   // Cache de datos
   const [cachedSummaries, setCachedSummaries] = useState<
     Map<string, CustomerCreditSummary>
@@ -587,59 +554,6 @@ const CreditosPage = () => {
   const tableHeaderStyle = {
     bgcolor: theme.palette.mode === "dark" ? "primary.dark" : "primary.main",
     color: "primary.contrastText",
-  };
-
-  // Función para eliminar crédito (añade esta función)
-  const deleteCreditSale = async (
-    creditSaleId: number
-  ): Promise<{ success: boolean; message: string }> => {
-    try {
-      const sale = await db.sales.get(creditSaleId);
-      if (!sale) {
-        throw new Error("Venta a crédito no encontrada");
-      }
-
-      // Verificar si hay cuotas pendientes
-      const pendingInstallments = await db.installments
-        .where("creditSaleId")
-        .equals(creditSaleId)
-        .and((inst) => inst.status === "pendiente" || inst.status === "vencida")
-        .toArray();
-
-      if (pendingInstallments.length > 0) {
-        throw new Error(
-          `No se puede eliminar. Hay ${pendingInstallments.length} cuotas pendientes.`
-        );
-      }
-
-      // Eliminar todas las cuotas asociadas
-      await db.installments.where("creditSaleId").equals(creditSaleId).delete();
-
-      // Eliminar la venta
-      await db.sales.delete(creditSaleId);
-
-      // Actualizar movimientos de caja relacionados si existen
-      const dailyCashes = await db.dailyCashes.toArray();
-      for (const dailyCash of dailyCashes) {
-        const updatedMovements = dailyCash.movements.filter(
-          (movement) => movement.originalSaleId !== creditSaleId
-        );
-
-        if (updatedMovements.length !== dailyCash.movements.length) {
-          await db.dailyCashes.update(dailyCash.id, {
-            movements: updatedMovements,
-          });
-        }
-      }
-
-      return {
-        success: true,
-        message: "Crédito eliminado correctamente",
-      };
-    } catch (error) {
-      console.error("Error al eliminar el crédito:", error);
-      throw error;
-    }
   };
 
   // Optimizar calculateCreditSummaries con useMemo
@@ -1005,13 +919,7 @@ const CreditosPage = () => {
       setSelectedCreditForAllPayments(null);
       setPaymentError(null);
     }
-
-    if (!deleteModalOpen) {
-      setCreditToDelete(null);
-      setSelectedCustomerForDeletion(null);
-      setDeleteError(null);
-    }
-  }, [paymentModalOpen, allPaymentsModalOpen, deleteModalOpen]);
+  }, [paymentModalOpen, allPaymentsModalOpen]);
 
   useEffect(() => {
     if (!customerDetailModalOpen) {
@@ -1131,116 +1039,6 @@ const CreditosPage = () => {
       showNotification(errorMessage, "error");
       setPaymentModalOpen(true);
     }
-  };
-
-  // Función para manejar eliminación de crédito
-  const handleDeleteCredit = async () => {
-    if (!creditToDelete) return;
-
-    setIsDeleting(true);
-    setDeleteError(null);
-
-    try {
-      const result = await deleteCreditSale(creditToDelete.saleId);
-
-      if (result.success) {
-        showNotification("Crédito eliminado correctamente", "success");
-
-        // Actualizar datos
-        await loadData(true);
-
-        // Si está en el modal de detalle del cliente, actualizar ese cliente específico
-        if (selectedCustomerSummary) {
-          await updateCustomerSummary(selectedCustomerSummary.customerId);
-        }
-
-        // Cerrar modales
-        setDeleteModalOpen(false);
-        setCreditToDelete(null);
-
-        // Si estamos en el modal de detalles, también cerrarlo si no quedan créditos
-        if (customerDetailModalOpen && creditSummaries.length <= 1) {
-          handleCloseCustomerDetail();
-        }
-      }
-    } catch (error) {
-      console.error("Error al eliminar el crédito:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : "Error al eliminar el crédito";
-      setDeleteError(errorMessage);
-      showNotification(errorMessage, "error");
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  // Función para manejar eliminación de todos los créditos de un cliente
-  const handleDeleteAllCustomerCredits = async () => {
-    if (!selectedCustomerForDeletion) return;
-
-    setIsDeleting(true);
-    setDeleteError(null);
-
-    try {
-      // Verificar que no haya cuotas pendientes
-      const hasPendingInstallments =
-        selectedCustomerForDeletion.installments.some(
-          (inst) => inst.status === "pendiente" || inst.status === "vencida"
-        );
-
-      if (hasPendingInstallments) {
-        throw new Error("No se puede eliminar. Hay cuotas pendientes.");
-      }
-
-      // Eliminar todas las ventas a crédito del cliente
-      const creditSaleIds = selectedCustomerForDeletion.creditSales.map(
-        (sale) => sale.id
-      );
-
-      // Eliminar cuotas primero
-      await db.installments.where("creditSaleId").anyOf(creditSaleIds).delete();
-
-      // Eliminar ventas
-      await db.sales.where("id").anyOf(creditSaleIds).delete();
-
-      showNotification(
-        "Todos los créditos del cliente eliminados correctamente",
-        "success"
-      );
-
-      // Actualizar datos
-      await loadData(true);
-
-      // Cerrar modales
-      setDeleteModalOpen(false);
-      setSelectedCustomerForDeletion(null);
-
-      if (customerDetailModalOpen) {
-        handleCloseCustomerDetail();
-      }
-    } catch (error) {
-      console.error("Error al eliminar los créditos:", error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "Error al eliminar los créditos";
-      setDeleteError(errorMessage);
-      showNotification(errorMessage, "error");
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  // Función para confirmar eliminación
-  const confirmDeleteCredit = (
-    credit: CreditSummary,
-    customerSummary?: CustomerCreditSummary
-  ) => {
-    setCreditToDelete(credit);
-    if (customerSummary) {
-      setSelectedCustomerForDeletion(customerSummary);
-    }
-    setDeleteModalOpen(true);
   };
 
   // Función optimizada para pagar todas las cuotas
@@ -1666,28 +1464,6 @@ const CreditosPage = () => {
                               <Info fontSize="small" />
                             </IconButton>
                           </CustomGlobalTooltip>
-
-                          {/* Botón para eliminar todos los créditos del cliente (solo si no tiene pendientes) */}
-                          {summary.pendingAmount <= 0 && (
-                            <CustomGlobalTooltip title="Eliminar todos los créditos">
-                              <IconButton
-                                size="small"
-                                onClick={() => {
-                                  setSelectedCustomerForDeletion(summary);
-                                  setDeleteModalOpen(true);
-                                }}
-                                sx={{
-                                  borderRadius: "4px",
-                                  color: "error.main",
-                                  "&:hover": {
-                                    backgroundColor: "error.50",
-                                  },
-                                }}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </CustomGlobalTooltip>
-                          )}
                         </Box>
                       </TableCell>
                     </TableRow>
@@ -1967,163 +1743,6 @@ const CreditosPage = () => {
           )}
         </Modal>
 
-        {/* Modal para eliminar crédito */}
-        <Modal
-          isOpen={deleteModalOpen}
-          onClose={() => {
-            setDeleteModalOpen(false);
-            setCreditToDelete(null);
-            setSelectedCustomerForDeletion(null);
-            setDeleteError(null);
-          }}
-          title={
-            selectedCustomerForDeletion
-              ? "Eliminar Todos los Créditos"
-              : "Eliminar Crédito"
-          }
-          bgColor="bg-white dark:bg-gray_b"
-          buttons={
-            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
-              <Button
-                onClick={() => {
-                  setDeleteModalOpen(false);
-                  setCreditToDelete(null);
-                  setSelectedCustomerForDeletion(null);
-                  setDeleteError(null);
-                }}
-                variant="text"
-                disabled={isDeleting}
-                sx={{
-                  color: "text.secondary",
-                  "&:hover": {
-                    backgroundColor: "action.hover",
-                  },
-                }}
-              >
-                Cancelar
-              </Button>
-              <Button
-                variant="contained"
-                onClick={
-                  selectedCustomerForDeletion
-                    ? handleDeleteAllCustomerCredits
-                    : handleDeleteCredit
-                }
-                disabled={isDeleting}
-                startIcon={<DeleteIcon />}
-                sx={{
-                  bgcolor: "error.main",
-                  "&:hover": { bgcolor: "error.dark" },
-                  "&:disabled": {
-                    bgcolor: "action.disabledBackground",
-                  },
-                }}
-              >
-                {isDeleting ? "Eliminando..." : "Eliminar"}
-              </Button>
-            </Box>
-          }
-        >
-          {selectedCustomerForDeletion ? (
-            <Box>
-              {/* Contenido para eliminar todos los créditos del cliente */}
-              <Alert severity="warning" sx={{ mb: 3 }}>
-                <Warning sx={{ mr: 1 }} />
-                Esta acción eliminará TODOS los créditos del cliente y no se
-                puede deshacer
-              </Alert>
-
-              <Typography gutterBottom variant="body1">
-                ¿Está seguro que desea eliminar todos los créditos de este
-                cliente?
-              </Typography>
-
-              <Box
-                sx={{
-                  p: 2,
-                  bgcolor: "grey.50",
-                  borderRadius: 1,
-                  mt: 2,
-                }}
-              >
-                <Typography variant="subtitle2" fontWeight="bold">
-                  Cliente: {selectedCustomerForDeletion.customerName}
-                </Typography>
-                <Typography variant="body2">
-                  Total de créditos:{" "}
-                  {selectedCustomerForDeletion.creditSales.length}
-                </Typography>
-                <Typography variant="body2">
-                  Monto total:{" "}
-                  {formatCurrency(
-                    selectedCustomerForDeletion.totalCreditAmount
-                  )}
-                </Typography>
-                <Typography variant="body2" color="success.main">
-                  Saldo pendiente:{" "}
-                  {formatCurrency(selectedCustomerForDeletion.pendingAmount)}
-                </Typography>
-              </Box>
-
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                Nota: Solo se pueden eliminar créditos que estén completamente
-                pagados.
-              </Typography>
-            </Box>
-          ) : creditToDelete ? (
-            <Box>
-              {/* Contenido para eliminar un crédito específico */}
-              {deleteError && (
-                <Alert severity="error" sx={{ mb: 2 }}>
-                  {deleteError}
-                </Alert>
-              )}
-
-              <Alert severity="warning" sx={{ mb: 3 }}>
-                <Warning sx={{ mr: 1 }} />
-                Esta acción no se puede deshacer
-              </Alert>
-
-              <Typography gutterBottom variant="body1">
-                ¿Está seguro que desea eliminar el siguiente crédito?
-              </Typography>
-
-              <Box
-                sx={{
-                  p: 2,
-                  bgcolor: "grey.50",
-                  borderRadius: 1,
-                  mt: 2,
-                }}
-              >
-                <Typography variant="subtitle2" fontWeight="bold">
-                  Venta #{creditToDelete.saleId}
-                </Typography>
-                <Typography variant="body2">
-                  Cliente: {creditToDelete.customerName}
-                </Typography>
-                <Typography variant="body2">
-                  Fecha:{" "}
-                  {format(parseISO(creditToDelete.saleDate), "dd/MM/yyyy", {
-                    locale: es,
-                  })}
-                </Typography>
-                <Typography variant="body2">
-                  Monto total: {formatCurrency(creditToDelete.totalAmount)}
-                </Typography>
-                <Typography variant="body2" color="success.main">
-                  Estado: {creditToDelete.status}
-                </Typography>
-              </Box>
-
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                Nota: Solo se pueden eliminar créditos que estén completamente
-                pagados.
-              </Typography>
-            </Box>
-          ) : null}
-        </Modal>
-
         {/* Modal de detalle del cliente */}
         <Modal
           isOpen={customerDetailModalOpen}
@@ -2275,12 +1894,6 @@ const CreditosPage = () => {
                             setSelectedCreditForAllPayments(credit);
                             setAllPaymentsModalOpen(true);
                           }}
-                          onDelete={(credit) => {
-                            confirmDeleteCredit(
-                              credit,
-                              selectedCustomerSummary || undefined
-                            );
-                          }}
                           isExpanded={expandedCreditId === credit.saleId}
                           onToggleExpand={handleExpandCredit}
                           showDeleteButton={credit.status === "Pagado"}
@@ -2367,12 +1980,6 @@ const CreditosPage = () => {
                           credit={credit}
                           onPayment={() => {}}
                           onPayAll={() => {}}
-                          onDelete={(credit) => {
-                            confirmDeleteCredit(
-                              credit,
-                              selectedCustomerSummary || undefined
-                            );
-                          }}
                           isExpanded={expandedCreditId === credit.saleId}
                           onToggleExpand={handleExpandCredit}
                           showDeleteButton={true}

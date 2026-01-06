@@ -119,6 +119,7 @@ const AuthForm: React.FC<AuthFormProps> = ({
         buttonIcon={showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
         onButtonClick={handleClickShowPassword}
         buttonTitle={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+        capitalize={false}
       />
 
       {showTermsCheckbox && (

@@ -226,7 +226,9 @@ const MovimientosPage = () => {
       const storedCategories = await db.expenseCategories.toArray();
 
       const filtered = storedCategories.filter(
-        (cat) => cat.rubro === rubro || cat.rubro === "Todos los rubros"
+        (cat) =>
+          (cat.rubro === rubro || cat.rubro === "Todos los rubros") &&
+          (cat.type === newExpense.type || cat.type === "TODOS") // ← AÑADIR ESTO
       );
 
       setCategories(filtered);
@@ -234,7 +236,7 @@ const MovimientosPage = () => {
       console.error("Error al cargar categorías:", error);
       showNotification("Error al cargar categorías", "error");
     }
-  }, [rubro]);
+  }, [rubro, newExpense.type]);
 
   const loadExpenses = useCallback(async () => {
     try {
@@ -823,12 +825,16 @@ const MovimientosPage = () => {
     loadCategories();
     loadExpenses();
   }, [rubro, loadSuppliers, loadCategories, loadExpenses]);
+
   useEffect(() => {
-    setNewCategory((prev) => ({
-      ...prev,
-      type: newExpense.type,
-    }));
-  }, [newExpense.type]);
+    // Solo sincronizar si estamos en modo creación, no edición
+    if (!isEditing) {
+      setNewCategory((prev) => ({
+        ...prev,
+        type: newExpense.type,
+      }));
+    }
+  }, [newExpense.type, isEditing]);
 
   const indexOfLastExpense = currentPage * itemsPerPage;
   const indexOfFirstExpense = indexOfLastExpense - itemsPerPage;
@@ -1551,7 +1557,7 @@ const MovimientosPage = () => {
               <Card sx={{ flex: "1 1 300px" }}>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
-                    Distribución de Ingresos por Categoría
+                    Distribución mensual de Ingresos por Categoría
                   </Typography>
                   <Box sx={{ height: 300 }}>
                     <Pie
@@ -1600,7 +1606,7 @@ const MovimientosPage = () => {
               <Card sx={{ flex: "1 1 300px" }}>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
-                    Distribución de Egresos por Categoría
+                    Distribución mensual de Egresos por Categoría
                   </Typography>
                   <Box sx={{ height: 300 }}>
                     <Pie
