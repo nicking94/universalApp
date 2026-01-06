@@ -225,10 +225,9 @@ const MovimientosPage = () => {
     try {
       const storedCategories = await db.expenseCategories.toArray();
 
+      // Filtra solo por rubro, sin filtrar por tipo
       const filtered = storedCategories.filter(
-        (cat) =>
-          (cat.rubro === rubro || cat.rubro === "Todos los rubros") &&
-          (cat.type === newExpense.type || cat.type === "TODOS") // ← AÑADIR ESTO
+        (cat) => cat.rubro === rubro || cat.rubro === "Todos los rubros"
       );
 
       setCategories(filtered);
@@ -236,7 +235,7 @@ const MovimientosPage = () => {
       console.error("Error al cargar categorías:", error);
       showNotification("Error al cargar categorías", "error");
     }
-  }, [rubro, newExpense.type]);
+  }, [rubro]);
 
   const loadExpenses = useCallback(async () => {
     try {
@@ -310,11 +309,14 @@ const MovimientosPage = () => {
       supplier: expense.supplier || "",
       type: expense.type,
     });
+
     setNewCategory({
       name: "",
       rubro: rubro,
-      type: expense.type as "INGRESO" | "EGRESO",
+      type: "TODOS",
     });
+
+    loadCategories();
 
     if (expense.receipt) {
       setReceiptPreview(expense.receipt);
@@ -619,6 +621,8 @@ const MovimientosPage = () => {
 
     const trimmedCategory = newCategory.name.trim();
     const lowerName = trimmedCategory.toLowerCase();
+
+    // Verificar existencia sin filtrar por tipo
     const categoryExists = categories.some(
       (cat) =>
         cat.name.toLowerCase() === lowerName &&
@@ -634,11 +638,12 @@ const MovimientosPage = () => {
     }
 
     try {
+      // Crear categoría con tipo "TODOS" para que sirva para ambos tipos
       const categoryToAdd: ExpenseCategory = {
         id: Date.now(),
         name: trimmedCategory,
         rubro: rubro,
-        type: "EGRESO",
+        type: "TODOS", // Cambiar a TODOS para que sirva para ambos tipos
       };
 
       await db.expenseCategories.add(categoryToAdd);
@@ -649,10 +654,11 @@ const MovimientosPage = () => {
         category: trimmedCategory,
       }));
 
+      // Resetear la nueva categoría sin tipo específico
       setNewCategory({
         name: "",
         rubro: rubro,
-        type: "EGRESO",
+        type: "TODOS",
       });
 
       showNotification("Categoría agregada correctamente", "success");
@@ -703,8 +709,13 @@ const MovimientosPage = () => {
       type: "EGRESO",
     });
 
-    setNewCategory({ name: "", rubro: rubro, type: "EGRESO" });
+    setNewCategory({
+      name: "",
+      rubro: rubro,
+      type: "TODOS",
+    });
     setReceiptPreview(null);
+    loadCategories();
   };
 
   const filteredExpenses = expenses.filter((expense) => {
@@ -825,16 +836,6 @@ const MovimientosPage = () => {
     loadCategories();
     loadExpenses();
   }, [rubro, loadSuppliers, loadCategories, loadExpenses]);
-
-  useEffect(() => {
-    // Solo sincronizar si estamos en modo creación, no edición
-    if (!isEditing) {
-      setNewCategory((prev) => ({
-        ...prev,
-        type: newExpense.type,
-      }));
-    }
-  }, [newExpense.type, isEditing]);
 
   const indexOfLastExpense = currentPage * itemsPerPage;
   const indexOfFirstExpense = indexOfLastExpense - itemsPerPage;
@@ -1300,11 +1301,12 @@ const MovimientosPage = () => {
                 ]}
                 value={newExpense.type}
                 onChange={(value) => {
+                  const newType = value as "INGRESO" | "EGRESO" | "TODOS";
                   setNewExpense({
                     ...newExpense,
-                    type: value as "INGRESO" | "EGRESO",
+                    type: newType,
+                    category: "",
                   });
-                  loadCategories();
                 }}
               />
               <Select
