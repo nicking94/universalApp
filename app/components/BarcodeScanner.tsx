@@ -45,7 +45,7 @@ export default function BarcodeScanner({
           inputRef.current.select();
         }
       },
-      isMac ? 200 : 100
+      isMac ? 200 : 100,
     );
 
     return () => clearTimeout(timer);
@@ -81,20 +81,27 @@ export default function BarcodeScanner({
             }
           }
         },
-        isMac ? 150 : isScannerInput ? 50 : 500
+        isMac ? 150 : isScannerInput ? 50 : 500,
       );
     }
 
     lastInputTimeRef.current = now;
   };
 
-  const handleMacKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (isMac && e.key === "Enter" && value.length >= 3) {
+  // FUNCIÓN PRINCIPAL: Prevenir el comportamiento del Enter
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Bloquear Enter completamente cuando está enfocado en el input de código de barras
+    if (e.key === "Enter") {
       e.preventDefault();
-      if (onScanComplete) {
-        onScanComplete(value);
-        if (inputRef.current) {
-          inputRef.current.value = "";
+      e.stopPropagation();
+
+      // Opcional: Si quieres mantener el comportamiento del scanner en Mac
+      if (isMac && value.length >= 3) {
+        if (onScanComplete) {
+          onScanComplete(value);
+          if (inputRef.current) {
+            inputRef.current.value = "";
+          }
         }
       }
     }
@@ -112,7 +119,7 @@ export default function BarcodeScanner({
       inputRef={inputRef}
       value={value}
       onChange={handleBarcodeChange}
-      onKeyDown={handleMacKeyDown}
+      onKeyDown={handleKeyDown} // ← AQUÍ SE APLICA EL BLOQUEO DEL ENTER
       onFocus={handleFocus}
       placeholder={placeholder}
       autoFocus={!disabled}
