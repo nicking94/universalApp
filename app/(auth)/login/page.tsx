@@ -5,8 +5,8 @@ import { db } from "../../database/db";
 import { TRIAL_CREDENTIALS, USERS } from "@/app/lib/constants/constants";
 import { AuthData } from "@/app/lib/types/types";
 import AuthForm from "@/app/components/AuthForm";
-import Navidad from "@/app/components/LoginScreens/Navidad";
 import Notification from "@/app/components/Notification";
+import Common from "@/app/components/LoginScreens/Common";
 
 const LoginPage = () => {
   const router = useRouter();
@@ -75,7 +75,7 @@ const LoginPage = () => {
 
         if (urlParams.get("inactive") === "true") {
           setNotificationMessage(
-            "Usuario desactivado. contacte al soporte técnico"
+            "Usuario desactivado. contacte al soporte técnico",
           );
           setNotificationType("error");
           setIsOpenNotification(true);
@@ -149,12 +149,12 @@ const LoginPage = () => {
 
     // Verificar si el usuario está desactivado
     const userFromConstants = USERS.find(
-      (u) => u.username === data.username && u.password === data.password
+      (u) => u.username === data.username && u.password === data.password,
     );
 
     if (userFromConstants && userFromConstants.isActive === false) {
       setNotificationMessage(
-        "Usuario desactivado. Contacte al soporte técnico."
+        "Usuario desactivado. Contacte al soporte técnico.",
       );
       setNotificationType("error");
       setIsOpenNotification(true);
@@ -191,7 +191,7 @@ const LoginPage = () => {
 
           if (diffInDays > 7) {
             setNotificationMessage(
-              "El periodo de prueba de 1 semana ha expirado"
+              "El periodo de prueba de 1 semana ha expirado",
             );
             setNotificationType("error");
             setIsOpenNotification(true);
@@ -275,7 +275,7 @@ const LoginPage = () => {
         acceptedTerms={acceptedTerms}
         onTermsCheckboxChange={setAcceptedTerms}
       />
-      <Navidad />
+      <Common />
 
       <Notification
         isOpen={isOpenNotification}
