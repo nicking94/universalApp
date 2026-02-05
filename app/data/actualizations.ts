@@ -113,11 +113,18 @@ export const systemActualizations: Actualization[] = [
   //     "- Añadimos el módulo de ACTUALIZACIÓN DE PRECIOS. Ahora vas a poder actualizar los precios de tus productos de una forma mucho mas ágil y rápida ahorrandote tiempo y esfuerzo\n- Añadimos un módulo de LISTAS DE PRECIOS en las que vas a poder crear listas, asignarle el precio a cada producto en cada lista, y usar esas listas a la hora de hacer una venta\n- Añadimos la opcion de importar Excel de productos para cargar productos por primera vez a traves de archivos Excel\n- Nueva funcionalidad:\n Edición de venta en la caja diaria actual. Si por algún motivo necesitas editar la venta, ahora podés hacerlo. Se modificará automáticamente el stock, y los cálculos en la caja diaria",
   //   date: new Date().toISOString(),
   // },
+  // {
+  //   id: 16,
+  //   title: `Versión 1.5.6 - Actualización`,
+  //   message:
+  //     "¡Terminamos el año con una nueva actualización!\n\n- Añadimos el método de pago CRÉDITO EN CUOTAS y su respectivo módulo de CRÉDITOS para que puedas gestionar cada cuota.\n- Movimos cuentas corrientes a un nuevo módulo llamado COBRANZAS donde encontrarás tambien los créditos\n- ¡Hacemos mas fácil el respaldo de tus datos! Ahora cada vez que cierres la caja diaria, se te preguntará si deseas hacer una copia de seguridad. Recomendamos una copia diaria\n- mejoras en el rendimiento y corrección de errores",
+  //   date: new Date().toISOString(),
+  // },
   {
-    id: 16,
-    title: `Versión 1.5.6 - Actualización`,
+    id: 17,
+    title: `Versión 1.5.7 - Mejora`,
     message:
-      "¡Terminamos el año con una nueva actualización!\n\n- Añadimos el método de pago CRÉDITO EN CUOTAS y su respectivo módulo de CRÉDITOS para que puedas gestionar cada cuota.\n- Movimos cuentas corrientes a un nuevo módulo llamado COBRANZAS donde encontrarás tambien los créditos\n- ¡Hacemos mas fácil el respaldo de tus datos! Ahora cada vez que cierres la caja diaria, se te preguntará si deseas hacer una copia de seguridad. Recomendamos una copia diaria\n- mejoras en el rendimiento y corrección de errores",
+      "¡¿Calculas el precio de venta de un producto manualmente?!\n\n- Añadimos el campo PORCENTAJE DE GANANCIA al crear o editar un producto. Ahora solo tendrás que ingresar el costo y el porcentaje de ganancia deseado, y el sistema calculará automáticamente el precio de venta",
     date: new Date().toISOString(),
   },
 ];
@@ -134,6 +141,6 @@ export const getUnshownActualizations = async (): Promise<Actualization[]> => {
   return systemActualizations.filter(
     (actualization) =>
       !shownIds.includes(actualization.id) &&
-      !deletedIds.includes(actualization.id)
+      !deletedIds.includes(actualization.id),
   );
 };

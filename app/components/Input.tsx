@@ -133,8 +133,12 @@ const Input: React.FC<InputProps> = ({
     }
 
     if (type === "number") {
-      const numValue = newValue === "" ? 0 : Number(newValue);
-      onChange(numValue);
+      if (newValue === "") {
+        onChange("");
+      } else {
+        const numValue = Number(newValue);
+        onChange(numValue);
+      }
     } else {
       onChange(newValue);
     }

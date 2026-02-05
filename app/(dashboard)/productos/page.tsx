@@ -169,7 +169,7 @@ const getDefaultProduct = (rubro: Rubro): Product => ({
 
 const useProductForm = (rubro: Rubro, initialProduct?: Product) => {
   const [formData, setFormData] = useState<Product>(
-    () => initialProduct || getDefaultProduct(rubro)
+    () => initialProduct || getDefaultProduct(rubro),
   );
 
   const updateField = useCallback(
@@ -180,7 +180,7 @@ const useProductForm = (rubro: Rubro, initialProduct?: Product) => {
         | number
         | boolean
         | { name: string; rubro: Rubro }[]
-        | Product["unit"]
+        | Product["unit"],
     ) => {
       if (field === "customCategory" && typeof value === "string") {
         setFormData((prev) => ({ ...prev, [field]: toCapitalize(value) }));
@@ -188,7 +188,7 @@ const useProductForm = (rubro: Rubro, initialProduct?: Product) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
       }
     },
-    []
+    [],
   );
 
   const resetForm = useCallback(() => {
@@ -215,7 +215,7 @@ const useProducts = () => {
           ...p,
           id: Number(p.id),
           customCategories: (p.customCategories || []).filter(
-            (cat) => cat.name && cat.name.trim()
+            (cat) => cat.name && cat.name.trim(),
           ),
         }))
         .sort((a, b) => b.id - a.id);
@@ -242,10 +242,10 @@ const useProducts = () => {
     async (id: number, updates: Partial<Product>) => {
       await db.products.update(id, updates);
       setProducts((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, ...updates } : p))
+        prev.map((p) => (p.id === id ? { ...p, ...updates } : p)),
       );
     },
-    []
+    [],
   );
 
   const deleteProduct = useCallback(async (id: number) => {
@@ -293,7 +293,7 @@ const useSortedProducts = (
   filters: UnifiedFilter[],
   sortConfig: { field: keyof Product; direction: "asc" | "desc" },
   rubro: Rubro,
-  searchQuery: string
+  searchQuery: string,
 ) => {
   return useMemo(() => {
     let filtered = [...products];
@@ -307,7 +307,7 @@ const useSortedProducts = (
         const productName = getDisplayProductName(
           product,
           rubro,
-          false
+          false,
         ).toLowerCase();
         return productName.includes(searchQuery.toLowerCase());
       });
@@ -482,7 +482,7 @@ const ProductRow = React.memo(
   }: ProductRowProps) => {
     const displayName = useMemo(
       () => getDisplayProductName(product, rubro, false),
-      [product, rubro]
+      [product, rubro],
     );
 
     const { expirationDate, expirationStatus } = useMemo(() => {
@@ -506,15 +506,15 @@ const ProductRow = React.memo(
       () =>
         Boolean(
           product.setMinStock &&
-            product.minStock &&
-            product.stock < product.minStock
+          product.minStock &&
+          product.stock < product.minStock,
         ),
-      [product.setMinStock, product.minStock, product.stock]
+      [product.setMinStock, product.minStock, product.stock],
     );
 
     const rowStyles = useMemo(
       () => getRowStyles(expirationStatus, hasLowStock),
-      [expirationStatus, hasLowStock]
+      [expirationStatus, hasLowStock],
     );
 
     const stockCellStyles = useMemo(
@@ -530,7 +530,7 @@ const ProductRow = React.memo(
             : {}
           : { color: "error.main" }),
       }),
-      [product.stock, hasLowStock]
+      [product.stock, hasLowStock],
     );
 
     // Obtener el precio según la lista de precios
@@ -579,8 +579,8 @@ const ProductRow = React.memo(
                     expirationStatus === "expiresToday"
                       ? "warning.main"
                       : expirationStatus === "expiringSoon"
-                      ? "warning.dark"
-                      : "error.main",
+                        ? "warning.dark"
+                        : "error.main",
                 }}
                 fontSize="small"
               />
@@ -741,7 +741,7 @@ const ProductRow = React.memo(
         )}
       </TableRow>
     );
-  }
+  },
 );
 
 ProductRow.displayName = "ProductRow";
@@ -755,7 +755,7 @@ interface ProductFormProps {
       | number
       | boolean
       | { name: string; rubro: Rubro }[]
-      | Product["unit"]
+      | Product["unit"],
   ) => void;
   rubro: Rubro;
   editingProduct: Product | null;
@@ -800,7 +800,59 @@ const ProductForm = React.memo(
   }: ProductFormProps) => {
     const selectedUnit = useMemo(
       () => unitOptions.find((opt) => opt.value === formData.unit) ?? null,
-      [formData.unit, unitOptions]
+      [formData.unit, unitOptions],
+    );
+
+    const [profitPercentage, setProfitPercentage] = useState<string | number>(
+      "",
+    );
+
+    useEffect(() => {
+      if (formData.costPrice > 0 && formData.price > 0) {
+        const margin =
+          ((formData.price - formData.costPrice) / formData.costPrice) * 100;
+        setProfitPercentage(parseFloat(margin.toFixed(2)));
+      } else if (formData.costPrice === 0 && formData.price === 0) {
+        setProfitPercentage("");
+      }
+    }, [formData.costPrice, formData.price]);
+
+    const handlePercentageChange = useCallback(
+      (value: string | number) => {
+        const numericValue = value === "" ? "" : Number(value);
+        setProfitPercentage(numericValue);
+
+        if (
+          formData.costPrice > 0 &&
+          numericValue !== "" &&
+          !isNaN(Number(numericValue))
+        ) {
+          const newPrice =
+            formData.costPrice * (1 + Number(numericValue) / 100);
+          onFieldChange("price", parseFloat(newPrice.toFixed(2)));
+        }
+      },
+      [formData.costPrice, onFieldChange],
+    );
+
+    const handleCostChange = useCallback(
+      (value: number) => {
+        onFieldChange("costPrice", value);
+        // If we have a profit percentage set, update the price to maintain it
+        if (profitPercentage !== "" && !isNaN(Number(profitPercentage))) {
+          const newPrice = value * (1 + Number(profitPercentage) / 100);
+          onFieldChange("price", parseFloat(newPrice.toFixed(2)));
+        }
+      },
+      [onFieldChange, profitPercentage],
+    );
+
+    const handlePriceChange = useCallback(
+      (value: number) => {
+        onFieldChange("price", value);
+        // Profit percentage will be updated by the useEffect
+      },
+      [onFieldChange],
     );
 
     return (
@@ -882,7 +934,7 @@ const ProductForm = React.memo(
                   ...globalCustomCategories
                     .filter(
                       (cat) =>
-                        cat.rubro === rubro || cat.rubro === "Todos los rubros"
+                        cat.rubro === rubro || cat.rubro === "Todos los rubros",
                     )
                     .map((cat) => ({
                       value: cat.name,
@@ -894,16 +946,16 @@ const ProductForm = React.memo(
                 value={formData.customCategories?.[0]?.name || ""}
                 onChange={(value) => {
                   const selectedCategory = globalCustomCategories.find(
-                    (cat) => cat.name === value
+                    (cat) => cat.name === value,
                   );
                   onFieldChange(
                     "customCategories",
-                    selectedCategory ? [selectedCategory] : []
+                    selectedCategory ? [selectedCategory] : [],
                   );
                 }}
                 onDeleteOption={(option) => {
                   onCategoryDelete(
-                    option.metadata as { name: string; rubro: Rubro }
+                    option.metadata as { name: string; rubro: Rubro },
                   );
                 }}
                 showDeleteButton={true}
@@ -951,13 +1003,24 @@ const ProductForm = React.memo(
             </h3>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
             {/* Precio de Costo */}
             <div className="space-y-2">
               <InputCash
                 label="Precio de Costo"
                 value={formData.costPrice}
-                onChange={(value) => onFieldChange("costPrice", value)}
+                onChange={handleCostChange}
+              />
+            </div>
+
+            {/* Porcentaje de Ganancia */}
+            <div className="flex items-end space-y-2">
+              <Input
+                label="Porcentaje de Ganancia %"
+                value={profitPercentage}
+                onChange={handlePercentageChange}
+                placeholder="Ej: 30"
+                type="number"
               />
             </div>
 
@@ -966,7 +1029,7 @@ const ProductForm = React.memo(
               <InputCash
                 label="Precio de Venta"
                 value={formData.price}
-                onChange={(value) => onFieldChange("price", value)}
+                onChange={handlePriceChange}
               />
             </div>
 
@@ -1005,7 +1068,7 @@ const ProductForm = React.memo(
                       onFieldChange("setMinStock", checked);
                       onFieldChange(
                         "minStock",
-                        checked ? formData.minStock || 1 : 0
+                        checked ? formData.minStock || 1 : 0,
                       );
                     }}
                   />
@@ -1046,7 +1109,7 @@ const ProductForm = React.memo(
                 onChange={(event, selectedOption) => {
                   onFieldChange(
                     "unit",
-                    selectedOption?.value as Product["unit"]
+                    selectedOption?.value as Product["unit"],
                   );
                 }}
                 renderInput={(params) => (
@@ -1160,7 +1223,7 @@ const ProductForm = React.memo(
         )}
       </form>
     );
-  }
+  },
 );
 
 ProductForm.displayName = "ProductForm";
@@ -1190,10 +1253,10 @@ const ProductsPage = () => {
   // Estados para listas de precios
   const [priceLists, setPriceLists] = useState<PriceList[]>([]);
   const [selectedPriceListId, setSelectedPriceListId] = useState<number | null>(
-    null
+    null,
   );
   const [productPrices, setProductPrices] = useState<Record<number, number>>(
-    {}
+    {},
   );
 
   const [isOpenModal, setIsOpenModal] = useState(false);
@@ -1275,8 +1338,8 @@ const ProductsPage = () => {
                 list.isDefault
               }`;
               return [key, list];
-            })
-          ).values()
+            }),
+          ).values(),
         ).sort((a, b) => {
           // Primero las listas por defecto
           if (a.isDefault && !b.isDefault) return -1;
@@ -1335,7 +1398,7 @@ const ProductsPage = () => {
     (priceWithIva: number): number => {
       return priceWithIva / (1 + PRODUCT_CONFIG.IVA_PERCENTAGE / 100);
     },
-    []
+    [],
   );
 
   const loadClothingSizes = useCallback(async () => {
@@ -1349,8 +1412,8 @@ const ProductsPage = () => {
         new Set(
           clothingProducts
             .filter((product) => product.size && product.size.trim() !== "")
-            .map((product) => product.size as string)
-        )
+            .map((product) => product.size as string),
+        ),
       );
 
       const sizeOptions = uniqueSizes
@@ -1390,7 +1453,7 @@ const ProductsPage = () => {
       calculatePriceWithIva,
       calculatePriceWithoutIva,
       updateField,
-    ]
+    ],
   );
 
   const loadCustomCategories = useCallback(async () => {
@@ -1440,7 +1503,7 @@ const ProductsPage = () => {
       });
 
       return Array.from(allCategories.values()).sort((a, b) =>
-        a.name.localeCompare(b.name)
+        a.name.localeCompare(b.name),
       );
     } catch (error) {
       console.error("Error loading categories:", error);
@@ -1461,7 +1524,7 @@ const ProductsPage = () => {
         return optionInfo?.base === productUnitInfo.base;
       });
     },
-    []
+    [],
   );
 
   const calculateEAN13CheckDigit = useCallback((code: string): number => {
@@ -1512,7 +1575,7 @@ const ProductsPage = () => {
         originalProduct.season !== updatedProduct.season
       );
     },
-    [rubro]
+    [rubro],
   );
 
   const handleReturnProduct = useCallback(async () => {
@@ -1532,7 +1595,7 @@ const ProductsPage = () => {
       const baseQuantity = convertToBaseUnit(returnQuantity, returnUnit);
       const currentStockInBase = convertToBaseUnit(
         currentStock,
-        selectedReturnProduct.unit
+        selectedReturnProduct.unit,
       );
 
       const today = getLocalDateString();
@@ -1554,7 +1617,7 @@ const ProductsPage = () => {
         description: `Devolución: ${getDisplayProductName(
           selectedReturnProduct,
           rubro,
-          false
+          false,
         )} - ${returnReason.trim() || "Sin motivo"}`,
         type: "EGRESO",
         paymentMethod: "EFECTIVO",
@@ -1581,7 +1644,7 @@ const ProductsPage = () => {
 
       const updatedStock = convertFromBaseUnit(
         currentStockInBase + baseQuantity,
-        selectedReturnProduct.unit
+        selectedReturnProduct.unit,
       );
       await updateProduct(selectedReturnProduct.id, {
         stock: parseFloat(updatedStock.toFixed(3)),
@@ -1595,8 +1658,8 @@ const ProductsPage = () => {
         date: new Date().toISOString(),
         stockAdded: parseFloat(
           convertFromBaseUnit(baseQuantity, selectedReturnProduct.unit).toFixed(
-            3
-          )
+            3,
+          ),
         ),
         amount: amountToSubtract,
         profit: profitToSubtract,
@@ -1608,11 +1671,11 @@ const ProductsPage = () => {
 
       showNotification(
         `Producto ${getDisplayProductName(
-          selectedReturnProduct
+          selectedReturnProduct,
         )} devuelto correctamente. Stock actualizado: ${updatedStock} ${
           selectedReturnProduct.unit
         }. Monto restado: ${formatCurrency(amountToSubtract)}`,
-        "success"
+        "success",
       );
 
       resetReturnData();
@@ -1642,7 +1705,7 @@ const ProductsPage = () => {
     (sort: { field: keyof Product; direction: "asc" | "desc" }) => {
       setSortConfig(sort);
     },
-    []
+    [],
   );
 
   const handleSizeInputBlur = useCallback(() => {
@@ -1651,7 +1714,7 @@ const ProductsPage = () => {
 
       if (
         !clothingSizes.some(
-          (size) => size.value.toLowerCase() === newSize.toLowerCase().trim()
+          (size) => size.value.toLowerCase() === newSize.toLowerCase().trim(),
         )
       ) {
         const newSizeOption = {
@@ -1660,8 +1723,8 @@ const ProductsPage = () => {
         };
         setClothingSizes((prev) =>
           [...prev, newSizeOption].sort((a, b) =>
-            a.label.localeCompare(b.label)
-          )
+            a.label.localeCompare(b.label),
+          ),
         );
       }
     }
@@ -1674,7 +1737,7 @@ const ProductsPage = () => {
       setCategoryToDelete(category);
       setIsCategoryDeleteModalOpen(true);
     },
-    []
+    [],
   );
 
   const handleConfirmDeleteSize = useCallback(async () => {
@@ -1690,13 +1753,13 @@ const ProductsPage = () => {
       if (productsWithSize > 0) {
         showNotification(
           `No se puede eliminar el talle porque ${productsWithSize} producto(s) lo están usando`,
-          "error"
+          "error",
         );
         return;
       }
 
       setClothingSizes((prev) =>
-        prev.filter((size) => size.value !== sizeToDelete)
+        prev.filter((size) => size.value !== sizeToDelete),
       );
 
       showNotification("Talle eliminado correctamente", "success");
@@ -1727,7 +1790,7 @@ const ProductsPage = () => {
           const updatedCategories = (product.customCategories || []).filter(
             (cat) =>
               cat.name.toLowerCase() !== categoryToDelete.name.toLowerCase() ||
-              cat.rubro !== categoryToDelete.rubro
+              cat.rubro !== categoryToDelete.rubro,
           );
 
           if (
@@ -1752,8 +1815,8 @@ const ProductsPage = () => {
           prev.filter(
             (cat) =>
               cat.name.toLowerCase() !== categoryToDelete.name.toLowerCase() ||
-              cat.rubro !== categoryToDelete.rubro
-          )
+              cat.rubro !== categoryToDelete.rubro,
+          ),
         );
 
         updateField(
@@ -1761,13 +1824,13 @@ const ProductsPage = () => {
           (newProduct.customCategories || []).filter(
             (cat) =>
               cat.name.toLowerCase() !== categoryToDelete.name.toLowerCase() ||
-              cat.rubro !== categoryToDelete.rubro
-          )
+              cat.rubro !== categoryToDelete.rubro,
+          ),
         );
 
         showNotification(
           `Categoría "${categoryToDelete.name}" eliminada correctamente`,
-          "success"
+          "success",
         );
       } catch (error) {
         console.error("Error al eliminar categoría:", error);
@@ -1783,7 +1846,7 @@ const ProductsPage = () => {
       setProducts,
       newProduct.customCategories,
       updateField,
-    ]
+    ],
   );
 
   const handleSearch = useCallback((query: string) => {
@@ -1823,14 +1886,14 @@ const ProductsPage = () => {
             : product.name;
         showNotification(
           `Precio de ${productName}: ${formatCurrency(product.price)}`,
-          "success"
+          "success",
         );
       } else {
         showNotification("Producto no encontrado", "error");
       }
       setBarcodeInput("");
     },
-    [products, rubro, showNotification]
+    [products, rubro, showNotification],
   );
 
   const handleAddProduct = useCallback(async () => {
@@ -1845,7 +1908,7 @@ const ProductsPage = () => {
     const trimmedCategory = toCapitalize(newProduct.customCategory.trim());
     const lowerName = trimmedCategory.toLowerCase();
     const alreadyExists = globalCustomCategories.some(
-      (cat) => cat.name.toLowerCase() === lowerName && cat.rubro === rubro
+      (cat) => cat.name.toLowerCase() === lowerName && cat.rubro === rubro,
     );
 
     if (alreadyExists) {
@@ -1913,14 +1976,14 @@ const ProductsPage = () => {
             category: "",
           }
         : newProduct.category
-        ? {
-            customCategories: [],
-            category: newProduct.category,
-          }
-        : {
-            customCategories: [],
-            category: "",
-          }),
+          ? {
+              customCategories: [],
+              category: newProduct.category,
+            }
+          : {
+              customCategories: [],
+              category: "",
+            }),
     };
 
     try {
@@ -1969,7 +2032,7 @@ const ProductsPage = () => {
         `Producto ${productToSave.name} ${
           editingProduct ? "actualizado" : "agregado"
         } correctamente`,
-        "success"
+        "success",
       );
     } catch (error) {
       console.error("Error al guardar el producto:", error);
@@ -1995,7 +2058,7 @@ const ProductsPage = () => {
         await deleteProduct(productToDelete.id);
         showNotification(
           `Producto ${productToDelete.name} eliminado`,
-          "success"
+          "success",
         );
         setProductToDelete(null);
       } catch {
@@ -2061,7 +2124,7 @@ const ProductsPage = () => {
 
       setIsOpenModal(true);
     },
-    [rubro, loadCustomCategories, setForm, selectedPriceListId, productPrices]
+    [rubro, loadCustomCategories, setForm, selectedPriceListId, productPrices],
   );
 
   const handleDeleteProduct = useCallback((product: Product) => {
@@ -2074,14 +2137,14 @@ const ProductsPage = () => {
     filters,
     sortConfig,
     rubro,
-    debouncedSearchQuery
+    debouncedSearchQuery,
   );
 
   const indexOfLastProduct = currentPage * itemsPerPage;
   const indexOfFirstProduct = indexOfLastProduct - itemsPerPage;
   const currentProducts = sortedProducts.slice(
     indexOfFirstProduct,
-    indexOfLastProduct
+    indexOfLastProduct,
   );
 
   useEffect(() => {
@@ -2158,7 +2221,7 @@ const ProductsPage = () => {
           storedReturns.map((r) => ({
             ...r,
             id: Number(r.id),
-          }))
+          })),
         );
         await loadCustomCategories();
       } catch (error) {
@@ -2239,7 +2302,7 @@ const ProductsPage = () => {
         updateField("brand", toCapitalize(stringValue));
       }
     },
-    [updateField]
+    [updateField],
   );
 
   const handleColorChange = useCallback(
@@ -2250,7 +2313,7 @@ const ProductsPage = () => {
         updateField("color", toCapitalize(stringValue));
       }
     },
-    [updateField]
+    [updateField],
   );
 
   const handleSizeChange = useCallback(
@@ -2259,7 +2322,7 @@ const ProductsPage = () => {
       setNewSize(stringValue);
       updateField("size", toCapitalize(stringValue));
     },
-    [updateField]
+    [updateField],
   );
 
   return (
@@ -2750,7 +2813,7 @@ const ProductsPage = () => {
                   {returns
                     .sort(
                       (a, b) =>
-                        new Date(b.date).getTime() - new Date(a.date).getTime()
+                        new Date(b.date).getTime() - new Date(a.date).getTime(),
                     )
                     .map((ret, index) => (
                       <tr
@@ -2837,7 +2900,7 @@ const ProductsPage = () => {
                         label: getDisplayProductName(
                           selectedReturnProduct,
                           rubro,
-                          false
+                          false,
                         ),
                       }
                     : null
@@ -2897,7 +2960,7 @@ const ProductsPage = () => {
                     label=""
                     value={returnUnit || selectedReturnProduct?.unit || ""}
                     options={getCompatibleUnits(
-                      selectedReturnProduct?.unit || "Unid."
+                      selectedReturnProduct?.unit || "Unid.",
                     ).map((unit) => ({
                       value: unit.value,
                       label: unit.label,
@@ -3163,7 +3226,7 @@ const ProductsPage = () => {
                         {format(
                           parseISO(scannedProduct.expiration),
                           "dd/MM/yyyy",
-                          { locale: es }
+                          { locale: es },
                         )}
                       </p>
                     </div>
@@ -3189,8 +3252,8 @@ const ProductsPage = () => {
                 prev.map((p) =>
                   p.id === selectedProductForBarcode.id
                     ? { ...p, barcode: newBarcode }
-                    : p
-                )
+                    : p,
+                ),
               );
 
               db.products.update(selectedProductForBarcode.id, {
