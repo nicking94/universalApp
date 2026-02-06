@@ -29,7 +29,7 @@ const staggerContainer = {
 
 const Navidad: React.FC<CommonProps> = ({
   title = "🎄🎄🎄🎄🎄🎄🎄",
-  whatsappNumber = "+54 26130771477",
+  whatsappNumber = "+54 2613077147",
   whatsappLink = "https://wa.me/5492613077147",
   titleClassName = "text-4xl mb-6 text-center font-bold text-[#2d78b9]",
   textClassName = "text-white font-semibold text-lg",

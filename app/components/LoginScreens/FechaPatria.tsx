@@ -19,7 +19,7 @@ interface FechaPatriaProps {
 const FechaPatria: React.FC<FechaPatriaProps> = ({
   title = "Contacto",
   email = "universalappcontacto@gmail.com",
-  whatsappNumber = "+54 26130771477",
+  whatsappNumber = "+54 2613077147",
   whatsappLink = "https://wa.me/5492613077147",
   className = "w-[65%] xl:w-[75%] flex flex-col justify-center bg-gradient-to-bl from-blue_m to-blue_xl",
   cardClassName = "shadow-lg shadow-yellow-100 rounded-full w-75 h-75 z-10 space-y-2 flex flex-col items-center justify-center text-center relative overflow-visible",
