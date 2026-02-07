@@ -136,10 +136,10 @@ const VentasPage = () => {
   } = useNotification();
   const { currentPage, itemsPerPage } = usePagination();
   const [selectedMonth, setSelectedMonth] = useState<number>(
-    () => new Date().getMonth() + 1
+    () => new Date().getMonth() + 1,
   );
   const [selectedYear, setSelectedYear] = useState<number>(() =>
-    new Date().getFullYear()
+    new Date().getFullYear(),
   );
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
@@ -153,7 +153,7 @@ const VentasPage = () => {
   const [shouldRedirectToCash, setShouldRedirectToCash] = useState(false);
   const [registerCheck, setRegisterCheck] = useState(false);
   const [availablePromotions, setAvailablePromotions] = useState<Promotion[]>(
-    []
+    [],
   );
   const [selectedPromotions, setSelectedPromotions] =
     useState<Promotion | null>(null);
@@ -173,11 +173,11 @@ const VentasPage = () => {
   // Estados para listas de precios
   const [priceLists, setPriceLists] = useState<PriceList[]>([]);
   const [selectedPriceListId, setSelectedPriceListId] = useState<number | null>(
-    null
+    null,
   );
 
   const [availablePriceLists, setAvailablePriceLists] = useState<PriceList[]>(
-    []
+    [],
   );
 
   // Estados para edición
@@ -187,7 +187,7 @@ const VentasPage = () => {
     originalCashMovementIds: [],
   });
   const [originalSaleBackup, setOriginalSaleBackup] = useState<Sale | null>(
-    null
+    null,
   );
   const [originalStockBackup, setOriginalStockBackup] = useState<
     { id: number; originalStock: number }[]
@@ -266,7 +266,7 @@ const VentasPage = () => {
       bgcolor: theme.palette.mode === "dark" ? "primary.dark" : "primary.main",
       color: "primary.contrastText",
     }),
-    [theme.palette.mode]
+    [theme.palette.mode],
   );
 
   const getCardStyle = useMemo(
@@ -278,7 +278,7 @@ const VentasPage = () => {
         color: "white !important",
       },
     }),
-    [theme.palette.mode]
+    [theme.palette.mode],
   );
 
   const getCompatibleUnits = (productUnit: string): UnitOption[] => {
@@ -352,14 +352,14 @@ const VentasPage = () => {
           ...product,
           price: newPrice,
         };
-      })
+      }),
     );
 
     setNewSale((prev) => {
       const newTotal = calculateFinalTotal(
         updatedProducts,
         prev.manualAmount || 0,
-        selectedPromotions
+        selectedPromotions,
       );
 
       return {
@@ -368,7 +368,7 @@ const VentasPage = () => {
         total: newTotal,
         paymentMethods: synchronizePaymentMethods(
           prev.paymentMethods,
-          newTotal
+          newTotal,
         ),
       };
     });
@@ -378,7 +378,7 @@ const VentasPage = () => {
     if (!priceListId) {
       // Buscar la lista "General" en el rubro actual
       const generalList = priceLists.find(
-        (list) => list.name === "General" && list.rubro === rubro
+        (list) => list.name === "General" && list.rubro === rubro,
       );
       return generalList ? generalList.name : "General";
     }
@@ -400,7 +400,7 @@ const VentasPage = () => {
     if (!canEditSale(sale)) {
       showNotification(
         "Solo se pueden editar ventas del día actual y que no sean a crédito",
-        "error"
+        "error",
       );
       return;
     }
@@ -412,7 +412,7 @@ const VentasPage = () => {
     if (dailyCash?.closed) {
       showNotification(
         "No se puede editar ventas con la caja cerrada",
-        "error"
+        "error",
       );
       return;
     }
@@ -435,12 +435,12 @@ const VentasPage = () => {
           const soldInBase = convertToBaseUnit(product.quantity, product.unit);
           const currentStockInBase = convertToBaseUnit(
             Number(originalProduct.stock),
-            originalProduct.unit
+            originalProduct.unit,
           );
           const newStockInBase = currentStockInBase + soldInBase;
           const newStock = convertFromBaseUnit(
             newStockInBase,
-            originalProduct.unit
+            originalProduct.unit,
           );
 
           await db.products.update(product.id, {
@@ -576,7 +576,7 @@ const VentasPage = () => {
         setShouldRedirectToCash(true);
         showNotification(
           "Debes abrir la caja primero para editar ventas",
-          "error"
+          "error",
         );
         setIsProcessingPayment(false);
         return;
@@ -585,7 +585,7 @@ const VentasPage = () => {
       const stockValidation = validateStockForSale(newSale.products);
       if (!stockValidation.isValid) {
         stockValidation.errors.forEach((error) =>
-          showNotification(error, "error")
+          showNotification(error, "error"),
         );
         setIsProcessingPayment(false);
         return;
@@ -597,17 +597,17 @@ const VentasPage = () => {
           const updatedStock = updateStockAfterSale(
             product.id,
             product.quantity,
-            product.unit
+            product.unit,
           );
           await db.products.update(product.id, { stock: updatedStock });
         } catch (error) {
           console.error(
             `Error actualizando stock para producto ${product.id}:`,
-            error
+            error,
           );
           showNotification(
             `Error actualizando stock para ${product.name}`,
-            "error"
+            "error",
           );
           setIsProcessingPayment(false);
           return;
@@ -655,7 +655,7 @@ const VentasPage = () => {
 
       // 7. Actualizar estado local
       setSales((prev) =>
-        prev.map((s) => (s.id === isEditMode.originalSaleId ? updatedSale : s))
+        prev.map((s) => (s.id === isEditMode.originalSaleId ? updatedSale : s)),
       );
 
       // 8. Resetear estados
@@ -694,7 +694,7 @@ const VentasPage = () => {
 
   const updateDailyCashForEditedSale = async (
     originalSale: Sale,
-    updatedSale: Sale
+    updatedSale: Sale,
   ) => {
     try {
       const today = getLocalDateString();
@@ -704,13 +704,14 @@ const VentasPage = () => {
         throw new Error("No se encontró la caja diaria para hoy");
       }
       const filteredMovements = dailyCash.movements.filter(
-        (movement) => !isEditMode.originalCashMovementIds?.includes(movement.id)
+        (movement) =>
+          !isEditMode.originalCashMovementIds?.includes(movement.id),
       );
 
       const totalProfit = calculateTotalProfit(
         updatedSale.products,
         updatedSale.manualAmount || 0,
-        updatedSale.manualProfitPercentage || 0
+        updatedSale.manualProfitPercentage || 0,
       );
 
       const newMovement: DailyCashMovement = {
@@ -771,7 +772,7 @@ const VentasPage = () => {
   const calculateFinalTotal = (
     products: Product[],
     manualAmount: number = 0,
-    promotion?: Promotion | null
+    promotion?: Promotion | null,
   ): number => {
     const subtotal = calculateCombinedTotal(products) + manualAmount;
 
@@ -788,7 +789,7 @@ const VentasPage = () => {
   };
 
   const validateStockForSale = (
-    saleProducts: Product[]
+    saleProducts: Product[],
   ): { isValid: boolean; errors: string[] } => {
     const errors: string[] = [];
 
@@ -802,7 +803,7 @@ const VentasPage = () => {
       const stockCheck = checkStockAvailability(
         originalProduct,
         product.quantity,
-        product.unit
+        product.unit,
       );
 
       if (!stockCheck.available) {
@@ -811,7 +812,7 @@ const VentasPage = () => {
             `Solicitado: ${product.quantity} ${product.unit}, ` +
             `Disponible: ${stockCheck.availableQuantity.toFixed(2)} ${
               stockCheck.availableUnit
-            }`
+            }`,
         );
       }
     }
@@ -824,11 +825,11 @@ const VentasPage = () => {
 
   const synchronizePaymentMethods = (
     paymentMethods: PaymentSplit[],
-    total: number
+    total: number,
   ): PaymentSplit[] => {
     const currentTotal = paymentMethods.reduce(
       (sum, method) => sum + method.amount,
-      0
+      0,
     );
 
     if (Math.abs(currentTotal - total) < 0.01) {
@@ -859,9 +860,9 @@ const VentasPage = () => {
           if (currentSubtotal < promotionToApply.minPurchaseAmount) {
             showNotification(
               `Esta promoción requiere un monto mínimo de ${formatCurrency(
-                promotionToApply.minPurchaseAmount
+                promotionToApply.minPurchaseAmount,
               )}. Subtotal actual: ${formatCurrency(currentSubtotal)}`,
-              "error"
+              "error",
             );
             return prev;
           }
@@ -876,7 +877,7 @@ const VentasPage = () => {
         if (now < startDate) {
           showNotification(
             `Esta promoción estará disponible a partir del ${startDate.toLocaleDateString()}`,
-            "error"
+            "error",
           );
           return prev;
         }
@@ -884,7 +885,7 @@ const VentasPage = () => {
         if (endDate && now > endDate) {
           showNotification(
             `Esta promoción expiró el ${endDate.toLocaleDateString()}`,
-            "error"
+            "error",
           );
           return prev;
         }
@@ -906,7 +907,7 @@ const VentasPage = () => {
 
         const updatedPaymentMethods = synchronizePaymentMethods(
           prev.paymentMethods,
-          newTotal
+          newTotal,
         );
 
         showNotification(`Promoción aplicada correctamente`, "success");
@@ -919,7 +920,7 @@ const VentasPage = () => {
         };
       });
     },
-    [showNotification]
+    [showNotification],
   );
 
   const removePromotion = () => {
@@ -930,7 +931,7 @@ const VentasPage = () => {
 
       const updatedPaymentMethods = synchronizePaymentMethods(
         prevSale.paymentMethods,
-        currentSubtotal
+        currentSubtotal,
       );
 
       return {
@@ -953,7 +954,7 @@ const VentasPage = () => {
     if (!selectedCustomer && !customerName.trim()) {
       showNotification(
         "Debe seleccionar o ingresar un cliente para crédito en cuotas",
-        "error"
+        "error",
       );
       return;
     }
@@ -962,7 +963,7 @@ const VentasPage = () => {
     if (selectedCustomer && customerName.trim()) {
       showNotification(
         "Solo puede seleccionar un cliente existente O ingresar uno nuevo. Si seleccionó un cliente, borre el nombre del nuevo cliente.",
-        "error"
+        "error",
       );
       return;
     }
@@ -989,7 +990,7 @@ const VentasPage = () => {
     handleConfirmPayment();
     showNotification(
       "Configuración de crédito en cuotas aplicada. Procesando venta...",
-      "success"
+      "success",
     );
   };
   const handleConfirmProductDelete = () => {
@@ -997,12 +998,12 @@ const VentasPage = () => {
 
     setNewSale((prev) => {
       const updatedProducts = prev.products.filter(
-        (p) => p.id !== productToDelete.id
+        (p) => p.id !== productToDelete.id,
       );
       const newTotal = calculateFinalTotal(
         updatedProducts,
         prev.manualAmount || 0,
-        selectedPromotions
+        selectedPromotions,
       );
 
       return {
@@ -1011,7 +1012,7 @@ const VentasPage = () => {
         total: newTotal,
         paymentMethods: synchronizePaymentMethods(
           prev.paymentMethods,
-          newTotal
+          newTotal,
         ),
       };
     });
@@ -1102,7 +1103,7 @@ const VentasPage = () => {
       if (selectedPromotions) {
         showNotification(
           "Ya hay una promoción aplicada. Remueve la actual para aplicar una nueva.",
-          "error"
+          "error",
         );
         return;
       }
@@ -1312,7 +1313,7 @@ const VentasPage = () => {
     }
 
     const hasCreditMethod = newSale.paymentMethods.some(
-      (method) => method.method === "CREDITO_CUOTAS"
+      (method) => method.method === "CREDITO_CUOTAS",
     );
 
     if (hasCreditMethod) {
@@ -1342,7 +1343,7 @@ const VentasPage = () => {
 
     try {
       const hasCreditMethod = newSale.paymentMethods.some(
-        (method) => method.method === "CREDITO_CUOTAS"
+        (method) => method.method === "CREDITO_CUOTAS",
       );
 
       if (!isCredit && !hasCreditMethod) {
@@ -1351,7 +1352,7 @@ const VentasPage = () => {
           setShouldRedirectToCash(true);
           showNotification(
             "Debes abrir la caja primero para realizar ventas",
-            "error"
+            "error",
           );
           setIsProcessingPayment(false);
           setIsPaymentModalOpen(false);
@@ -1362,7 +1363,7 @@ const VentasPage = () => {
       const stockValidation = validateStockForSale(newSale.products);
       if (!stockValidation.isValid) {
         stockValidation.errors.forEach((error) =>
-          showNotification(error, "error")
+          showNotification(error, "error"),
         );
         setIsProcessingPayment(false);
         return;
@@ -1378,7 +1379,7 @@ const VentasPage = () => {
         if (creditInstallmentDetails.interestRate > 50) {
           showNotification(
             "La tasa de interés no puede exceder el 50%",
-            "error"
+            "error",
           );
           setIsProcessingPayment(false);
           return;
@@ -1395,13 +1396,13 @@ const VentasPage = () => {
         }
         if (normalizedName && !selectedCustomer) {
           const existingCustomer = customers.find(
-            (customer) => customer.name.toUpperCase() === normalizedName
+            (customer) => customer.name.toUpperCase() === normalizedName,
           );
 
           if (existingCustomer) {
             showNotification(
               "Este cliente ya existe. Selecciónelo de la lista o use un nombre diferente.",
-              "error"
+              "error",
             );
             setIsProcessingPayment(false);
             return;
@@ -1413,15 +1414,15 @@ const VentasPage = () => {
       if (!isCredit && !hasCreditMethod && !registerCheck) {
         const totalPayment = newSale.paymentMethods.reduce(
           (sum, method) => sum + method.amount,
-          0
+          0,
         );
 
         if (totalPayment < newSale.total) {
           showNotification(
             `Pago insuficiente. Total: ${formatCurrency(
-              newSale.total
+              newSale.total,
             )}, Recibido: ${formatCurrency(totalPayment)}`,
-            "error"
+            "error",
           );
           setIsProcessingPayment(false);
           return;
@@ -1434,17 +1435,17 @@ const VentasPage = () => {
           const updatedStock = updateStockAfterSale(
             product.id,
             product.quantity,
-            product.unit
+            product.unit,
           );
           await db.products.update(product.id, { stock: updatedStock });
         } catch (error) {
           console.error(
             `Error actualizando stock para producto ${product.id}:`,
-            error
+            error,
           );
           showNotification(
             `Error actualizando stock para ${product.name}`,
-            "error"
+            "error",
           );
           setIsProcessingPayment(false);
           return;
@@ -1534,8 +1535,8 @@ const VentasPage = () => {
         creditType: hasCreditMethod
           ? "credito_cuotas"
           : isCredit
-          ? "cuenta_corriente"
-          : undefined,
+            ? "cuenta_corriente"
+            : undefined,
         customerName: finalCustomerName,
         customerPhone: finalCustomerPhone || "",
         customerId: customerId || "",
@@ -1556,7 +1557,7 @@ const VentasPage = () => {
           saleToSave.total,
           creditInstallmentDetails.numberOfInstallments,
           creditInstallmentDetails.interestRate,
-          creditInstallmentDetails.startDate
+          creditInstallmentDetails.startDate,
         );
 
         // Verificar que las cuotas no contengan NaN
@@ -1570,7 +1571,7 @@ const VentasPage = () => {
 
         const totalWithInterest = validInstallments.reduce(
           (sum, inst) => sum + inst.amount,
-          0
+          0,
         );
 
         saleToSave.total = totalWithInterest;
@@ -1667,7 +1668,7 @@ const VentasPage = () => {
         const activePromotions = updatedPromotions.filter(
           (p) =>
             p.status === "active" &&
-            (p.rubro === rubro || p.rubro === "Todos los rubros")
+            (p.rubro === rubro || p.rubro === "Todos los rubros"),
         );
         setAvailablePromotions(activePromotions);
       }
@@ -1683,7 +1684,7 @@ const VentasPage = () => {
           `Venta ${
             isCredit ? "a cuenta corriente" : "a crédito en cuotas"
           } confirmada correctamente`,
-          "success"
+          "success",
         );
       } else {
         showNotification("Venta registrada correctamente", "success");
@@ -1764,7 +1765,7 @@ const VentasPage = () => {
   const updateStockAfterSale = (
     productId: number,
     soldQuantity: number,
-    unit: string
+    unit: string,
   ): number => {
     const product = products.find((p) => p.id === productId);
     if (!product) throw new Error(`Producto con ID ${productId} no encontrado`);
@@ -1776,14 +1777,14 @@ const VentasPage = () => {
           `Solicitado: ${soldQuantity} ${unit}, ` +
           `Disponible: ${stockCheck.availableQuantity.toFixed(2)} ${
             stockCheck.availableUnit
-          }`
+          }`,
       );
     }
 
     const soldInBase = convertToBaseUnit(soldQuantity, unit);
     const currentStockInBase = convertToBaseUnit(
       Number(product.stock),
-      product.unit
+      product.unit,
     );
     const newStockInBase = currentStockInBase - soldInBase;
     const newStock = convertFromBaseUnit(newStockInBase, product.unit);
@@ -1821,7 +1822,7 @@ const VentasPage = () => {
       const totalProfit = calculateTotalProfit(
         sale.products,
         sale.manualAmount || 0,
-        sale.manualProfitPercentage || 0
+        sale.manualProfitPercentage || 0,
       );
 
       const baseTimestamp = new Date().toISOString();
@@ -1934,7 +1935,7 @@ const VentasPage = () => {
 
     setNewSale((prevState) => {
       const existingProductIndex = prevState.products.findIndex(
-        (p) => p.id === productId
+        (p) => p.id === productId,
       );
 
       if (existingProductIndex >= 0) {
@@ -1949,7 +1950,7 @@ const VentasPage = () => {
         const newTotal = calculateFinalTotal(
           updatedProducts,
           prevState.manualAmount || 0,
-          selectedPromotions
+          selectedPromotions,
         );
 
         return {
@@ -1975,7 +1976,7 @@ const VentasPage = () => {
         const newTotal = calculateFinalTotal(
           updatedProducts,
           prevState.manualAmount || 0,
-          selectedPromotions
+          selectedPromotions,
         );
 
         return {
@@ -2005,12 +2006,12 @@ const VentasPage = () => {
       const newTotal = calculateFinalTotal(
         prev.products,
         value,
-        selectedPromotions
+        selectedPromotions,
       );
 
       const updatedPaymentMethods = synchronizePaymentMethods(
         prev.paymentMethods,
-        newTotal
+        newTotal,
       );
 
       return {
@@ -2049,7 +2050,7 @@ const VentasPage = () => {
   const handlePaymentMethodChange = (
     index: number,
     field: keyof PaymentSplit,
-    value: string | number
+    value: string | number,
   ) => {
     setNewSale((prev) => {
       const updatedMethods = [...prev.paymentMethods];
@@ -2155,7 +2156,7 @@ const VentasPage = () => {
       ) {
         showNotification(
           "No se pueden agregar otros métodos de pago cuando se selecciona CRÉDITO",
-          "error"
+          "error",
         );
         return prev;
       }
@@ -2165,7 +2166,7 @@ const VentasPage = () => {
       const total = calculateFinalTotal(
         prev.products,
         prev.manualAmount || 0,
-        selectedPromotions
+        selectedPromotions,
       );
 
       if (prev.paymentMethods.length < 2) {
@@ -2212,7 +2213,7 @@ const VentasPage = () => {
       if (prev.paymentMethods[index]?.method === "CREDITO_CUOTAS") {
         showNotification(
           "No se puede eliminar el método de pago CRÉDITO",
-          "error"
+          "error",
         );
         return prev;
       }
@@ -2223,7 +2224,7 @@ const VentasPage = () => {
       const total = calculateFinalTotal(
         prev.products,
         prev.manualAmount || 0,
-        selectedPromotions
+        selectedPromotions,
       );
 
       if (updatedMethods.length === 1) {
@@ -2275,7 +2276,7 @@ const VentasPage = () => {
 
   const updateCustomerPurchaseHistory = async (
     customerId: string,
-    sale: Sale
+    sale: Sale,
   ) => {
     try {
       const customer = await db.customers.get(customerId);
@@ -2367,7 +2368,7 @@ const VentasPage = () => {
             }. Stock disponible: ${stockCheck.availableQuantity.toFixed(2)} ${
               stockCheck.availableUnit
             }`,
-            "error"
+            "error",
           );
           return prevState;
         }
@@ -2382,12 +2383,12 @@ const VentasPage = () => {
         const newTotal = calculateFinalTotal(
           updatedProducts,
           prevState.manualAmount || 0,
-          selectedPromotions
+          selectedPromotions,
         );
 
         const updatedPaymentMethods = synchronizePaymentMethods(
           prevState.paymentMethods,
-          newTotal
+          newTotal,
         );
 
         return {
@@ -2398,14 +2399,14 @@ const VentasPage = () => {
         };
       });
     },
-    [products, selectedPromotions, showNotification]
+    [products, selectedPromotions, showNotification],
   );
 
   const handleUnitChange = useCallback(
     (
       productId: number,
       selectedValue: string | number,
-      currentQuantity: number
+      currentQuantity: number,
     ) => {
       if (!selectedValue) return;
 
@@ -2414,7 +2415,7 @@ const VentasPage = () => {
           if (p.id === productId) {
             const compatibleUnits = getCompatibleUnits(p.unit);
             const isCompatible = compatibleUnits.some(
-              (u) => u.value === selectedValue
+              (u) => u.value === selectedValue,
             );
 
             if (!isCompatible) return p;
@@ -2438,7 +2439,7 @@ const VentasPage = () => {
         const newTotal = calculateFinalTotal(
           updatedProducts,
           prevState.manualAmount || 0,
-          selectedPromotions
+          selectedPromotions,
         );
 
         return {
@@ -2448,7 +2449,7 @@ const VentasPage = () => {
         };
       });
     },
-    [selectedPromotions]
+    [selectedPromotions],
   );
 
   useEffect(() => {
@@ -2493,7 +2494,7 @@ const VentasPage = () => {
 
           // Verificar si existe la lista "General"
           const generalListExists = lists.some(
-            (list) => list.name === "General"
+            (list) => list.name === "General",
           );
 
           if (!generalListExists) {
@@ -2514,7 +2515,7 @@ const VentasPage = () => {
 
           // Ordenar y eliminar duplicados por nombre
           const uniqueLists = Array.from(
-            new Map(lists.map((list) => [list.name, list])).values()
+            new Map(lists.map((list) => [list.name, list])).values(),
           ).sort((a, b) => {
             if (a.isDefault && !b.isDefault) return -1;
             if (!a.isDefault && b.isDefault) return 1;
@@ -2556,7 +2557,7 @@ const VentasPage = () => {
     setNewSale((prev) => {
       const currentPaymentTotal = prev.paymentMethods.reduce(
         (sum, method) => sum + method.amount,
-        0
+        0,
       );
 
       if (Math.abs(currentPaymentTotal - prev.total) > 0.01) {
@@ -2564,7 +2565,7 @@ const VentasPage = () => {
           ...prev,
           paymentMethods: synchronizePaymentMethods(
             prev.paymentMethods,
-            prev.total
+            prev.total,
           ),
         };
       }
@@ -2586,7 +2587,7 @@ const VentasPage = () => {
         filtered.map((customer) => ({
           value: customer.id,
           label: customer.name,
-        }))
+        })),
       );
     };
 
@@ -2603,8 +2604,8 @@ const VentasPage = () => {
       const storedSales = await db.sales.toArray();
       setSales(
         storedSales.sort(
-          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-        )
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+        ),
       );
     };
 
@@ -2671,7 +2672,7 @@ const VentasPage = () => {
   const expectedTotal = calculateFinalTotal(
     newSale.products,
     newSale.manualAmount || 0,
-    selectedPromotions
+    selectedPromotions,
   );
 
   useEffect(() => {
@@ -2681,7 +2682,7 @@ const VentasPage = () => {
         total: expectedTotal,
         paymentMethods: synchronizePaymentMethods(
           prev.paymentMethods,
-          expectedTotal
+          expectedTotal,
         ),
       }));
     }
@@ -2755,25 +2756,13 @@ const VentasPage = () => {
     console.log("Ventas a crédito:", sales.filter((s) => s.credit).length);
     console.log(
       "Ventas con crédito en cuotas:",
-      sales.filter((s) => s.creditType === "credito_cuotas").length
+      sales.filter((s) => s.creditType === "credito_cuotas").length,
     );
     console.log(
       "Ventas con cuenta corriente:",
-      sales.filter((s) => s.creditType === "cuenta_corriente").length
+      sales.filter((s) => s.creditType === "cuenta_corriente").length,
     );
   }, [sales]);
-  useEffect(() => {
-    // Si no hay método CRÉDITO, limpiar la selección de cliente específica para crédito
-    const hasCreditMethod = newSale.paymentMethods.some(
-      (method) => method.method === "CREDITO_CUOTAS"
-    );
-    if (!hasCreditMethod && !isCredit) {
-      // No limpiar si es crédito simple, solo si no es crédito en cuotas
-      setSelectedCustomer(null);
-      setCustomerName("");
-      setCustomerPhone("");
-    }
-  }, [newSale.paymentMethods, isCredit]);
 
   useEffect(() => {
     if (isOpenModal && !isProcessingPayment) {
@@ -2789,7 +2778,7 @@ const VentasPage = () => {
 
           // Verificar si es crédito (cuenta corriente o cuotas)
           const hasCreditMethod = newSale.paymentMethods.some(
-            (method) => method.method === "CREDITO_CUOTAS"
+            (method) => method.method === "CREDITO_CUOTAS",
           );
 
           if (hasCreditMethod || isCredit) {
@@ -3031,13 +3020,13 @@ const VentasPage = () => {
                                   .join(", ").length > 60
                                   ? products
                                       .map((p) =>
-                                        getDisplayProductName(p, rubro)
+                                        getDisplayProductName(p, rubro),
                                       )
                                       .join(", ")
                                       .slice(0, 30) + "..."
                                   : products
                                       .map((p) =>
-                                        getDisplayProductName(p, rubro)
+                                        getDisplayProductName(p, rubro),
                                       )
                                       .join(" | ")}
                               </Typography>
@@ -3185,7 +3174,7 @@ const VentasPage = () => {
                                 sale.creditType === "credito_cuotas" &&
                                   sale.creditDetails?.totalAmount
                                   ? sale.creditDetails.totalAmount
-                                  : sale.total
+                                  : sale.total,
                               )}
                             </Typography>
                           </TableCell>
@@ -3565,7 +3554,7 @@ const VentasPage = () => {
                   }
                   onScanComplete={(code) => {
                     const productToAdd = products.find(
-                      (p) => p.barcode === code
+                      (p) => p.barcode === code,
                     );
                     if (productToAdd) {
                       handleProductScan(productToAdd.id);
@@ -3593,7 +3582,7 @@ const VentasPage = () => {
                   })}
                   onProductSelect={async (selectedOptions: ProductOption[]) => {
                     const existingProductsMap = new Map(
-                      newSale.products.map((p) => [p.id, p])
+                      newSale.products.map((p) => [p.id, p]),
                     );
 
                     const updatedProducts = await Promise.all(
@@ -3601,7 +3590,7 @@ const VentasPage = () => {
                         .filter((option) => !option.isDisabled)
                         .map(async (option) => {
                           const existingProduct = existingProductsMap.get(
-                            option.product.id
+                            option.product.id,
                           );
 
                           if (existingProduct) {
@@ -3625,14 +3614,14 @@ const VentasPage = () => {
                             surcharge: 0,
                             unit: option.product.unit || "Unid.",
                           };
-                        })
+                        }),
                     );
 
                     setNewSale((prev) => {
                       const newTotal = calculateFinalTotal(
                         updatedProducts,
                         prev.manualAmount || 0,
-                        selectedPromotions
+                        selectedPromotions,
                       );
 
                       return {
@@ -3641,7 +3630,7 @@ const VentasPage = () => {
                         total: newTotal,
                         paymentMethods: synchronizePaymentMethods(
                           prev.paymentMethods,
-                          newTotal
+                          newTotal,
                         ),
                       };
                     });
@@ -3742,7 +3731,7 @@ const VentasPage = () => {
                                 handleUnitChange(
                                   product.id,
                                   value,
-                                  product.quantity
+                                  product.quantity,
                                 )
                               }
                               fullWidth
@@ -3768,7 +3757,7 @@ const VentasPage = () => {
                                 handleQuantityChange(
                                   product.id,
                                   value === "" ? 0 : Number(value),
-                                  product.unit
+                                  product.unit,
                                 );
                               }
                             }}
@@ -3783,7 +3772,7 @@ const VentasPage = () => {
                                 handleQuantityChange(
                                   product.id,
                                   0,
-                                  product.unit
+                                  product.unit,
                                 );
                               }
                             }}
@@ -3798,18 +3787,19 @@ const VentasPage = () => {
                             onChange={(e) => {
                               const value = Math.min(
                                 100,
-                                Math.max(0, Number(e.target.value))
+                                Math.max(0, Number(e.target.value)),
                               );
                               setNewSale((prev) => {
-                                const updatedProducts = prev.products.map((p) =>
-                                  p.id === product.id
-                                    ? { ...p, discount: value }
-                                    : p
+                                const updatedProducts = prev.products.map(
+                                  (p) =>
+                                    p.id === product.id
+                                      ? { ...p, discount: value }
+                                      : p,
                                 );
                                 const newTotal = calculateFinalTotal(
                                   updatedProducts,
                                   prev.manualAmount || 0,
-                                  selectedPromotions
+                                  selectedPromotions,
                                 );
                                 return {
                                   ...prev,
@@ -3830,18 +3820,19 @@ const VentasPage = () => {
                             onChange={(e) => {
                               const value = Math.min(
                                 100,
-                                Math.max(0, Number(e.target.value))
+                                Math.max(0, Number(e.target.value)),
                               );
                               setNewSale((prev) => {
-                                const updatedProducts = prev.products.map((p) =>
-                                  p.id === product.id
-                                    ? { ...p, surcharge: value }
-                                    : p
+                                const updatedProducts = prev.products.map(
+                                  (p) =>
+                                    p.id === product.id
+                                      ? { ...p, surcharge: value }
+                                      : p,
                                 );
                                 const newTotal = calculateFinalTotal(
                                   updatedProducts,
                                   prev.manualAmount || 0,
-                                  selectedPromotions
+                                  selectedPromotions,
                                 );
                                 return {
                                   ...prev,
@@ -3867,8 +3858,8 @@ const VentasPage = () => {
                                   costPrice: product.costPrice || 0,
                                 },
                                 product.quantity || 0,
-                                product.unit || "Unid."
-                              ).finalPrice
+                                product.unit || "Unid.",
+                              ).finalPrice,
                             )}
                           </Typography>
                         </TableCell>
@@ -3878,7 +3869,7 @@ const VentasPage = () => {
                               onClick={() => {
                                 handleDeleteProductClick(
                                   product.id,
-                                  getDisplayProductName(product, rubro)
+                                  getDisplayProductName(product, rubro),
                                 );
                               }}
                               size="small"
@@ -3917,12 +3908,12 @@ const VentasPage = () => {
                     value={selectedCustomer}
                     onChange={(
                       event: React.SyntheticEvent,
-                      newValue: CustomerOption | null
+                      newValue: CustomerOption | null,
                     ) => {
                       setSelectedCustomer(newValue);
                       if (newValue) {
                         const customer = customers.find(
-                          (c) => c.id === newValue.value
+                          (c) => c.id === newValue.value,
                         );
                         // ✅ SOLO configurar el nombre y teléfono si NO estamos en modo crédito/cuotas
                         if (!isCredit && !isCreditCuotasSelected) {
@@ -3995,7 +3986,7 @@ const VentasPage = () => {
                               total: calculateFinalTotal(
                                 prev.products,
                                 prev.manualAmount || 0,
-                                selectedPromotions
+                                selectedPromotions,
                               ),
                             }));
                             return;
@@ -4006,7 +3997,7 @@ const VentasPage = () => {
 
                           const clampedValue = Math.min(
                             100,
-                            Math.max(0, numericValue)
+                            Math.max(0, numericValue),
                           );
 
                           setNewSale((prev) => ({
@@ -4015,7 +4006,7 @@ const VentasPage = () => {
                             total: calculateFinalTotal(
                               prev.products,
                               prev.manualAmount || 0,
-                              selectedPromotions
+                              selectedPromotions,
                             ),
                           }));
                         }}
@@ -4027,7 +4018,7 @@ const VentasPage = () => {
                               total: calculateFinalTotal(
                                 prev.products,
                                 prev.manualAmount || 0,
-                                selectedPromotions
+                                selectedPromotions,
                               ),
                             }));
                           }
@@ -4098,7 +4089,7 @@ const VentasPage = () => {
                         disabled={
                           isCredit ||
                           newSale.paymentMethods.some(
-                            (m) => m.method === "CREDITO_CUOTAS"
+                            (m) => m.method === "CREDITO_CUOTAS",
                           )
                         }
                         fullWidth
@@ -4117,7 +4108,7 @@ const VentasPage = () => {
                         {index === newSale.paymentMethods.length - 1 &&
                           newSale.paymentMethods.reduce(
                             (sum, m) => sum + m.amount,
-                            0
+                            0,
                           ) >
                             newSale.total + 0.1 && (
                             <Typography
@@ -4129,8 +4120,8 @@ const VentasPage = () => {
                               {formatCurrency(
                                 newSale.paymentMethods.reduce(
                                   (sum, m) => sum + m.amount,
-                                  0
-                                ) - newSale.total
+                                  0,
+                                ) - newSale.total,
                               )}
                             </Typography>
                           )}
@@ -4160,7 +4151,7 @@ const VentasPage = () => {
                     !isCreditCuotasSelected &&
                     newSale.paymentMethods.length < 3 &&
                     !newSale.paymentMethods.some(
-                      (m) => m.method === "CREDITO_CUOTAS"
+                      (m) => m.method === "CREDITO_CUOTAS",
                     ) && (
                       <Button
                         variant="text"
@@ -4197,12 +4188,12 @@ const VentasPage = () => {
                   value={selectedCustomer}
                   onChange={(
                     event: React.SyntheticEvent,
-                    newValue: CustomerOption | null
+                    newValue: CustomerOption | null,
                   ) => {
                     setSelectedCustomer(newValue);
                     if (newValue) {
                       const customer = customers.find(
-                        (c) => c.id === newValue.value
+                        (c) => c.id === newValue.value,
                       );
                       setCustomerName(customer?.name || "");
                       setCustomerPhone(customer?.phone || "");

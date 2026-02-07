@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { APP_VERSION } from "@/app/lib/constants/constants";
 import { db } from "@/app/database/db";
-
+// comentario para push
 export const useAppVersion = () => {
   const [setShowUpdateModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
