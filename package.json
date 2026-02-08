@@ -23,7 +23,7 @@
     "dexie": "^4.0.11",
     "file-saver": "^2.0.5",
     "framer-motion": "^12.23.24",
-    "next": "^16.0.7",
+    "next": "^16.1.0",
     "qz-tray": "^2.2.5",
     "react": "^19.2.1",
     "react-barcode": "^1.6.1",
