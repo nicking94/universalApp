@@ -160,25 +160,25 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
         return {
           width: "57mm",
           fontSize: {
-            large: "14px",
-            medium: "12px",
-            small: "10px",
-            xsmall: "8px",
-          },
-          padding: "5px",
-          maxCharsPerLine: 32,
-        };
-      } else {
-        return {
-          width: "80mm",
-          fontSize: {
             large: "16px",
             medium: "14px",
             small: "12px",
             xsmall: "10px",
           },
-          padding: "6px",
-          maxCharsPerLine: 48,
+          padding: "4px",
+          maxCharsPerLine: 28,
+        };
+      } else {
+        return {
+          width: "80mm",
+          fontSize: {
+            large: "18px",
+            medium: "16px",
+            small: "14px",
+            xsmall: "12px",
+          },
+          padding: "5px",
+          maxCharsPerLine: 44,
         };
       }
     };
@@ -498,7 +498,7 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
         marginBottom: "8px",
       },
       paperSelectorText: {
-        fontSize: "15px",
+        fontSize: "17px",
         color: "#2d78b9",
         fontWeight: 600 as const,
       },
@@ -526,7 +526,7 @@ const PrintableTicket = forwardRef<PrintableTicketHandle, PrintableTicketProps>(
         fontWeight: "600",
       },
       paperOptionLabel: {
-        fontSize: "14px",
+        fontSize: "16px",
         color: "#6b7280",
         marginTop: "4px",
       },

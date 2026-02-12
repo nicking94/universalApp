@@ -14,7 +14,7 @@ import {
   FormControl,
   IconButton,
 } from "@mui/material";
-import { Add, Close, Info, PointOfSale } from "@mui/icons-material";
+import { Add, Close, Info, PointOfSale, Delete } from "@mui/icons-material";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { format, parseISO, isSameMonth } from "date-fns";
 import { es } from "date-fns/locale";
@@ -39,6 +39,7 @@ import DailyCashDetailModal from "@/app/components/DailyCashDetailModal";
 import CustomGlobalTooltip from "@/app/components/CustomTooltipGlobal";
 import { useBackup } from "@/app/hooks/useBackup";
 import BackupConfirmationModal from "@/app/components/BackupConfirmationModal";
+import Modal from "@/app/components/Modal";
 
 const CajaDiariaPage = () => {
   const { rubro } = useRubro();
@@ -67,6 +68,9 @@ const CajaDiariaPage = () => {
   const [selectedDayMovements, setSelectedDayMovements] = useState<
     DailyCashMovement[]
   >([]);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [movementToDelete, setMovementToDelete] =
+    useState<DailyCashMovement | null>(null);
 
   const { currentPage, itemsPerPage } = usePagination();
   const [selectedMonth, setSelectedMonth] = useState<number>(
@@ -84,6 +88,90 @@ const CajaDiariaPage = () => {
   const closeDetailModal = useCallback(() => {
     setIsDetailModalOpen(false);
   }, []);
+
+  const handleDeleteMovement = (movement: DailyCashMovement) => {
+    setMovementToDelete(movement);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteMovement = async () => {
+    if (!movementToDelete) return;
+
+    try {
+      // Find the daily cash containing this movement
+      const targetCash = dailyCashes.find((cash) =>
+        cash.movements.some((m) => m.id === movementToDelete.id)
+      );
+
+      if (!targetCash) {
+        showNotification(
+          "No se encontró la caja correspondiente al movimiento",
+          "error"
+        );
+        return;
+      }
+
+      // Filter out the movement
+      const updatedMovements = targetCash.movements.filter(
+        (m) => m.id !== movementToDelete.id
+      );
+
+      // Recalculate totals
+      const cashIncome = updatedMovements
+        .filter((m) => m.type === "INGRESO" && m.paymentMethod === "EFECTIVO")
+        .reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+
+      const cashExpense = updatedMovements
+        .filter((m) => m.type === "EGRESO" && m.paymentMethod === "EFECTIVO")
+        .reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+
+      const otherIncome = updatedMovements
+        .filter((m) => m.type === "INGRESO" && m.paymentMethod !== "EFECTIVO")
+        .reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+
+      const totalIncome = updatedMovements
+        .filter((m) => m.type === "INGRESO")
+        .reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+
+      const totalExpense = updatedMovements
+        .filter((m) => m.type === "EGRESO")
+        .reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+
+      const updatedCash: DailyCash = {
+        ...targetCash,
+        movements: updatedMovements,
+        cashIncome,
+        cashExpense,
+        otherIncome,
+        totalIncome,
+        totalExpense,
+      };
+
+      // Update DB
+      await db.dailyCashes.update(targetCash.id, updatedCash);
+
+      // Update State
+      setDailyCashes((prev) =>
+        prev.map((dc) => (dc.id === targetCash.id ? updatedCash : dc))
+      );
+
+      // Update Modal State
+      setSelectedDayMovements(updatedMovements);
+
+      // Update Current Daily Cash if matches
+      if (currentDailyCash?.id === targetCash.id) {
+        setCurrentDailyCash(updatedCash);
+      }
+
+      showNotification("Movimiento eliminado correctamente", "success");
+    } catch (error) {
+      console.error("Error deleting movement:", error);
+      showNotification("Error al eliminar el movimiento", "error");
+    } finally {
+      setIsDeleteModalOpen(false);
+      setMovementToDelete(null);
+    }
+  };
 
   const monthOptions: MonthOption[] = useMemo(
     () =>
@@ -714,7 +802,70 @@ const CajaDiariaPage = () => {
           onClose={closeDetailModal}
           movements={selectedDayMovements}
           rubro={rubro}
+          onDeleteMovement={handleDeleteMovement}
         />
+
+
+        {/* Modal de eliminación de movimiento */}
+        <Modal
+          isOpen={isDeleteModalOpen}
+          onClose={() => setIsDeleteModalOpen(false)}
+          title="Eliminar Movimiento"
+          bgColor="bg-white dark:bg-gray_b"
+          buttons={
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
+              <Button
+                variant="text"
+                onClick={() => setIsDeleteModalOpen(false)}
+                sx={{
+                  color: "text.secondary",
+                  borderColor: "text.secondary",
+                  "&:hover": {
+                    backgroundColor: "action.hover",
+                    borderColor: "text.primary",
+                  },
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="contained"
+                color="error" // Ensure Button supports 'color' prop if it's custom, otherwise verify prop
+                onClick={confirmDeleteMovement}
+                isPrimaryAction={true}
+                sx={{
+                  bgcolor: "error.main",
+                  "&:hover": { bgcolor: "error.dark" },
+                }}
+              >
+                Sí, Eliminar
+              </Button>
+            </Box>
+          }
+        >
+          <Box sx={{ textAlign: "center", py: 2 }}>
+            <Delete
+              sx={{ fontSize: 48, color: "error.main", mb: 2, mx: "auto" }}
+            />
+            <Typography variant="h6" fontWeight="semibold" sx={{ mb: 1 }}>
+              ¿Estás seguro/a que deseas eliminar este movimiento?
+            </Typography>
+            <Typography variant="body2" fontWeight="medium" sx={{ mb: 1 }}>
+              Se eliminará un movimiento de{" "}
+              <strong>
+                {movementToDelete?.type === "INGRESO" ? "Ingreso" : "Egreso"}
+              </strong>{" "}
+              por{" "}
+              <strong>
+                {movementToDelete && formatCurrency(movementToDelete.amount)}
+              </strong>
+              .
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Esta acción afectará los totales de la caja y no se puede deshacer.
+            </Typography>
+          </Box>
+        </Modal>
 
         <Notification
           isOpen={isNotificationOpen}

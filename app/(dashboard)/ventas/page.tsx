@@ -1854,6 +1854,7 @@ const VentasPage = () => {
           combinedPaymentMethods: sale.paymentMethods,
           customerName: sale.customerName || "CLIENTE OCASIONAL",
           createdAt: new Date().toISOString(),
+          originalSaleId: sale.id,
         };
         movements.push(movement);
       } else {
@@ -1882,6 +1883,7 @@ const VentasPage = () => {
           combinedPaymentMethods: sale.paymentMethods,
           customerName: sale.customerName || "CLIENTE OCASIONAL",
           createdAt: new Date().toISOString(),
+          originalSaleId: sale.id,
         };
         movements.push(mainMovement);
       }
@@ -2914,6 +2916,14 @@ const VentasPage = () => {
                         color: "primary.contrastText",
                       }}
                     >
+                      Nro de venta
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                      }}
+                    >
                       Productos
                     </TableCell>
                     <TableCell
@@ -2983,6 +2993,8 @@ const VentasPage = () => {
                         ? parseISO(sale.date)
                         : new Date();
 
+                      const saleNumber = sales.length - sales.findIndex((s) => s.id === sale.id);
+
                       return (
                         <TableRow
                           key={sale.id || Date.now()}
@@ -2993,6 +3005,11 @@ const VentasPage = () => {
                             transition: "all 0.3s",
                           }}
                         >
+                          <TableCell>
+                            <Typography variant="body2" fontWeight="bold">
+                              #{saleNumber}
+                            </Typography>
+                          </TableCell>
                           <TableCell>
                             <Box
                               sx={{

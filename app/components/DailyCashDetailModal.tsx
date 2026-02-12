@@ -11,6 +11,7 @@ import {
   Typography,
   Box,
   FormControl,
+  IconButton,
 } from "@mui/material";
 import { useMemo, useState } from "react";
 import { formatCurrency } from "@/app/lib/utils/currency";
@@ -21,16 +22,19 @@ import {
   Option,
   Rubro,
 } from "@/app/lib/types/types";
+import { Delete } from "@mui/icons-material";
 import Select from "@/app/components/Select";
 import Button from "@/app/components/Button";
 import Modal from "@/app/components/Modal";
 import CustomChip from "./CustomChip";
+import CustomGlobalTooltip from "@/app/components/CustomTooltipGlobal";
 
 interface DailyCashDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   movements: DailyCashMovement[];
   rubro: Rubro | undefined;
+  onDeleteMovement?: (movement: DailyCashMovement) => void;
 }
 
 const DailyCashDetailModal = ({
@@ -38,6 +42,7 @@ const DailyCashDetailModal = ({
   onClose,
   movements,
   rubro,
+  onDeleteMovement,
 }: DailyCashDetailModalProps) => {
   const [filterType, setFilterType] = useState<"TODOS" | "INGRESO" | "EGRESO">(
     "TODOS"
@@ -280,6 +285,14 @@ const DailyCashDetailModal = ({
               >
                 Total
               </TableCell>
+              {onDeleteMovement && (
+                <TableCell
+                  sx={{ bgcolor: "primary.main", color: "white" }}
+                  align="center"
+                >
+                  Acciones
+                </TableCell>
+              )}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -431,6 +444,26 @@ const DailyCashDetailModal = ({
                       {formatCurrency(movement.amount)}
                     </Typography>
                   </TableCell>
+                  {onDeleteMovement && (
+                    <TableCell align="center">
+                      <CustomGlobalTooltip title="Eliminar movimiento">
+                        <IconButton
+                          size="small"
+                          onClick={() => onDeleteMovement(movement)}
+                          sx={{
+                            borderRadius: "4px",
+                            color: "text.secondary",
+                            "&:hover": {
+                              backgroundColor: "error.main",
+                              color: "white",
+                            },
+                          }}
+                        >
+                          <Delete fontSize="small" />
+                        </IconButton>
+                      </CustomGlobalTooltip>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             ) : (

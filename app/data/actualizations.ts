@@ -120,11 +120,18 @@ export const systemActualizations: Actualization[] = [
   //     "¡Terminamos el año con una nueva actualización!\n\n- Añadimos el método de pago CRÉDITO EN CUOTAS y su respectivo módulo de CRÉDITOS para que puedas gestionar cada cuota.\n- Movimos cuentas corrientes a un nuevo módulo llamado COBRANZAS donde encontrarás tambien los créditos\n- ¡Hacemos mas fácil el respaldo de tus datos! Ahora cada vez que cierres la caja diaria, se te preguntará si deseas hacer una copia de seguridad. Recomendamos una copia diaria\n- mejoras en el rendimiento y corrección de errores",
   //   date: new Date().toISOString(),
   // },
-  {
-    id: 17,
-    title: `Versión 1.5.7 - Mejora`,
+  // {
+  //   id: 17,
+  //   title: `Versión 1.5.7 - Mejora`,
+  //   message:
+  //     "¡¿Calculas el precio de venta de un producto manualmente?!\n\n- Añadimos el campo PORCENTAJE DE GANANCIA al crear o editar un producto. Ahora solo tendrás que ingresar el costo y el porcentaje de ganancia deseado, y el sistema calculará automáticamente el precio de venta",
+  //   date: new Date().toISOString(),
+  // },
+    {
+    id: 18,
+    title: `Versión 1.5.8 - Mejora`,
     message:
-      "¡¿Calculas el precio de venta de un producto manualmente?!\n\n- Añadimos el campo PORCENTAJE DE GANANCIA al crear o editar un producto. Ahora solo tendrás que ingresar el costo y el porcentaje de ganancia deseado, y el sistema calculará automáticamente el precio de venta",
+      "- Añadimos la funcionalidad de eliminar movimientos en la caja diaria\n- Añadimos el número de la venta en la tabla de ventas para identificarlas de mejor forma\n- Agrandamos el tamaño de la fuente en el ticket de venta para mejor legibilidad",
     date: new Date().toISOString(),
   },
 ];
