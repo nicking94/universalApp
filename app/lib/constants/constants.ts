@@ -19,7 +19,7 @@ export const USERS = [
     password: process.env.NEXT_PUBLIC_LOGIN_PASSWORD_2,
     id: 2,
     isTrial: true,
-    isActive: false,
+    isActive: true,
   },
   //  Cliente 1
   {
