@@ -429,7 +429,7 @@ const SaleProductsDetail = ({
           </TableRow>
         </TableHead>
         <TableBody>
-          {sale.products.map((product, idx) => (
+          {sale.products?.map((product, idx) => (
             <TableRow
               key={`${sale.id}-${product.id}-${idx}`}
               hover
@@ -1512,7 +1512,7 @@ const CuentasCorrientesPage = () => {
 
       const movements: DailyCashMovement[] = [];
       const totalSaleAmount = sale.total;
-      const totalProfit = sale.products.reduce((sum, product) => {
+      const totalProfit = sale.products?.reduce((sum, product) => {
         const productProfit =
           (product.price - (product.costPrice || 0)) * product.quantity;
         return sum + productProfit;
@@ -1530,7 +1530,7 @@ const CuentasCorrientesPage = () => {
           date: new Date().toISOString(),
           createdAt: new Date().toISOString(),
           paymentMethod: payment.method,
-          items: sale.products.map((p) => ({
+          items: sale.products?.map((p) => ({
             productId: p.id,
             productName: p.name,
             quantity: p.quantity,
@@ -1603,7 +1603,7 @@ const CuentasCorrientesPage = () => {
           return {
             id: sale.id,
             date: sale.date,
-            products: sale.products.map((product) => ({
+            products: sale.products?.map((product) => ({
               name: getDisplayProductName(
                 {
                   name: product.name,
@@ -1689,7 +1689,7 @@ const CuentasCorrientesPage = () => {
         const sale = await db.sales.get(payment.saleId);
         if (!sale) return;
 
-        const totalProfit = sale.products.reduce((sum, product) => {
+        const totalProfit = sale.products?.reduce((sum, product) => {
           const cost = product.costPrice || 0;
           return sum + (product.price - cost) * product.quantity;
         }, 0);
@@ -1710,7 +1710,7 @@ const CuentasCorrientesPage = () => {
           isCreditPayment: true,
           originalSaleId: payment.saleId,
           profit: profitCheque,
-          items: sale.products.map((p) => ({
+          items: sale.products?.map((p) => ({
             productId: p.id,
             productName: p.name,
             quantity: p.quantity,
@@ -2308,7 +2308,7 @@ const CuentasCorrientesPage = () => {
           .includes(searchQuery.toLowerCase());
         const matchesRubro =
           rubro === "Todos los rubros" ||
-          sale.products.some((product) => product.rubro === rubro);
+          sale.products?.some((product) => product.rubro === rubro);
 
         const isCuentaCorriente = sale.creditType === "cuenta_corriente";
 
