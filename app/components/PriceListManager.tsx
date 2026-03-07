@@ -142,18 +142,6 @@ const PriceListsManager: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
     }
 
     try {
-      // Verificar si hay ventas usando esta lista
-      const allSales = await db.sales.toArray();
-      const salesWithList = allSales.filter((sale) => sale.priceListId === list.id).length;
-
-      if (salesWithList > 0) {
-        showNotification(
-          "No se puede eliminar porque hay ventas usando esta lista",
-          "error"
-        );
-        return;
-      }
-
       // Eliminar los precios asociados a esta lista de productos para no dejar basura.
       await db.productPrices.where("priceListId").equals(list.id).delete();
 
