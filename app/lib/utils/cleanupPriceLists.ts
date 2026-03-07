@@ -79,8 +79,7 @@ export const cleanupDuplicatePriceLists = async (): Promise<void> => {
 
               // Verificar si tiene ventas asociadas
               const salesCount = await db.sales
-                .where("priceListId")
-                .equals(listToDelete.id)
+                .filter((sale) => sale.priceListId === listToDelete.id)
                 .count();
 
               if (productPricesCount === 0 && salesCount === 0) {

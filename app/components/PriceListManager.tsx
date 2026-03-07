@@ -158,8 +158,7 @@ const PriceListsManager: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
 
       // Verificar si hay ventas usando esta lista
       const salesWithList = await db.sales
-        .where("priceListId")
-        .equals(list.id)
+        .filter((sale) => sale.priceListId === list.id)
         .count();
 
       if (salesWithList > 0) {
