@@ -157,9 +157,8 @@ const PriceListsManager: React.FC<{ rubro: Rubro }> = ({ rubro }) => {
       }
 
       // Verificar si hay ventas usando esta lista
-      const salesWithList = await db.sales
-        .filter((sale) => sale.priceListId === list.id)
-        .count();
+      const allSales = await db.sales.toArray();
+      const salesWithList = allSales.filter((sale) => sale.priceListId === list.id).length;
 
       if (salesWithList > 0) {
         showNotification(
