@@ -95,6 +95,86 @@ type CustomerOption = {
   label: string;
 };
 
+const CONVERSION_FACTORS = {
+  Gr: { base: "Kg", factor: 0.001 },
+  Kg: { base: "Kg", factor: 1 },
+  Ton: { base: "Kg", factor: 1000 },
+  Ml: { base: "L", factor: 0.001 },
+  L: { base: "L", factor: 1 },
+  Mm: { base: "M", factor: 0.001 },
+  Cm: { base: "M", factor: 0.01 },
+  Pulg: { base: "M", factor: 0.0254 },
+  M: { base: "M", factor: 1 },
+  "Unid.": { base: "Unid.", factor: 1 },
+  Docena: { base: "Unid.", factor: 12 },
+  Ciento: { base: "Unid.", factor: 100 },
+  Bulto: { base: "Bulto", factor: 1 },
+  Caja: { base: "Caja", factor: 1 },
+  Cajón: { base: "Cajón", factor: 1 },
+  "M²": { base: "M²", factor: 1 },
+  "M³": { base: "M³", factor: 1 },
+  V: { base: "V", factor: 1 },
+  A: { base: "A", factor: 1 },
+  W: { base: "W", factor: 1 },
+} as const;
+
+const unitOptions: UnitOption[] = [
+  { value: "Unid.", label: "Unidad", convertible: false },
+  { value: "Kg", label: "Kilogramo", convertible: true },
+  { value: "Gr", label: "Gramo", convertible: true },
+  { value: "L", label: "Litro", convertible: true },
+  { value: "Ml", label: "Mililitro", convertible: true },
+  { value: "M", label: "Metro", convertible: true },
+  { value: "Cm", label: "Centímetro", convertible: true },
+  { value: "Docena", label: "Docena", convertible: false },
+  { value: "Caja", label: "Caja", convertible: false },
+  { value: "Bulto", label: "Bulto", convertible: false },
+  { value: "Cajón", label: "Cajón", convertible: false },
+  { value: "Mm", label: "Milímetro", convertible: true },
+  { value: "Pulg", label: "Pulgada", convertible: true },
+  { value: "M²", label: "Metro cuadrado", convertible: false },
+  { value: "M³", label: "Metro cúbico", convertible: false },
+  { value: "Ciento", label: "Ciento", convertible: false },
+  { value: "Ton", label: "Tonelada", convertible: true },
+  { value: "V", label: "Voltio", convertible: false },
+  { value: "W", label: "Watt", convertible: false },
+  { value: "A", label: "Amperio", convertible: false },
+];
+
+const paymentOptions: Option[] = [
+  { value: "EFECTIVO", label: "Efectivo" },
+  { value: "TRANSFERENCIA", label: "Transferencia" },
+  { value: "TARJETA", label: "Tarjeta" },
+  { value: "CHEQUE", label: "Cheque" },
+  { value: "CREDITO_CUOTAS", label: "Crédito en cuotas" },
+];
+
+const getCompatibleUnits = (productUnit: string): UnitOption[] => {
+  const productUnitInfo =
+    CONVERSION_FACTORS[productUnit as keyof typeof CONVERSION_FACTORS];
+  if (!productUnitInfo) return unitOptions.filter((u) => !u.convertible);
+
+  return unitOptions.filter((option) => {
+    if (!option.convertible) return false;
+    const optionInfo =
+      CONVERSION_FACTORS[option.value as keyof typeof CONVERSION_FACTORS];
+    return optionInfo?.base === productUnitInfo.base;
+  });
+};
+
+const getCompatibleUnitOptions = (productUnit: string) => {
+  const compatibleUnits = getCompatibleUnits(productUnit);
+  return compatibleUnits.map((unit) => ({
+    value: unit.value,
+    label: unit.label,
+  }));
+};
+
+const monthOptions: MonthOption[] = [...Array(12)].map((_, i) => ({
+  value: i + 1,
+  label: format(new Date(2022, i), "MMMM", { locale: es }),
+}));
+
 const VentasPage = () => {
   const cobrarButtonRef = useRef<HTMLButtonElement>(null);
   const imprimirButtonRef = useRef<HTMLButtonElement>(null);
@@ -176,10 +256,6 @@ const VentasPage = () => {
     null,
   );
 
-  const [availablePriceLists, setAvailablePriceLists] = useState<PriceList[]>(
-    [],
-  );
-
   // Estados para edición
   const [isEditMode, setIsEditMode] = useState<EditMode>({
     isEditing: false,
@@ -196,65 +272,6 @@ const VentasPage = () => {
   const [isCreditInstallmentModalOpen, setIsCreditInstallmentModalOpen] =
     useState(false);
   const [isCreditCuotasSelected, setIsCreditCuotasSelected] = useState(false);
-
-  const CONVERSION_FACTORS = {
-    Gr: { base: "Kg", factor: 0.001 },
-    Kg: { base: "Kg", factor: 1 },
-    Ton: { base: "Kg", factor: 1000 },
-    Ml: { base: "L", factor: 0.001 },
-    L: { base: "L", factor: 1 },
-    Mm: { base: "M", factor: 0.001 },
-    Cm: { base: "M", factor: 0.01 },
-    Pulg: { base: "M", factor: 0.0254 },
-    M: { base: "M", factor: 1 },
-    "Unid.": { base: "Unid.", factor: 1 },
-    Docena: { base: "Unid.", factor: 12 },
-    Ciento: { base: "Unid.", factor: 100 },
-    Bulto: { base: "Bulto", factor: 1 },
-    Caja: { base: "Caja", factor: 1 },
-    Cajón: { base: "Cajón", factor: 1 },
-    "M²": { base: "M²", factor: 1 },
-    "M³": { base: "M³", factor: 1 },
-    V: { base: "V", factor: 1 },
-    A: { base: "A", factor: 1 },
-    W: { base: "W", factor: 1 },
-  } as const;
-
-  const unitOptions: UnitOption[] = [
-    { value: "Unid.", label: "Unidad", convertible: false },
-    { value: "Kg", label: "Kilogramo", convertible: true },
-    { value: "Gr", label: "Gramo", convertible: true },
-    { value: "L", label: "Litro", convertible: true },
-    { value: "Ml", label: "Mililitro", convertible: true },
-    { value: "M", label: "Metro", convertible: true },
-    { value: "Cm", label: "Centímetro", convertible: true },
-    { value: "Docena", label: "Docena", convertible: false },
-    { value: "Caja", label: "Caja", convertible: false },
-    { value: "Bulto", label: "Bulto", convertible: false },
-    { value: "Cajón", label: "Cajón", convertible: false },
-    { value: "Mm", label: "Milímetro", convertible: true },
-    { value: "Pulg", label: "Pulgada", convertible: true },
-    { value: "M²", label: "Metro cuadrado", convertible: false },
-    { value: "M³", label: "Metro cúbico", convertible: false },
-    { value: "Ciento", label: "Ciento", convertible: false },
-    { value: "Ton", label: "Tonelada", convertible: true },
-    { value: "V", label: "Voltio", convertible: false },
-    { value: "W", label: "Watt", convertible: false },
-    { value: "A", label: "Amperio", convertible: false },
-  ];
-
-  const paymentOptions: Option[] = [
-    { value: "EFECTIVO", label: "Efectivo" },
-    { value: "TRANSFERENCIA", label: "Transferencia" },
-    { value: "TARJETA", label: "Tarjeta" },
-    { value: "CHEQUE", label: "Cheque" },
-    { value: "CREDITO_CUOTAS", label: "Crédito en cuotas" },
-  ];
-
-  const monthOptions: MonthOption[] = [...Array(12)].map((_, i) => ({
-    value: i + 1,
-    label: format(new Date(2022, i), "MMMM", { locale: es }),
-  }));
 
   const yearOptions = Array.from({ length: 10 }, (_, i) => {
     const year = currentYear - i;
@@ -281,26 +298,7 @@ const VentasPage = () => {
     [theme.palette.mode],
   );
 
-  const getCompatibleUnits = (productUnit: string): UnitOption[] => {
-    const productUnitInfo =
-      CONVERSION_FACTORS[productUnit as keyof typeof CONVERSION_FACTORS];
-    if (!productUnitInfo) return unitOptions.filter((u) => !u.convertible);
 
-    return unitOptions.filter((option) => {
-      if (!option.convertible) return false;
-      const optionInfo =
-        CONVERSION_FACTORS[option.value as keyof typeof CONVERSION_FACTORS];
-      return optionInfo?.base === productUnitInfo.base;
-    });
-  };
-
-  const getCompatibleUnitOptions = (productUnit: string) => {
-    const compatibleUnits = getCompatibleUnits(productUnit);
-    return compatibleUnits.map((unit) => ({
-      value: unit.value,
-      label: unit.label,
-    }));
-  };
 
   const getProductPrice = async (productId: number): Promise<number> => {
     if (!selectedPriceListId) {
@@ -1808,7 +1806,7 @@ const VentasPage = () => {
 
       const matchesRubro =
         rubro === "Todos los rubros" ||
-        sale.products.some((product) => product.rubro === rubro);
+        (sale.products || []).some((product) => product.rubro === rubro);
 
       return matchesMonth && matchesYear && matchesRubro;
     })
@@ -2267,9 +2265,8 @@ const VentasPage = () => {
     // Cargar listas de precios disponibles
     if (rubro !== "Todos los rubros") {
       const lists = await db.priceLists.where("rubro").equals(rubro).toArray();
-      setAvailablePriceLists(lists); // This is now correct
 
-      const defaultList = availablePriceLists.find((list) => list.isDefault);
+      const defaultList = lists.find((list) => list.isDefault);
       setSelectedPriceListId(defaultList?.id || null);
     }
 
@@ -2451,7 +2448,7 @@ const VentasPage = () => {
         };
       });
     },
-    [selectedPromotions],
+    [selectedPromotions]
   );
 
   useEffect(() => {
@@ -2536,13 +2533,12 @@ const VentasPage = () => {
         }
       } else {
         setPriceLists([]);
-        setAvailablePriceLists([]);
         setSelectedPriceListId(null);
       }
     };
 
     loadPriceLists();
-  }, [rubro]);
+  }, [rubro, selectedPriceListId]);
 
   useEffect(() => {
     const today = new Date();
@@ -2553,7 +2549,7 @@ const VentasPage = () => {
       setSelectedMonth(currentMonth);
       setSelectedYear(currentYear);
     }
-  }, [new Date().getMonth()]);
+  }, [selectedMonth, selectedYear]);
 
   useEffect(() => {
     setNewSale((prev) => {
@@ -2652,7 +2648,6 @@ const VentasPage = () => {
     newSale.products,
     newSale.manualAmount,
     newSale.paymentMethods.length,
-    calculateCombinedTotal,
     registerCheck,
   ]);
 
@@ -2663,7 +2658,7 @@ const VentasPage = () => {
         paymentMethods: [{ method: "CHEQUE", amount: prev.total }],
       }));
     }
-  }, [registerCheck]);
+  }, [registerCheck, newSale.paymentMethods, newSale.total]);
 
   useEffect(() => {
     if (shouldRedirectToCash) {
@@ -2688,7 +2683,7 @@ const VentasPage = () => {
         ),
       }));
     }
-  }, [newSale.products, newSale.manualAmount, selectedPromotions]);
+  }, [newSale.products, newSale.manualAmount, selectedPromotions, newSale.total, expectedTotal]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -2752,7 +2747,7 @@ const VentasPage = () => {
         window.removeEventListener("keydown", handleEnterKey);
       };
     }
-  }, [isInfoModalOpen, selectedSale]);
+  }, [isInfoModalOpen, selectedSale, newSale.products, isCredit, handleConfirmPayment]);
   useEffect(() => {
     console.log("Total de ventas:", sales.length);
     console.log("Ventas a crédito:", sales.filter((s) => s.credit).length);
