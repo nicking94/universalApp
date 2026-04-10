@@ -127,11 +127,18 @@ export const systemActualizations: Actualization[] = [
   //     "¡¿Calculas el precio de venta de un producto manualmente?!\n\n- Añadimos el campo PORCENTAJE DE GANANCIA al crear o editar un producto. Ahora solo tendrás que ingresar el costo y el porcentaje de ganancia deseado, y el sistema calculará automáticamente el precio de venta",
   //   date: new Date().toISOString(),
   // },
-    {
-    id: 18,
-    title: `Versión 1.5.8 - Mejora`,
+  //   {
+  //   id: 18,
+  //   title: `Versión 1.5.8 - Mejora`,
+  //   message:
+  //     "- Añadimos la funcionalidad de eliminar movimientos en la caja diaria\n- Añadimos el número de la venta en la tabla de ventas para identificarlas de mejor forma\n- Agrandamos el tamaño de la fuente en el ticket de venta para mejor legibilidad",
+  //   date: new Date().toISOString(),
+  // },
+  {
+    id: 19,
+    title: `RECORDATORIO`,
     message:
-      "- Añadimos la funcionalidad de eliminar movimientos en la caja diaria\n- Añadimos el número de la venta en la tabla de ventas para identificarlas de mejor forma\n- Agrandamos el tamaño de la fuente en el ticket de venta para mejor legibilidad",
+      "- El 15 de abril la aplicación se actualizará y se dejará de ingresar a este link con usuario (se ingresará con email). Por favor, si aún no ha confirmado su email, pongase en contacto con el soporte técnico. Muchas gracias...",
     date: new Date().toISOString(),
   },
 ];
